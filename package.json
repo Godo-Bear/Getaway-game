@@ -1,0 +1,22 @@
+{
+  "name": "getaway",
+  "version": "0.1.0",
+  "description": "Getaway - a 3D heist-escape game for the browser (Vite + Three.js)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host",
+    "build": "vite build",
+    "preview": "vite preview --host"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Godo-Bear/Getaway-game.git"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1"
+  }
+}

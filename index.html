@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Getaway</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow+Semi+Condensed:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+  <!-- The 3D canvas is inserted here by main.js -->
+  <div id="game"></div>
+
+  <!-- ===== HUD (heads-up display) ===== -->
+  <div class="hud" id="hud-tl">
+    <div id="hud-phase"></div>
+    <div id="hud-objective"></div>
+    <div id="hud-stats"></div>
+  </div>
+
+  <div class="hud" id="hud-score">
+    <div id="hud-score-value">0</div>
+    <div id="hud-score-label"></div>
+  </div>
+
+  <div class="hud" id="hud-map-wrap"><canvas id="hud-map" width="180" height="180"></canvas></div>
+
+  <div class="hud" id="hud-speedo">
+    <div id="hud-speed">0</div>
+    <div class="unit">km/h</div>
+    <div class="bar-label">Nitro</div>
+    <div class="bar"><div id="hud-nitro"></div></div>
+    <div class="bar-label">Car health</div>
+    <div class="bar"><div id="hud-health"></div></div>
+  </div>
+
+  <div class="hud" id="hud-meter">
+    <div id="hud-meter-label">Spotted</div>
+    <div class="bar"><div id="hud-meter-fill"></div></div>
+  </div>
+
+  <div class="hud" id="hud-controls"></div>
+  <div class="hud" id="hud-debug"></div>
+  <div class="hud" id="hud-marker"><div class="dia"></div><div class="lbl"></div></div>
+
+  <div id="toast"><div class="t"></div><div class="b"></div></div>
+  <div id="fade"></div>
+
+  <div id="click-to-play" hidden>
+    <div>
+      <b>Click to play</b>
+      <span>Your mouse gets locked to the game so you can look around freely. Press Esc to get it back (and pause).</span>
+    </div>
+  </div>
+
+  <!-- Menus, pause screen, game over, etc. are drawn into this card -->
+  <div class="overlay" id="overlay" hidden><div class="card" id="card"></div></div>
+
+  <div id="webgl-error" hidden>This game needs WebGL. Try reloading, or open it in a desktop browser.</div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

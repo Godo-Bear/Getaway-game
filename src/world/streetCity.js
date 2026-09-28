@@ -1,0 +1,436 @@
+import * as THREE from 'three';
+import { makeRng } from '../core/utils.js';
+import { CollisionWorld } from '../core/collision.js';
+import { MeshBatcher } from './meshBatcher.js';
+import { getMaterials, getGlowTexture, makeTextTexture, FACADE_UV } from './materials.js';
+import { RoadGraph } from '../ai/roadGraph.js';
+
+// Street-level city for the driving modes.
+//
+//  - A grid of roads. Every crossing is an intersection (a node in the road
+//    graph the police use to navigate).
+//  - Blocks between roads hold buildings, parks (drive straight through them,
+//    watch the trees!) and alleys (narrow cut-throughs, good for hiding).
+//  - Ramps in the parks launch the car into the air.
+//  - Street lamps, lane markings and working traffic lights.
+//
+// Like the rooftop city, everything static is merged or instanced so the
+// whole city costs only a few dozen draw calls.
+
+const ROAD = 18;           // road width (two lanes each way)
+const BLOCK = 50;          // block size between roads
+const PITCH = ROAD + BLOCK;
+export const LANE_OFFSETS = [2.3, 6.2]; // lane centres, measured from the road centre line
+const SIDEWALK = 3;
+
+const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];
+
+export function generateStreetCity({ seed = 7, blocks = 8 } = {}) {
+  const rng = makeRng(seed);
+  const world = new CollisionWorld(16);
+  const batch = new MeshBatcher();
+  const mats = getMaterials();
+  const group = new THREE.Group();
+
+  const n = blocks + 1;                // roads per direction
+  const half = (blocks * PITCH) / 2;
+  const roadC = (k) => k * PITCH - half; // centre line of road k
+  const graph = new RoadGraph(n, roadC);
+
+  const ramps = [];     // { x0,x1,z0,z1, axis:'x'|'z', dir:+1|-1, height }
+  const alleys = [];    // rectangles where you're "hidden"
+  const parks = [];
+  const lamps = [];
+  const trees = [];
+  const buildingsList = [];
+  const minimapShapes = []; // for drawing the minimap: { type, x0, z0, x1, z1 }
+
+  const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
+
+  // --- Ground (asphalt everywhere) ---------------------------------------
+  batch.addBox({ x: outer - 400, y: -0.5, z: outer - 400 }, { x: outerMax + 400, y: 0, z: outerMax + 400 },
+    { side: null, top: 'asphalt', topScale: [10, 10] });
+
+  // --- City boundary wall -------------------------------------------------
+  const wallT = 1.5, wallH = 2.2;
+  const edge = (x0, z0, x1, z1) => {
+    world.addBox(x0, 0, z0, x1, wallH, z1, { tag: 'wall' });
+    batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: wallH, z: z1 },
+      { side: 'concrete', top: 'concrete', color: 0x9a9a9a, uvScale: [4, 4], topScale: [4, 4] });
+  };
+  edge(outer - wallT, outer - wallT, outerMax + wallT, outer);
+  edge(outer - wallT, outerMax, outerMax + wallT, outerMax + wallT);
+  edge(outer - wallT, outer, outer, outerMax);
+  edge(outerMax, outer, outerMax + wallT, outerMax);
+  // Hazard stripes on top of the wall so you can see it at night
+  // Filler skyline outside the wall (visual only)
+  for (let i = 0; i < 70; i++) {
+    const a = rng() * Math.PI * 2;
+    const r = half + ROAD + rng.range(20, 140);
+    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    const w = rng.range(14, 30), d = rng.range(14, 30), h = rng.range(15, 70);
+    batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), 0], topScale: [6, 6] });
+  }
+
+  // --- Blocks ------------------------------------------------------------
+  const blockKinds = [];
+  for (let i = 0; i < blocks; i++) {
+    for (let j = 0; j < blocks; j++) {
+      const r = rng();
+      blockKinds.push(r < 0.14 ? 'park' : r < 0.36 ? 'alley' : 'buildings');
+    }
+  }
+  // Guarantee at least two parks
+  if (blockKinds.filter((k) => k === 'park').length < 2) {
+    blockKinds[Math.floor(blocks * blocks * 0.3)] = 'park';
+    blockKinds[Math.floor(blocks * blocks * 0.7)] = 'park';
+  }
+
+  for (let i = 0; i < blocks; i++) {
+    for (let j = 0; j < blocks; j++) {
+      const x0 = roadC(i) + ROAD / 2, x1 = roadC(i + 1) - ROAD / 2;
+      const z0 = roadC(j) + ROAD / 2, z1 = roadC(j + 1) - ROAD / 2;
+      const kind = blockKinds[i * blocks + j];
+
+      if (kind === 'park') {
+        makePark(x0, z0, x1, z1);
+        continue;
+      }
+      // Sidewalk slab (visual only - too low to block the car)
+      batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.15, z: z1 },
+        { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
+
+      const ix0 = x0 + SIDEWALK, ix1 = x1 - SIDEWALK, iz0 = z0 + SIDEWALK, iz1 = z1 - SIDEWALK;
+      if (kind === 'alley') {
+        // Split the block in two with a 7 m alley running through it.
+        const alongX = rng() < 0.5;
+        const w = 7;
+        if (alongX) {
+          const mz = (z0 + z1) / 2 + rng.range(-6, 6);
+          fillBuildings(ix0, iz0, ix1, mz - w / 2);
+          fillBuildings(ix0, mz + w / 2, ix1, iz1);
+          alleys.push({ x0, x1, z0: mz - w / 2, z1: mz + w / 2 });
+          batch.addBox({ x: x0, y: 0.01, z: mz - w / 2 }, { x: x1, y: 0.02, z: mz + w / 2 }, { side: null, top: 'asphalt', color: 0x777777, topScale: [6, 6] });
+        } else {
+          const mx = (x0 + x1) / 2 + rng.range(-6, 6);
+          fillBuildings(ix0, iz0, mx - w / 2, iz1);
+          fillBuildings(mx + w / 2, iz0, ix1, iz1);
+          alleys.push({ x0: mx - w / 2, x1: mx + w / 2, z0, z1 });
+          batch.addBox({ x: mx - w / 2, y: 0.01, z: z0 }, { x: mx + w / 2, y: 0.02, z: z1 }, { side: null, top: 'asphalt', color: 0x777777, topScale: [6, 6] });
+        }
+      } else {
+        fillBuildings(ix0, iz0, ix1, iz1);
+      }
+    }
+  }
+
+  function fillBuildings(x0, z0, x1, z1) {
+    // Split an area into 1-3 x 1-3 buildings, tightly packed.
+    const cols = (x1 - x0) > 30 ? rng.int(1, 3) : 1;
+    const rows = (z1 - z0) > 30 ? rng.int(1, 3) : 1;
+    for (let c = 0; c < cols; c++) {
+      for (let r = 0; r < rows; r++) {
+        const bx0 = x0 + ((x1 - x0) * c) / cols, bx1 = x0 + ((x1 - x0) * (c + 1)) / cols;
+        const bz0 = z0 + ((z1 - z0) * r) / rows, bz1 = z0 + ((z1 - z0) * (r + 1)) / rows;
+        const h = rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
+        world.addBox(bx0, 0, bz0, bx1, h, bz1, { tag: 'building' });
+        batch.addBox({ x: bx0, y: 0, z: bz0 }, { x: bx1, y: h, z: bz1 },
+          { side: 'wall', top: 'roof', color: rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), Math.floor(rng() * 8) / 8], topScale: [6, 6] });
+        // Glowing shop front along the bottom
+        if (rng() < 0.5) {
+          const glow = rng.pick([0xffa040, 0xff4fa0, 0x40d0ff, 0x60ff90, 0xffe070]);
+          batch.addBox({ x: bx0 - 0.05, y: 0.4, z: bz0 - 0.05 }, { x: bx1 + 0.05, y: 2.8, z: bz1 + 0.05 },
+            { side: 'glow', top: null, color: new THREE.Color(glow).multiplyScalar(0.35).getHex() });
+        }
+        buildingsList.push({ x0: bx0, x1: bx1, z0: bz0, z1: bz1, h });
+        minimapShapes.push({ type: 'building', x0: bx0, z0: bz0, x1: bx1, z1: bz1 });
+      }
+    }
+  }
+
+  function makePark(x0, z0, x1, z1) {
+    parks.push({ x0, x1, z0, z1 });
+    minimapShapes.push({ type: 'park', x0, z0, x1, z1 });
+    batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.06, z: z1 },
+      { side: 'plain', top: 'plain', color: 0x1d3a22 });
+    // Paths in a cross
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    batch.addBox({ x: cx - 3, y: 0.06, z: z0 }, { x: cx + 3, y: 0.08, z: z1 }, { side: null, top: 'concrete', color: 0x6a6258, topScale: [3, 3] });
+    batch.addBox({ x: x0, y: 0.06, z: cz - 3 }, { x: x1, y: 0.08, z: cz + 3 }, { side: null, top: 'concrete', color: 0x6a6258, topScale: [3, 3] });
+    // Trees (with small colliders around the trunks), avoiding the paths
+    for (let k = 0; k < 18; k++) {
+      const x = rng.range(x0 + 3, x1 - 3), z = rng.range(z0 + 3, z1 - 3);
+      if (Math.abs(x - cx) < 6 || Math.abs(z - cz) < 6) continue;
+      trees.push([x, z, rng.range(0.8, 1.3)]);
+      world.addBox(x - 0.35, 0, z - 0.35, x + 0.35, 4, z + 0.35, { tag: 'tree' });
+    }
+    // A ramp on one of the paths
+    const alongX = rng() < 0.5;
+    const dir = rng() < 0.5 ? 1 : -1;
+    const len = 9, width = 6, height = 2.2;
+    if (alongX) {
+      const rx = cx + dir * 8;
+      ramps.push(makeRamp(rx - len / 2, cz - width / 2, rx + len / 2, cz + width / 2, 'x', dir, height));
+    } else {
+      const rz = cz + dir * 8;
+      ramps.push(makeRamp(cx - width / 2, rz - len / 2, cx + width / 2, rz + len / 2, 'z', dir, height));
+    }
+    // Fountain in the middle? A low statue base is a nice obstacle.
+    world.addBox(cx - 1.2, 0, cz - 1.2, cx + 1.2, 1.2, cz + 1.2, { tag: 'statue' });
+    batch.addBlock(cx, 0, cz, 2.4, 1.2, 2.4, { side: 'concrete', top: 'concrete', color: 0xb0aaa0, uvScale: [2, 2] });
+    batch.addBlock(cx, 1.2, cz, 0.8, 2.6, 0.8, { side: 'plain', top: 'plain', color: 0x4a6a60 });
+  }
+
+  function makeRamp(x0, z0, x1, z1, axis, dir, height) {
+    return { x0, z0, x1, z1, axis, dir, height };
+  }
+
+  // --- Road markings ----------------------------------------------------
+  const dashes = []; // [x, z, rotY, length, width, color]
+  for (let k = 0; k < n; k++) {
+    for (let s = 0; s < blocks; s++) {
+      const a = roadC(s) + ROAD / 2 + 2, b = roadC(s + 1) - ROAD / 2 - 2;
+      for (let t = a; t < b; t += 6) {
+        const len = Math.min(3, b - t);
+        const mid = t + len / 2;
+        // Roads along X (at z = roadC(k)): centre line (yellow) and lane dividers (white)
+        dashes.push([mid, roadC(k), 0, len, 0.25, 0xd9a520]);
+        dashes.push([mid, roadC(k) + 4.3, 0, len, 0.18, 0xd8d8d8]);
+        dashes.push([mid, roadC(k) - 4.3, 0, len, 0.18, 0xd8d8d8]);
+        // Roads along Z
+        dashes.push([roadC(k), mid, Math.PI / 2, len, 0.25, 0xd9a520]);
+        dashes.push([roadC(k) + 4.3, mid, Math.PI / 2, len, 0.18, 0xd8d8d8]);
+        dashes.push([roadC(k) - 4.3, mid, Math.PI / 2, len, 0.18, 0xd8d8d8]);
+      }
+    }
+  }
+  {
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.rotateX(-Math.PI / 2);
+    const mesh = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: 0xffffff }), dashes.length);
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), pos = new THREE.Vector3(), c = new THREE.Color();
+    dashes.forEach(([x, z, r, len, w, col], i) => {
+      q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r);
+      m.compose(pos.set(x, 0.03, z), q, sc.set(len, 1, w));
+      mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, c.set(col));
+    });
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+
+  // Street lamps along every road (both sides), skipping intersections
+  for (let k = 0; k < n; k++) {
+    for (let s = 0; s < blocks; s++) {
+      for (let t = roadC(s) + ROAD / 2 + 8; t < roadC(s + 1) - ROAD / 2 - 4; t += 22) {
+        lamps.push([t, roadC(k) - ROAD / 2 - 0.8, 1], [t, roadC(k) + ROAD / 2 + 0.8, -1]);
+      }
+    }
+  }
+
+  // --- Build batched meshes ------------------------------------------------
+  group.add(batch.build(mats));
+  group.add(buildRampMeshes(ramps));
+  group.add(buildTrees(trees));
+  group.add(buildLamps(lamps));
+  const trafficLights = new TrafficLights(graph, ROAD);
+  group.add(trafficLights.group);
+
+  // Neon signs on some buildings facing the road
+  const signGroup = new THREE.Group();
+  const signTex = [['THE ANCHOR', '#ffb020'], ['MOTEL', '#ff3fa4'], ['DINER', '#2fe0ff'], ['PAWN', '#4dffa6'], ['BAR', '#ff5a3a'], ['GARAGE', '#c070ff']]
+    .map(([t, c]) => makeTextTexture(t, { color: c }));
+  for (const b of buildingsList) {
+    if (rng() > 0.12) continue;
+    const mat = new THREE.MeshBasicMaterial({ map: rng.pick(signTex), transparent: true, toneMapped: false, depthWrite: false, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.75), mat);
+    mesh.position.set((b.x0 + b.x1) / 2, Math.min(b.h - 2, rng.range(5, 9)), b.z0 - 0.1);
+    mesh.rotation.y = Math.PI;
+    signGroup.add(mesh);
+  }
+  group.add(signGroup);
+
+  /** Height of the drivable surface at (x, z): 0 on roads, sloped on ramps. */
+  function groundHeight(x, z) {
+    for (const r of ramps) {
+      if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) continue;
+      // t = 0 at the low end, 1 at the high (launch) end
+      let t = r.axis === 'x' ? (x - r.x0) / (r.x1 - r.x0) : (z - r.z0) / (r.z1 - r.z0);
+      if (r.dir < 0) t = 1 - t;
+      return t * r.height;
+    }
+    return 0;
+  }
+
+  const inRect = (x, z, r, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && z > r.z0 - pad && z < r.z1 + pad;
+
+  return {
+    group, world, graph, ramps, parks, alleys, trafficLights, minimapShapes,
+    bounds: { min: outer, max: outerMax },
+    roadWidth: ROAD,
+    groundHeight,
+    isInAlley: (x, z) => alleys.some((a) => inRect(x, z, a)),
+    isInPark: (x, z) => parks.some((p) => inRect(x, z, p)),
+  };
+}
+
+// ----------------------------------------------------------------------
+// Visual helpers
+// ----------------------------------------------------------------------
+
+function buildRampMeshes(ramps) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshLambertMaterial({ color: 0xb05a20 });
+  const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffd040, toneMapped: false });
+  for (const r of ramps) {
+    // A wedge: build it along +X from 0..len, rising to `height`, then rotate.
+    const len = r.axis === 'x' ? r.x1 - r.x0 : r.z1 - r.z0;
+    const w = r.axis === 'x' ? r.z1 - r.z0 : r.x1 - r.x0;
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.lineTo(len, 0);
+    shape.lineTo(len, r.height);
+    shape.lineTo(0, 0);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: w, bevelEnabled: false });
+    geo.translate(-len / 2, 0, -w / 2);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.castShadow = mesh.receiveShadow = true;
+    // Orientation: wedge rises toward +X. Rotate so it rises toward the ramp's direction.
+    let rot = 0;
+    if (r.axis === 'x') rot = r.dir > 0 ? 0 : Math.PI;
+    else rot = r.dir > 0 ? -Math.PI / 2 : Math.PI / 2;
+    mesh.rotation.y = rot;
+    mesh.position.set((r.x0 + r.x1) / 2, 0, (r.z0 + r.z1) / 2);
+    g.add(mesh);
+    // Glowing edge at the lip so you can see it at night
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, w), stripeMat);
+    lip.position.set(len / 2, r.height, 0);
+    mesh.add(lip);
+  }
+  return g;
+}
+
+function buildTrees(trees) {
+  const g = new THREE.Group();
+  if (!trees.length) return g;
+  const trunkGeo = new THREE.CylinderGeometry(0.22, 0.3, 3, 6);
+  trunkGeo.translate(0, 1.5, 0);
+  const leafGeo = new THREE.IcosahedronGeometry(2.2, 0);
+  leafGeo.translate(0, 4.2, 0);
+  const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshLambertMaterial({ color: 0x3a2a1c }), trees.length);
+  const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshLambertMaterial({ color: 0x1f4a2a, flatShading: true }), trees.length);
+  const m = new THREE.Matrix4();
+  trees.forEach(([x, z, s], i) => {
+    m.makeScale(s, s, s).setPosition(x, 0, z);
+    trunks.setMatrixAt(i, m);
+    leaves.setMatrixAt(i, m);
+  });
+  trunks.castShadow = leaves.castShadow = true;
+  g.add(trunks, leaves);
+  return g;
+}
+
+function buildLamps(lamps) {
+  const g = new THREE.Group();
+  const n = lamps.length;
+  const poleGeo = new THREE.BoxGeometry(0.2, 7, 0.2);
+  poleGeo.translate(0, 3.5, 0);
+  const armGeo = new THREE.BoxGeometry(0.12, 0.12, 2.2);
+  armGeo.translate(0, 7, 1.0);
+  const headGeo = new THREE.BoxGeometry(0.5, 0.18, 0.8);
+  headGeo.translate(0, 6.9, 2.0);
+  const poolGeo = new THREE.PlaneGeometry(13, 13);
+  poolGeo.rotateX(-Math.PI / 2);
+  poolGeo.translate(0, 0.05, 2.5);
+
+  const poles = new THREE.InstancedMesh(poleGeo, new THREE.MeshLambertMaterial({ color: 0x2a2c30 }), n);
+  const arms = new THREE.InstancedMesh(armGeo, poles.material, n);
+  const heads = new THREE.InstancedMesh(headGeo, new THREE.MeshBasicMaterial({ color: 0xffc070, toneMapped: false }), n);
+  const pools = new THREE.InstancedMesh(poolGeo, new THREE.MeshBasicMaterial({
+    map: getGlowTexture(), color: 0xff9a3a, transparent: true, opacity: 0.5,
+    blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
+  }), n);
+  const m = new THREE.Matrix4();
+  lamps.forEach(([x, z, facing], i) => {
+    // Lamps along X-roads lean over the road toward +Z or -Z
+    m.makeRotationY(facing > 0 ? 0 : Math.PI).setPosition(x, 0, z);
+    poles.setMatrixAt(i, m);
+    arms.setMatrixAt(i, m);
+    heads.setMatrixAt(i, m);
+    pools.setMatrixAt(i, m);
+  });
+  g.add(poles, arms, heads, pools);
+  // Lamps along Z-roads: same set rotated 90 degrees around the city centre
+  // (the grid is square and symmetric, so this lines up exactly).
+  const g2 = g.clone();
+  g2.rotation.y = Math.PI / 2;
+  const out = new THREE.Group();
+  out.add(g, g2);
+  return out;
+}
+
+// ----------------------------------------------------------------------
+// Traffic lights: one light head per approach at every intersection.
+// A simple global cycle: roads along Z get green, then roads along X.
+// Neighbouring intersections are offset a little so it doesn't look robotic.
+// ----------------------------------------------------------------------
+const CYCLE = 18;       // seconds for the full cycle
+const GREEN = 7;        // green time per direction
+const YELLOW = 2;
+
+export class TrafficLights {
+  constructor(graph, roadWidth) {
+    this.graph = graph;
+    this.time = 0;
+    this.group = new THREE.Group();
+    const nodes = graph.nodes;
+    const count = nodes.length * 4;
+    const poleGeo = new THREE.BoxGeometry(0.2, 4.5, 0.2);
+    poleGeo.translate(0, 2.25, 0);
+    const headGeo = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+    headGeo.translate(0, 4.6, 0);
+    this.poles = new THREE.InstancedMesh(poleGeo, new THREE.MeshLambertMaterial({ color: 0x222428 }), count);
+    this.heads = new THREE.InstancedMesh(headGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), count);
+    this.approach = []; // for each instance: 'x' or 'z' (which road it controls)
+    const m = new THREE.Matrix4();
+    const o = roadWidth / 2 + 0.6;
+    let i = 0;
+    for (const node of nodes) {
+      // Corner positions; the light at each corner faces cars on one road.
+      const corners = [[o, o, 'z'], [-o, -o, 'z'], [-o, o, 'x'], [o, -o, 'x']];
+      for (const [dx, dz, axis] of corners) {
+        m.makeTranslation(node.x + dx, 0, node.z + dz);
+        this.poles.setMatrixAt(i, m);
+        this.heads.setMatrixAt(i, m);
+        this.approach.push({ node, axis });
+        i++;
+      }
+    }
+    this.group.add(this.poles, this.heads);
+    this._c = new THREE.Color();
+    this._timer = 0;
+    this.update(0);
+  }
+
+  /** 'green' | 'yellow' | 'red' for traffic travelling along `axis` at `node`. */
+  state(node, axis) {
+    const t = (this.time + node.phaseOffset) % CYCLE;
+    const half = CYCLE / 2;
+    const local = axis === 'z' ? t : (t + half) % CYCLE;
+    if (local < GREEN) return 'green';
+    if (local < GREEN + YELLOW) return 'yellow';
+    return 'red';
+  }
+
+  update(dt) {
+    this.time += dt;
+    this._timer -= dt;
+    if (this._timer > 0) return; // colours only need refreshing a few times a second
+    this._timer = 0.25;
+    const colors = { green: 0x30ff70, yellow: 0xffc020, red: 0xff2a2a };
+    this.approach.forEach((a, i) => {
+      this.heads.setColorAt(i, this._c.set(colors[this.state(a.node, a.axis)]));
+    });
+    this.heads.instanceColor.needsUpdate = true;
+  }
+}
