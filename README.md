@@ -33,6 +33,12 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 **Audio:** recorded sounds and voices in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
 
+## Publish on GitHub Pages
+
+`.github/workflows/deploy.yml` builds the game and publishes it on every push.
+One-time setup: in the repo go to **Settings > Pages > Build and deployment > Source** and pick **GitHub Actions**.
+The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in the Actions tab).
+
 ## Modes
 
 * **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight.
