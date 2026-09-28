@@ -6,6 +6,7 @@ import { Helicopter } from '../../ai/helicopter.js';
 import { CHAPTER1 } from '../../story/chapter1.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
+import { newChapterRun } from '../../story/chapterRun.js';
 
 // Chapter 1, Part 1: the rooftop escape (a hand-built story level).
 //
@@ -103,6 +104,8 @@ export class ChapterRooftopsMode {
   // ------------------------------------------------------------------
   start(first) {
     const s = this.state;
+    // The rooftops are the start of a chapter, so every attempt is a new run.
+    s.game.chapterRun = newChapterRun(this.chapter.id);
     this.cp = 0;
     this.caught = 0;
     this.spotted = 0;
@@ -269,6 +272,11 @@ export class ChapterRooftopsMode {
         ? `<div class="clue"><strong>${info.name}</strong><span>${info.text}</span></div>`
         : `<div class="clue missed"><strong>??? (not found${c.onPath ? '' : ', off the main path'})</strong></div>`;
     }).join('');
+    // Carry this part's results into the chapter run (used by the drive).
+    const run = s.game.chapterRun;
+    run.parts.rooftops = time;
+    run.caught += this.caught;
+    for (const id of this.found) run.clues.add(id);
     s.game.hud.setMeter(0, '');
     s.game.hud.setMarker(null);
     s.gameOver(`
@@ -285,8 +293,9 @@ export class ChapterRooftopsMode {
       ${isBest ? '<p class="new-best">New best time!</p>' : ''}
       <p class="sub" style="margin-top:8px">Clues</p>
       ${clueList}
-      <p class="sub" style="margin-top:14px">Next: Part 2, the chase (arrives in Milestone 3). Gold: under 2:30, 3+ clues, never caught.</p>`,
-    [], { retryLabel: 'Replay the rooftops' });
+      <p class="sub" style="margin-top:14px">Gold for this part: under 2:30, 3+ clues, never caught.</p>`,
+    [{ label: 'Continue: Part 2, the drive', primary: true, onClick: () => s.game.sm.change('driving', { mode: 'chapter1' }) }],
+    { retryLabel: 'Replay the rooftops', extraFirst: true });
   }
 
   teardown() {

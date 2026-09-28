@@ -25,6 +25,21 @@ export const CHAPTER1 = {
 
   rooftopObjective: 'Cross the rooftops to the getaway car',
 
+  driveIntro: {
+    kicker: 'Pier Street, 12:19 a.m.',
+    title: 'Lose them',
+    text: [
+      'Dex, on the radio at last, breathless: "The whole block is crawling with cops. You\'ll have to drive through them."',
+      'Vince cuts in: "Lose them first, then get to the safehouse on the north side of town. Look for the green light. Whatever you do, don\'t lead them there."',
+    ],
+  },
+  driveObjective: 'Lose the cops, then get to the safehouse',
+
+  outro: {
+    title: 'Safe. For now.',
+    text: 'The garage door rattles down behind you. The engine ticks as it cools. Somebody on the crew sold you out tonight, and you\'re going to find out who.',
+  },
+
   clues: {
     phone: {
       name: 'Burner phone',
@@ -42,6 +57,11 @@ export const CHAPTER1 = {
       text: 'Dex\'s radio earpiece, switched off at 11:58, a minute before the sirens. Did he run, or did someone tell him to go dark?',
       pointsTo: 'dex',
       redHerring: true,
+    },
+    keycard: {
+      name: 'Police keycard',
+      text: 'Dropped at a police checkpoint, signed out to Det. Hale. Clipped to it: a receipt from The Anchor, Vince\'s bar, for two drinks at 11:30 tonight.',
+      pointsTo: 'vince',
     },
     matchbook: {
       name: 'Anchor matchbook',

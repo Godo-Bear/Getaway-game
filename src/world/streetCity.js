@@ -25,7 +25,14 @@ const SIDEWALK = 3;
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];
 
-export function generateStreetCity({ seed = 7, blocks = 8 } = {}) {
+/**
+ * @param {object} opts
+ * @param {number} opts.seed
+ * @param {number} opts.blocks - blocks per side
+ * @param {Object<string,string>} opts.forceKinds - e.g. { '4,4': 'park', '7,0': 'safehouse' }
+ *        to force what goes on a block (story levels need fixed landmarks)
+ */
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
@@ -85,6 +92,11 @@ export function generateStreetCity({ seed = 7, blocks = 8 } = {}) {
     blockKinds[Math.floor(blocks * blocks * 0.3)] = 'park';
     blockKinds[Math.floor(blocks * blocks * 0.7)] = 'park';
   }
+  for (const [key, kind] of Object.entries(forceKinds)) {
+    const [i, j] = key.split(',').map(Number);
+    blockKinds[i * blocks + j] = kind;
+  }
+  const landmarks = {};
 
   for (let i = 0; i < blocks; i++) {
     for (let j = 0; j < blocks; j++) {
@@ -93,7 +105,11 @@ export function generateStreetCity({ seed = 7, blocks = 8 } = {}) {
       const kind = blockKinds[i * blocks + j];
 
       if (kind === 'park') {
-        makePark(x0, z0, x1, z1);
+        landmarks[`${i},${j}`] = makePark(x0, z0, x1, z1);
+        continue;
+      }
+      if (kind === 'safehouse') {
+        landmarks[`${i},${j}`] = makeSafehouse(x0, z0, x1, z1);
         continue;
       }
       // Sidewalk slab (visual only - too low to block the car)
@@ -179,6 +195,33 @@ export function generateStreetCity({ seed = 7, blocks = 8 } = {}) {
     world.addBox(cx - 1.2, 0, cz - 1.2, cx + 1.2, 1.2, cz + 1.2, { tag: 'statue' });
     batch.addBlock(cx, 0, cz, 2.4, 1.2, 2.4, { side: 'concrete', top: 'concrete', color: 0xb0aaa0, uvScale: [2, 2] });
     batch.addBlock(cx, 1.2, cz, 0.8, 2.6, 0.8, { side: 'plain', top: 'plain', color: 0x4a6a60 });
+    return { center: new THREE.Vector3(cx, 0, cz), block: { x0, x1, z0, z1 } };
+  }
+
+  /**
+   * The crew's safehouse: a low warehouse with a green-lit garage door
+   * facing the road on the block's west side (-X).
+   */
+  function makeSafehouse(x0, z0, x1, z1) {
+    batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.15, z: z1 },
+      { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
+    // Neighbouring buildings on the rest of the block
+    fillBuildings(x0 + SIDEWALK, z0 + SIDEWALK, x1 - SIDEWALK, z0 + 16);
+    fillBuildings(x0 + SIDEWALK, z1 - 16, x1 - SIDEWALK, z1 - SIDEWALK);
+    // The warehouse
+    const wx0 = x0 + SIDEWALK, wx1 = x1 - SIDEWALK - 10, wz0 = z0 + 18, wz1 = z1 - 18;
+    world.addBox(wx0, 0, wz0, wx1, 8, wz1, { tag: 'building' });
+    batch.addBox({ x: wx0, y: 0, z: wz0 }, { x: wx1, y: 8, z: wz1 },
+      { side: 'concrete', top: 'roof', color: 0x6d6a64, uvScale: [4, 4], topScale: [6, 6] });
+    // Corrugated roller door, lit green from inside
+    const cz = (wz0 + wz1) / 2;
+    batch.addBox({ x: wx0 - 0.08, y: 0.1, z: cz - 3.2 }, { x: wx0, y: 4.4, z: cz + 3.2 },
+      { side: 'glow', top: null, color: 0x1f9a58 });
+    batch.addBox({ x: wx0 - 0.3, y: 4.4, z: cz - 3.6 }, { x: wx0, y: 4.8, z: cz + 3.6 },
+      { side: 'plain', top: 'plain', color: 0x2a2c30 });
+    minimapShapes.push({ type: 'building', x0: wx0, z0: wz0, x1: wx1, z1: wz1 });
+    // Where the car has to stop: the road in front of the door
+    return { door: new THREE.Vector3(x0 - 4, 0, cz), block: { x0, x1, z0, z1 } };
   }
 
   function makeRamp(x0, z0, x1, z1, axis, dir, height) {
@@ -265,7 +308,7 @@ export function generateStreetCity({ seed = 7, blocks = 8 } = {}) {
   const inRect = (x, z, r, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && z > r.z0 - pad && z < r.z1 + pad;
 
   return {
-    group, world, graph, ramps, parks, alleys, trafficLights, minimapShapes,
+    group, world, graph, ramps, parks, alleys, trafficLights, minimapShapes, landmarks,
     bounds: { min: outer, max: outerMax },
     roadWidth: ROAD,
     groundHeight,

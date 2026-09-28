@@ -75,6 +75,8 @@ export class PoliceForce {
   clear() {
     for (const u of this.units) this.scene.remove(u.mesh);
     this.units = [];
+    this.everSeen = false;   // have they spotted the player at all yet?
+    this.justReacquired = false;
   }
 
   /** Line of sight at car-roof height, blocked by buildings. */
@@ -132,6 +134,7 @@ export class PoliceForce {
       if (u.seesPlayer) this.anySees = true;
     }
     if (this.anySees) {
+      this.everSeen = true;
       if (this.searching) this.justReacquired = true; // the game shows a message
       this.lastKnown.copy(player.pos);
       this.timeSinceSeen = 0;

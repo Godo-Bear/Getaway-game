@@ -70,7 +70,7 @@ function start(renderer) {
   window.game = game;
 
   // URL options for testing:
-  //   ?mode=chapter1 | rooftop | free | chase  - jump straight into a mode
+  //   ?mode=chapter1 | drive1 | rooftop | free | chase  - jump straight into a mode
   //   ?nolock                       - play without mouse lock (A/D turn, drag to look)
   const params = new URLSearchParams(location.search);
   if (params.has('nolock')) game.input.pointerLockFailed = game.input.lockDisabled = true;
@@ -79,6 +79,7 @@ function start(renderer) {
   else if (mode === 'rooftop') game.sm.change('onFoot', { mode: 'survival' });
   else if (mode === 'free') game.sm.change('onFoot', { mode: 'free' });
   else if (mode === 'chase') game.sm.change('driving', { mode: 'survival' });
+  else if (mode === 'drive1') game.sm.change('driving', { mode: 'chapter1' });
   else game.sm.change('title');
 
   // ---------------- Game loop ----------------

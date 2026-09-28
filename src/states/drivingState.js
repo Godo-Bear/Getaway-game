@@ -10,24 +10,29 @@ import { ParticleSystem } from '../vehicles/particles.js';
 import { PoliceForce } from '../ai/police.js';
 import { Minimap } from '../ui/minimap.js';
 import { CONTROLS } from '../ui/menus.js';
-import { save } from '../core/save.js';
-import { clamp, damp, formatTime, makeRng } from '../core/utils.js';
+import { clamp, damp, makeRng } from '../core/utils.js';
+import { StreetChaseMode } from './modes/streetChaseMode.js';
+import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 
-// Street Chase: endless driving survival.
+// Driving game state: everything the driving modes share.
+//   - the street city, the player's car, police, traffic, smoke particles
+//   - physics (fixed steps), collisions, damage, nitro
+//   - the chase camera, minimap and speedometer
+//   - pursuit rules: losing the cops, the Busted meter, near misses
 //
-//  - The longer you keep driving, the more points you earn (faster = more).
-//  - Heat (1-5 stars) rises every 35 seconds and when you ram police cars.
-//    Higher heat = more cruisers, and faster ones.
-//  - Stop or crawl near a cop and the BUSTED meter fills. Full = game over.
-//  - Break line of sight for long enough and the cops lose you (bonus!).
-//    Parks and alleys help you disappear faster. They'll pick up your trail
-//    again after a while, though.
-//  - Shift = nitro. It recharges while drifting, jumping and near-missing
-//    other cars.
-//  - Drive through the green cash drops for big bonuses.
+// What you're DOING is decided by a mode object (like the on-foot modes):
+//   survival -> StreetChaseMode   (endless, score, heat rises over time)
+//   chapter1 -> ChapterDriveMode  (story: drive to the safehouse)
+//
+// A mode can implement:
+//   cityOptions()      -> { seed, blocks }
+//   hudSections
+//   start(first)       -> place the car, set heat, show messages
+//   heat               -> current heat level (1-5), read every tick
+//   update(dt)         -> per-frame game logic (score, goals...)
+//   onEvade(), onReacquire(), onNearMiss(), onBusted(), onPoliceRam()
 
-const HEAT_TIME = 35; // seconds per heat level
-const HEAT = [
+export const HEAT = [
   { cops: 2, speedFactor: 0.8 },
   { cops: 3, speedFactor: 0.88 },
   { cops: 4, speedFactor: 0.96 },
@@ -37,8 +42,9 @@ const HEAT = [
 const BUST_RADIUS = 9;
 const EVADE_TIME = 9;         // seconds out of sight to lose the cops
 const EVADE_TIME_HIDDEN = 5;  // ... when in an alley or park
-const SEARCH_TIME = 16;       // seconds before they pick up the trail again
 const NEAR_MISS_DIST = 4.4;
+
+const MODES = { survival: StreetChaseMode, chapter1: ChapterDriveMode };
 
 export class DrivingState extends PlayState {
   constructor(game) {
@@ -47,19 +53,20 @@ export class DrivingState extends PlayState {
   }
 
   buildWorld(params) {
-    this.mode = params.mode || 'survival';
     const game = this.game;
+    const ModeClass = MODES[params.mode] || StreetChaseMode;
+    this.mode = new ModeClass(this);
+
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 900);
     this.lighting = new NightLighting(this.scene, { shadows: game.settings.graphics !== 'low' });
-    this.lighting.moon.shadow.camera.left = -50;
-    this.lighting.moon.shadow.camera.right = 50;
-    this.lighting.moon.shadow.camera.top = 50;
-    this.lighting.moon.shadow.camera.bottom = -50;
+    const sc = this.lighting.moon.shadow.camera;
+    sc.left = sc.bottom = -50;
+    sc.right = sc.top = 50;
 
-    this.seed = (Math.random() * 1e9) | 0;
-    this.rng = makeRng(this.seed);
-    this.city = generateStreetCity({ seed: this.seed, blocks: 8 });
+    const opts = this.mode.cityOptions();
+    this.rng = makeRng(opts.seed);
+    this.city = generateStreetCity(opts);
     this.scene.add(this.city.group);
 
     // Player car + a real headlight (the only moving real light)
@@ -77,64 +84,65 @@ export class DrivingState extends PlayState {
     this.traffic = new Traffic(this.scene, this.city, this.rng, 22);
     this.particles = new ParticleSystem(this.scene, 320);
     this.minimap = new Minimap(game.hud.el.map, this.city);
-    this._buildBeacon();
+    this.beacon = this._buildBeacon();
+    this.mode.build?.();
 
-    game.hud.show(['tl', 'score', 'map', 'speedo', 'meter', 'controls', 'marker']);
+    game.hud.show(this.mode.hudSections);
     game.hud.showControls(CONTROLS.driving);
+    this.firstStart = true;
     this.restart();
   }
 
+  /** Tall light beam + ring on the road marking where to go. */
   _buildBeacon() {
     const g = new THREE.Group();
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 120, 20, 1, true), makeGlowMaterial(0x4dffa6, 0.14));
+    const mat = makeGlowMaterial(0x4dffa6, 0.14);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 120, 20, 1, true), mat);
     beam.position.y = 60;
-    const ring = new THREE.Mesh(new THREE.RingGeometry(5, 6.2, 40), makeGlowMaterial(0x4dffa6, 0.7));
+    const ringMat = makeGlowMaterial(0x4dffa6, 0.7);
+    const ring = new THREE.Mesh(new THREE.RingGeometry(5, 6.2, 40), ringMat);
     ring.rotation.x = -Math.PI / 2;
     ring.position.y = 0.1;
     g.add(beam, ring);
-    this.beacon = { group: g, ring, pos: new THREE.Vector3() };
     this.scene.add(g);
-  }
-
-  _placeBeacon() {
-    const p = this.player.pos;
-    const nodes = this.city.graph.nodes.filter((n) => {
-      const d = Math.hypot(n.x - p.x, n.z - p.z);
-      return d > 150 && d < 320;
-    });
-    const n = nodes[Math.floor(this.rng() * nodes.length)] || this.city.graph.nodes[0];
-    this.beacon.pos.set(n.x, 0, n.z);
-    this.beacon.group.position.copy(this.beacon.pos);
+    return {
+      group: g, ring, beam, pos: new THREE.Vector3(), label: '', color: '#4dffa6',
+      set(x, z, label, color = 0x4dffa6) {
+        this.pos.set(x, 0, z);
+        g.position.copy(this.pos);
+        this.label = label;
+        this.color = `#${new THREE.Color(color).getHexString()}`;
+        mat.color.set(color);
+        ringMat.color.set(color);
+        g.visible = true;
+      },
+      hide() { g.visible = false; },
+    };
   }
 
   restart() {
-    const graph = this.city.graph;
-    const start = graph.node(Math.floor(graph.n / 2), Math.floor(graph.n / 2));
-    this.player.place(start.x, start.z - 20, 0);
     this.player.health = 1;
     this.nitro = 1;
     this.time = 0;
-    this.score = 0;
-    this.heatProgress = 0;
-    this.heat = 1;
     this.busted = 0;
-    this.evades = 0;
-    this.nearMisses = 0;
-    this.cashDrops = 0;
     this.nearTrack = new Map();
     this.camPos = null;
     this.police.clear();
     this.police.lastKnown.copy(this.player.pos);
     this.police.searching = false;
     this.police.timeSinceSeen = 0;
+    this.game.hud.setMeter(0, '');
+    this.mode.start(this.firstStart);
+    this.firstStart = false;
+    this.police.lastKnown.copy(this.player.pos);
     this.traffic.scatter(this.player);
-    this._placeBeacon();
-    const hud = this.game.hud;
-    hud.setPhase('Street Chase');
-    hud.setObjective('Lose the cops. Keep driving.');
-    hud.setMeter(0, '');
-    hud.toast('Drive!', 'Every second you stay free earns points. Shift for nitro, Space to drift.', 'var(--amber)');
     this._syncCamera(1, true);
+  }
+
+  /** Put the player's car somewhere (used by modes at the start). */
+  placePlayer(x, z, heading) {
+    this.player.place(x, z, heading);
+    this.camPos = null;
   }
 
   readInput() {
@@ -159,15 +167,13 @@ export class DrivingState extends PlayState {
 
   simulate(dt) {
     const p = this.player;
-    const heat = HEAT[this.heat - 1];
+    const heat = HEAT[this.mode.heat - 1];
     const ground = this.city.groundHeight;
 
     // --- AI decisions
     this.police.setCount(heat.cops, p, this.camera);
     this.police.update(dt, p, heat, this.camera);
-    const civCars = this.traffic.cars;
-    const copCars = this.police.cars;
-    const all = [p, ...copCars, ...civCars];
+    const all = [p, ...this.police.cars, ...this.traffic.cars];
     this.traffic.update(dt, p, this.camera, all);
 
     // --- Physics
@@ -184,12 +190,10 @@ export class DrivingState extends PlayState {
       const rec = this.nearTrack.get(other);
       if (rec) rec.hit = true;
       if (impact > 4) this._damage((impact - 4) * 0.008, impact);
-      if (other.isPolice && impact > 6) {
-        this.heatProgress += 4; // ramming the police makes them angrier
-      }
+      if (other.isPolice && impact > 6) this.mode.onPoliceRam?.();
     });
 
-    // --- Nitro
+    // --- Nitro: used by boosting, refilled by drifting and big air
     if (p.boosting) this.nitro = Math.max(0, this.nitro - dt * 0.32);
     if (p.drifting) this.nitro = Math.min(1, this.nitro + dt * 0.16);
     if (p.airborne) this.nitro = Math.min(1, this.nitro + dt * 0.25);
@@ -207,8 +211,11 @@ export class DrivingState extends PlayState {
     const hud = this.game.hud;
     if (!frozen) {
       this.time += dt;
-      this._updateSurvival(dt);
-      this._updateEffects(dt);
+      this._updatePursuit(dt);
+      this._updateBusted(dt);
+      this._updateNearMisses();
+      this.mode.update(dt);
+      this._updateEffects();
     }
     // Meshes follow physics bodies
     p.syncMesh();
@@ -217,20 +224,24 @@ export class DrivingState extends PlayState {
     this.city.trafficLights.update(frozen ? 0 : dt);
     this.playerMesh.userData.flames.visible = p.boosting;
     this.playerMesh.userData.tailMat.color.setHex(p.controls.throttle < 0 ? 0xff2030 : 0x881018);
+    this.beacon.ring.rotation.z += dt;
 
     this._syncCamera(dt, false);
     this.lighting.follow(p.pos);
     this.particles.update(frozen ? 0 : dt);
 
-    // HUD
+    // HUD: speedometer, minimap, beacon marker
     hud.setSpeedo(p.speed * 3.6, this.nitro, p.health);
     const dots = this.police.units.map((u) => ({
       x: u.car.pos.x, z: u.car.pos.z,
       color: Math.floor(this.time * 4 + u.car.pos.x) % 2 ? '#ff3346' : '#3d7bff',
     }));
-    this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, this.beacon.pos, this.time);
-    const bd = Math.hypot(this.beacon.pos.x - p.pos.x, this.beacon.pos.z - p.pos.z);
-    hud.setMarker(this.beacon.pos.clone().setY(4), this.camera, 'Cash drop', 'var(--safe)', bd);
+    const target = this.beacon.group.visible ? this.beacon.pos : null;
+    this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color);
+    if (target) {
+      const bd = Math.hypot(target.x - p.pos.x, target.z - p.pos.z);
+      hud.setMarker(target.clone().setY(4), this.camera, this.beacon.label, this.beacon.color, bd);
+    } else hud.setMarker(null);
 
     if (this.game.showDebug) {
       hud.setDebug(`${this.game.fps.toFixed(0)} fps\ncalls ${this.game.renderer.info.render.calls}\n` +
@@ -238,55 +249,52 @@ export class DrivingState extends PlayState {
     } else hud.setDebug('');
   }
 
-  _updateSurvival(dt) {
-    const p = this.player;
-    const hud = this.game.hud;
+  /** Is the player somewhere the cops struggle to see (alley or park)? */
+  get playerHidden() {
+    const p = this.player.pos;
+    return this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z);
+  }
+
+  /** Losing the cops: stay out of sight long enough and they start searching. */
+  _updatePursuit() {
     const police = this.police;
-
-    // --- Heat level
-    this.heatProgress += dt;
-    const newHeat = Math.min(5, 1 + Math.floor(this.heatProgress / HEAT_TIME));
-    if (newHeat > this.heat) {
-      this.heat = newHeat;
-      hud.toast(`Heat level ${this.heat}`, 'More cruisers are joining the chase.', 'var(--red)');
-    }
-
-    // --- Losing the cops
-    const hidden = this.city.isInAlley(p.pos.x, p.pos.z) || this.city.isInPark(p.pos.x, p.pos.z);
-    if (!police.searching) {
-      const need = hidden ? EVADE_TIME_HIDDEN : EVADE_TIME;
+    // You can't "lose" cops that haven't found you yet.
+    if (!police.searching && police.everSeen) {
+      const need = this.playerHidden ? EVADE_TIME_HIDDEN : EVADE_TIME;
       if (police.timeSinceSeen > need) {
         police.searching = true;
-        this.evades++;
-        const bonus = 500 * this.heat;
-        this.score += bonus;
-        hud.toast('Cops lost!', `+${bonus}. They're searching the area... keep your head down.`, 'var(--safe)');
+        this.mode.onEvade?.();
       }
-    } else if (police.timeSinceSeen > SEARCH_TIME) {
-      // A patrol spotted you somewhere: the chase is back on.
-      police.searching = false;
-      police.lastKnown.copy(p.pos);
-      police.timeSinceSeen = 0;
-      hud.toast('Trail picked up', 'A patrol called in your position.', 'var(--red)');
     }
-
     if (police.justReacquired) {
       police.justReacquired = false;
-      hud.toast('Spotted!', 'They\'re back on your tail.', 'var(--red)');
+      this.game.hud.toast('Spotted!', 'They\'re back on your tail.', 'var(--red)');
+      this.mode.onReacquire?.();
     }
+  }
 
-    // --- Busted meter: cops close and you're (nearly) stopped
+  /** Busted meter: fills when a cop is close and you're (nearly) stopped. */
+  _updateBusted(dt) {
+    const p = this.player;
     let close = 0;
-    for (const u of police.units) {
+    for (const u of this.police.units) {
       if (Math.hypot(u.car.pos.x - p.pos.x, u.car.pos.z - p.pos.z) < BUST_RADIUS) close++;
     }
     if (close > 0 && p.speed < 6) this.busted += dt * (0.35 + close * 0.15);
     else this.busted -= dt * (p.speed > 12 ? 0.5 : 0.2);
     this.busted = clamp(this.busted, 0, 1);
-    hud.setMeter(this.busted, this.busted > 0.01 && close ? 'BUSTED! Get moving!' : 'Busted', 'var(--blue)');
+    this.game.hud.setMeter(this.busted, this.busted > 0.01 && close ? 'BUSTED! Get moving!' : 'Busted', 'var(--blue)');
+    if (this.busted >= 1) {
+      this.busted = 0;
+      this.game.hud.setMeter(0, '');
+      this.mode.onBusted();
+    }
+  }
 
-    // --- Near misses
-    for (const car of [...police.cars, ...this.traffic.cars]) {
+  /** Near misses: pass close to another car at speed without touching it. */
+  _updateNearMisses() {
+    const p = this.player;
+    for (const car of [...this.police.cars, ...this.traffic.cars]) {
       const d = Math.hypot(car.pos.x - p.pos.x, car.pos.z - p.pos.z);
       let rec = this.nearTrack.get(car);
       if (d < NEAR_MISS_DIST) {
@@ -295,42 +303,15 @@ export class DrivingState extends PlayState {
         if (p.speed > 15 && rel > 10) rec.fast = true;
       } else if (rec && d > NEAR_MISS_DIST + 1) {
         if (rec.fast && !rec.hit) {
-          this.nearMisses++;
           this.nitro = Math.min(1, this.nitro + 0.15);
-          this.score += 40 * this.heat;
-          hud.toast('Near miss!', `+${40 * this.heat} and nitro`, 'var(--cyan)');
+          this.mode.onNearMiss?.();
         }
         this.nearTrack.delete(car);
       }
     }
-
-    // --- Score: always ticking while you're free. Faster = more.
-    const kmh = p.speed * 3.6;
-    let rate = (4 + kmh * 0.06) * this.heat;
-    if (police.searching) rate *= 0.5;
-    if (p.drifting) rate += 12 * this.heat;
-    this.score += rate * dt;
-
-    // --- Cash drops
-    const bd = Math.hypot(this.beacon.pos.x - p.pos.x, this.beacon.pos.z - p.pos.z);
-    this.beacon.ring.rotation.z += dt;
-    if (bd < 7) {
-      const bonus = 750 * this.heat;
-      this.score += bonus;
-      this.cashDrops++;
-      hud.toast(`Cash drop! +${bonus}`, '', 'var(--safe)');
-      this._placeBeacon();
-    }
-
-    const stars = '★'.repeat(this.heat) + '☆'.repeat(5 - this.heat);
-    hud.setScore(this.score, `HEAT <span class="heat">${stars}</span>${police.searching ? ' &nbsp;<b>SEARCHING</b>' : ''}`);
-    hud.setStats(`<span>Time <b>${formatTime(this.time)}</b></span><span>Evaded <b>${this.evades}</b></span>` +
-      `<span>Near misses <b>${this.nearMisses}</b></span>`);
-
-    if (this.busted >= 1) this._bustedOver();
   }
 
-  _updateEffects(dt) {
+  _updateEffects() {
     const p = this.player;
     const fx = p.fwdX, fz = p.fwdZ;
     // Tyre smoke when drifting
@@ -351,7 +332,6 @@ export class DrivingState extends PlayState {
     const p = this.player;
     const dist = this.camMode === 0 ? 8.5 : 13;
     const height = this.camMode === 0 ? 3.1 : 5.5;
-    // Look along the direction of travel a little during drifts
     const fx = p.fwdX, fz = p.fwdZ;
     const want = new THREE.Vector3(p.pos.x - fx * dist, p.pos.y + height, p.pos.z - fz * dist);
 
@@ -377,24 +357,6 @@ export class DrivingState extends PlayState {
       this.camera.fov = damp(this.camera.fov, fov, 4, snap ? 1 : dt);
       this.camera.updateProjectionMatrix();
     }
-  }
-
-  _bustedOver() {
-    const score = Math.floor(this.score);
-    const isBest = save.submitBest('streetChase', score);
-    this.game.hud.setMeter(0, '');
-    this.gameOver(`
-      <h2>Busted!</h2>
-      <p class="sub">They boxed you in. Next time keep moving, and use nitro to break away.</p>
-      <div class="stat-grid">
-        <div><span>Score</span><b>${score.toLocaleString('en-US')}</b></div>
-        <div><span>Best</span><b>${save.data.best.streetChase.toLocaleString('en-US')}</b></div>
-        <div><span>Time survived</span><b>${formatTime(this.time)}</b></div>
-        <div><span>Heat reached</span><b>${this.heat}</b></div>
-        <div><span>Times evaded</span><b>${this.evades}</b></div>
-        <div><span>Near misses</span><b>${this.nearMisses}</b></div>
-      </div>
-      ${isBest ? '<p class="new-best">New best score!</p>' : ''}`);
   }
 
   renderFrame(renderer) {

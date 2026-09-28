@@ -41,7 +41,7 @@ export class Minimap {
    * @param {{x:number,z:number,color:string}[]} dots
    * @param {{x:number,z:number}|null} target
    */
-  draw(player, dots, target, time) {
+  draw(player, dots, target, time, targetColor = '#4dffa6') {
     const g = this.ctx, S = this.size, scale = S / (VIEW_RADIUS * 2);
     g.save();
     g.clearRect(0, 0, S, S);
@@ -62,7 +62,7 @@ export class Minimap {
 
     // Target beacon
     if (target) {
-      g.fillStyle = '#4dffa6';
+      g.fillStyle = targetColor;
       g.beginPath();
       g.arc(target.x, target.z, 6 / scale * 0.9, 0, Math.PI * 2);
       g.fill();
@@ -85,7 +85,7 @@ export class Minimap {
         const ang = Math.atan2(dx, dz) - player.heading;
         const r = S / 2 - 10;
         const x = S / 2 - Math.sin(ang) * r, y = S / 2 - Math.cos(ang) * r;
-        g.fillStyle = '#4dffa6';
+        g.fillStyle = targetColor;
         g.beginPath();
         g.arc(x, y, 6, 0, Math.PI * 2);
         g.fill();

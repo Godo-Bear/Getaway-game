@@ -104,13 +104,13 @@ export class PlayState {
   }
 
   /** Show a game-over (or level complete) card. */
-  gameOver(html, extraButtons = [], { retryLabel = 'Try again' } = {}) {
+  gameOver(html, extraButtons = [], { retryLabel = 'Try again', extraFirst = false } = {}) {
     this.over = true;
     this.game.input.exitPointerLock();
     this._updateClickPrompt();
+    const retry = { label: retryLabel, primary: !extraFirst, onClick: () => { hideCard(); this.over = false; this.restart(); this._afterResume(); } };
     showCard(html, [
-      { label: retryLabel, primary: true, onClick: () => { hideCard(); this.over = false; this.restart(); this._afterResume(); } },
-      ...extraButtons,
+      ...(extraFirst ? [...extraButtons, retry] : [retry, ...extraButtons]),
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ]);
   }
