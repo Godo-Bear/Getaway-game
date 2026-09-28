@@ -56,7 +56,7 @@ export const CHAPTER2 = {
         { kicker: 'Pier 9, 1:41 a.m.', title: 'After him',
           lines: [
             'Vince scrambles up onto the warehouse roofs, the cash bag bouncing on his back. The quay below is crawling with police: stay up high.',
-            'New moves: sprint and press C (or Ctrl) to SLIDE under low ducts. Jump alongside a tall wall to WALL-RUN across gaps, and jump into a cable to ride a ZIP LINE.',
+            'New moves: sprint and press C to SLIDE under low ducts. Jump alongside a tall wall to WALL-RUN across gaps, and jump into a cable to ride a ZIP LINE.',
           ] },
       ],
       startLabel: 'Chase him',

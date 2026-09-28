@@ -53,7 +53,7 @@ The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in
 * **Ladders**: every building has a yellow ladder. Fall to the street and you're no longer sent back: walk into a ladder and hold forward to climb back up (a marker points to the nearest one). Only falling into the harbour sends you back.
 * **Hiding spots**: on foot, stand in a stairwell hut or under a water tower (green floor patch) to hide from the helicopter and the officers. Driving, pull into a parking garage (blue P on the minimap): the cops can't see you from the street and lose you in a few seconds.
 * **Safehouse**: you can pull in mid-chase as long as no cop can see you and none is within about a block.
-* **Moves**: sprint + C (or Ctrl) to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
+* **Moves**: sprint + C to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
 * **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen.
 
 ## Project layout

@@ -19,7 +19,7 @@ export const BINDINGS = {
   turnRight: ['ArrowRight', 'KeyE'],
   jump: ['Space'],
   sprint: ['ShiftLeft', 'ShiftRight'],
-  crouch: ['KeyC', 'ControlLeft'],
+  crouch: ['KeyC'],        // not Ctrl: Ctrl+W closes the browser tab
   respawn: ['KeyR'],
   view: ['KeyV'],           // on foot: first / third person
   caseBoard: ['Tab'],       // story: open the Case Board

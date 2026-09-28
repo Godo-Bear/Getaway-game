@@ -80,7 +80,7 @@ export function controlsHtml() {
       <kbd>Shift</kbd><span>Sprint</span>
       <kbd>Space</kbd><span>Jump. Near a ledge: climb it (up to 2.7 m)</span>
       <kbd>Run into it</kbd><span>Vault over low obstacles like AC units</span>
-      <kbd>C / Ctrl</kbd><span>Slide while sprinting (under pipes); crouch when slow</span>
+      <kbd>C</kbd><span>Slide while sprinting (under pipes); crouch when slow</span>
       <kbd>Jump by a wall</kbd><span>Wall-run along a tall wall; press Space again to jump off it</span>
       <kbd>Jump at a cable</kbd><span>Grab a zip line and ride it down; Space lets go</span>
       <kbd>V</kbd><span>Switch between first-person and third-person view</span>
