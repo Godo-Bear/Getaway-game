@@ -87,7 +87,7 @@ export class Minimap {
     for (const d of dots) {
       g.fillStyle = d.color;
       g.beginPath();
-      g.arc(d.x, d.z, 4 / scale, 0, Math.PI * 2);
+      g.arc(d.x, d.z, (4 * (d.size || 1)) / scale, 0, Math.PI * 2);
       g.fill();
     }
     g.restore();

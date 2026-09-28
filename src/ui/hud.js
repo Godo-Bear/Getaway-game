@@ -41,6 +41,8 @@ export class Hud {
   hideAll() {
     this.show([]);
     this.setDebug('');
+    this.el.toast.classList.remove('show');
+    this._toastTimer = 0;
   }
 
   setPhase(text) { this._set(this.el.phase, 'phase', text); }

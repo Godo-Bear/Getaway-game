@@ -244,6 +244,7 @@ export class DrivingState extends PlayState {
       x: u.car.pos.x, z: u.car.pos.z,
       color: Math.floor(this.time * 4 + u.car.pos.x) % 2 ? '#ff3346' : '#3d7bff',
     }));
+    if (this.mode.minimapDots) dots.push(...this.mode.minimapDots());
     const target = this.beacon.group.visible ? this.beacon.pos : null;
     const police = this.police;
     const search = police.searching ? { x: police.lastKnown.x, z: police.lastKnown.z, r: police.searchRadius } : null;

@@ -24,6 +24,9 @@ const DEFAULTS = {
     chapterUnlocked: 1,
     clues: {},       // chapterId -> [clue ids ever found]  (for the Case Board)
     bestTimes: {},   // e.g. 'chapter1.rooftops' -> seconds
+    solved: {},      // chapterId -> true once the deduction is right
+    ratings: {},     // chapterId -> best rating ('gold' | 'silver' | 'bronze')
+    carColours: [],  // unlocked by gold ratings
   },
 };
 

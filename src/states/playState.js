@@ -1,4 +1,7 @@
 import { showCard, hideCard, controlsHtml } from '../ui/menus.js';
+import { playStoryCards } from '../ui/storyCards.js';
+import { showCaseBoard } from '../ui/caseBoard.js';
+import { CHAPTERS } from '../story/chapters.js';
 
 // Shared behaviour for every "playing" mode (on foot, driving):
 //   - pause menu (P / Esc, or automatically when the mouse lock is lost)
@@ -70,12 +73,40 @@ export class PlayState {
     this.game.input.exitPointerLock();
     this._updateClickPrompt();
     const resume = () => this.resume();
+    const back = () => { this.paused = false; this.pause(); };
+    const run = this.game.chapterRun;
+    const chapter = run && this.isStory ? CHAPTERS[run.chapterId] : null;
     showCard('<h2>Paused</h2>', [
       { label: 'Resume', primary: true, onClick: resume },
+      ...(chapter ? [{ label: 'Case Board', onClick: () => showCaseBoard(chapter, run.clues, back) }] : []),
       { label: 'Restart', onClick: () => { hideCard(); this.paused = false; this.restart(); this._afterResume(); } },
-      { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: () => { this.paused = false; this.pause(); } }]) },
+      { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]) },
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ]);
+  }
+
+  /** Is this a story chapter (so the Case Board is available)? */
+  get isStory() {
+    return !!this.mode?.chapter;
+  }
+
+  /** Pause and jump straight to the Case Board (Tab key). */
+  openCaseBoard() {
+    const run = this.game.chapterRun;
+    if (!this.isStory || !run || this.over || this.inCard || this.paused) return;
+    this.pause();
+    showCaseBoard(CHAPTERS[run.chapterId], run.clues, () => { this.paused = false; this.pause(); });
+  }
+
+  /** Play a multi-page story scene (skippable), freezing the game meanwhile. */
+  showStoryCards(pages, finalLabel = 'Continue', onDone = () => {}) {
+    this.inCard = true;
+    this.game.input.exitPointerLock();
+    this._updateClickPrompt();
+    playStoryCards(pages, {
+      finalLabel,
+      onDone: () => { this.inCard = false; onDone(); this._afterResume(); },
+    });
   }
 
   /**
@@ -124,6 +155,7 @@ export class PlayState {
       else this.pause();
     }
     if (input.wasPressed('help')) this.game.hud.toggleControls();
+    if (input.wasPressed('caseBoard')) this.openCaseBoard();
     if (input.wasPressed('debug')) this.game.showDebug = !this.game.showDebug;
     this.game.hud.update(dt);
 

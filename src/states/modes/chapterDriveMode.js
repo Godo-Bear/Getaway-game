@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { makeGlowMaterial } from '../../world/materials.js';
 import { CHAPTER1 } from '../../story/chapter1.js';
-import { getChapterRun, totalTime, chapterRating } from '../../story/chapterRun.js';
+import { getChapterRun } from '../../story/chapterRun.js';
 import { save } from '../../core/save.js';
 import { formatTime } from '../../core/utils.js';
 
@@ -26,7 +26,7 @@ const CITY = {
 const START_NODE = [1, 7];     // near the garage, south-west
 const ARRIVE_RADIUS = 9;
 const ARRIVE_SPEED = 15;       // m/s (~54 km/h): you have to actually pull up
-const CLUE_RADIUS = 4.5;
+const CLUE_RADIUS = 7;         // generous: just drive through the ring
 
 export class ChapterDriveMode {
   constructor(state) {
@@ -85,17 +85,13 @@ export class ChapterDriveMode {
     hud.setObjective(this.chapter.driveObjective);
     this._updateStats();
 
-    if (first) {
-      const intro = this.chapter.driveIntro;
-      s.showStoryCard(`
-        <p class="sub" style="color:var(--amber);margin-bottom:4px">${intro.kicker}</p>
-        <h2>${intro.title}</h2>
-        ${intro.text.map((t) => `<p>${t}</p>`).join('')}
-        <p class="sub">Break line of sight until the police start searching (parks and alleys help), then pull up at the green light. There's a clue somewhere in the park in the middle of town.</p>`,
-      'Drive');
-    } else {
-      hud.toast('Go!', 'Lose the cops, then head for the green light.', 'var(--amber)');
-    }
+    if (first) s.showStoryCards(this.chapter.driveIntro, 'Drive');
+    else hud.toast('Go!', 'Lose the cops, then head for the green light.', 'var(--amber)');
+  }
+
+  /** Extra dots for the minimap: the clue (amber) until you pick it up. */
+  minimapDots() {
+    return this.clueFound ? [] : [{ x: this.cluePos.x, z: this.cluePos.z, color: '#ffb020', size: 1.6 }];
   }
 
   get copsOnYou() {
@@ -190,35 +186,14 @@ export class ChapterDriveMode {
     this.done = true;
     const s = this.state;
     const run = this.run;
-    const chapter = this.chapter;
     run.parts.drive = s.time;
-    const total = totalTime(run);
-    const clueTotal = Object.keys(chapter.clues).length;
-    const rating = chapterRating(run, clueTotal);
-    save.submitTime(`${chapter.id}.drive`, s.time);
-    const hasRooftops = run.parts.rooftops != null;
-    const isBest = hasRooftops && save.submitTime(`${chapter.id}.total`, total);
-    const found = Object.entries(chapter.clues).map(([id, info]) => (run.clues.has(id)
-      ? `<div class="clue"><strong>${info.name}</strong><span>${info.text}</span></div>`
-      : '<div class="clue missed"><strong>??? (not found)</strong></div>')).join('');
+    save.submitTime(`${this.chapter.id}.drive`, s.time);
     s.game.hud.setMarker(null);
-    s.gameOver(`
-      <p class="sub" style="color:var(--amber);margin-bottom:4px">Part 2 complete</p>
-      <h2>${chapter.outro.title}</h2>
-      <p>${chapter.outro.text}</p>
-      <span class="rank ${rating}">${hasRooftops ? `CHAPTER RATING: ${rating.toUpperCase()}` : 'DRIVE COMPLETE'}</span>
-      <div class="stat-grid">
-        <div><span>Drive time</span><b>${formatTime(s.time)}</b></div>
-        <div><span>Chapter time</span><b>${hasRooftops ? formatTime(total) : '-'}</b></div>
-        <div><span>Clues found</span><b>${run.clues.size}/${clueTotal}</b></div>
-        <div><span>Times caught</span><b>${run.caught}</b></div>
-      </div>
-      ${isBest ? '<p class="new-best">New best chapter time!</p>' : ''}
-      <p class="sub" style="margin-top:8px">Clues</p>
-      ${found}
-      <p class="sub" style="margin-top:14px">Next: Part 3, the deduction: work out who betrayed you (arrives in Milestone 5).
-      Gold: whole chapter under 5:00, ${clueTotal - 1}+ clues, never caught.</p>`,
-    [{ label: 'Replay the whole chapter', onClick: () => { s.game.chapterRun = null; s.game.sm.change('onFoot', { mode: 'chapter1' }); } }],
-    { retryLabel: 'Replay the drive' });
+    s.game.hud.setMeter(0, '');
+    // The story continues at the safehouse: outro scene, then the deduction.
+    s.over = true;
+    s.showStoryCards(this.chapter.outro, 'Open the Case Board', () => {
+      s.game.sm.change('deduction', { chapterId: this.chapter.id });
+    });
   }
 }

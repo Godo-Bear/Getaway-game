@@ -17,6 +17,7 @@ Handy URL options for testing:
 | --- | --- |
 | `/?mode=chapter1` | Jump straight into Story Chapter 1 (rooftop escape) |
 | `/?mode=drive1` | Jump straight into Story Chapter 1, Part 2 (the drive) |
+| `/?mode=deduce1` | Jump straight into the Chapter 1 deduction (with whatever clues this session found) |
 | `/?mode=rooftop` | Jump straight into Rooftop Run (helicopter survival) |
 | `/?mode=free` | Jump straight into Free Run (parkour practice) |
 | `/?mode=chase` | Jump straight into Street Chase (driving survival) |
@@ -30,7 +31,9 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 * **Street Chase**: endless driving survival. Points for every second you stay free (more when fast or drifting). Heat rises every 35 s and when you ram cops. Shift = nitro (recharges while drifting, jumping and on near misses). Lose the cops by breaking line of sight; parks, alleys and driving under the elevated railway help. Once lost, the cops sweep a widening search area (red circle on the minimap). From heat 4, roadblocks and spike strips appear on the road ahead.
 * **Free Run**: rooftops with no helicopters, for practising moves.
 * **Story: Chapter 1, Part 1**: a hand-built rooftop route from the Harbor Trust bank to the getaway car on the Pier Street garage. Checkpoints, one police helicopter (caught = back to the last checkpoint), 4 clues (2 on the main path, 2 behind harder shortcuts), and a bronze/silver/gold rating.
-* **Story: Chapter 1, Part 2**: drive the getaway car from the garage to the crew's safehouse (green light). You must lose the cops before you pull up, or you'd lead them straight there. A fifth clue is hidden in the park in the middle of town. Finishing shows your chapter rating (time, clues, times caught).
+* **Story: Chapter 1, Part 2**: drive the getaway car from the garage to the crew's safehouse (green light). You must lose the cops before you pull up, or you'd lead them straight there. A fifth clue is hidden in the park in the middle of town (amber dot on the minimap).
+* **Story: Chapter 1, Part 3**: the deduction. Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2 (coming in Milestone 7).
+* **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen.
 
 ## Project layout
 

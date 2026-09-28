@@ -25,10 +25,10 @@ import { makeCarMesh } from '../../vehicles/carModel.js';
 //
 //  SHORTCUTS / SECRETS
 //    - West detour off B2: drop to a lower roof for the torn floor plan,
-//      climb a crate + upper level to get back.
+//      then take the stairs and plank back up.
 //    - On B4: AC unit -> stairwell hut roof -> leap to B5, skipping the
 //      fire escape (hard).
-//    - On B5: AC -> hut roof -> billboard catwalk for the matchbook (hard).
+//    - On B5: AC -> hut roof for the matchbook (the billboard catwalk above is a bonus climb).
 // ======================================================================
 
 export function buildChapter1Rooftops() {
@@ -67,9 +67,10 @@ export function buildChapter1Rooftops() {
   kit.hut(-5, 24.2, -40, 3);
   kit.ac(4, 24.2, -31.5);
 
-  // --- B2 west detour: crate -> upper level -> jump back to B2
-  kit.setback(-14, 20.5, -35.5, 4, 5);          // top at 23.7
-  kit.crate(-17, 20.5, -35.5);                  // 1.4 m, then 1.8 m up to the setback
+  // --- B2 west detour (torn floor plan clue)
+  // A staircase up to a plank that leads back across to B2 (no tricky jumps).
+  kit.fireEscapeStairsZ(-36.5, 2, -18.5, 20.5, [{ steps: 9 }, { landing: 1.6 }]); // top at 24.1
+  kit.beam('x', -11.5, -7.6, -35.5, 24.2, 1.2, 'plank');
   kit.ac(-15, 20.5, -43);
 
   // --- Crane beam B2 -> B3 across Harbor Street (and the crane itself)
@@ -220,7 +221,7 @@ export function buildChapter1Rooftops() {
     { id: 'phone', pos: new THREE.Vector3(5.5, 24.2, -41), onPath: true },
     { id: 'floorplan', pos: new THREE.Vector3(-19.5, 20.5, -43), onPath: false },
     { id: 'earpiece', pos: new THREE.Vector3(26, 21, -61), onPath: true },
-    { id: 'matchbook', pos: new THREE.Vector3(30, 30.5, -89.9), onPath: false },
+    { id: 'matchbook', pos: new THREE.Vector3(30, 28.8, -86), onPath: false }, // on the hut roof
   ];
 
   // Orange arrows painted on the roofs showing the main path: [x, y, z, yaw]

@@ -4,6 +4,9 @@
 // just some HTML plus a list of buttons with click handlers.
 
 import { save } from '../core/save.js';
+import { CHAPTER_LIST, CHAPTERS } from '../story/chapters.js';
+import { showCaseBoard } from './caseBoard.js';
+import { formatTime } from '../core/utils.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -12,9 +15,10 @@ const card = document.getElementById('card');
  * Show a card.
  * @param {string} html - content
  * @param {{label:string, sub?:string, primary?:boolean, disabled?:boolean, onClick:Function}[]} buttons
- * @param {{title?:boolean, list?:boolean}} opts - title = big left-aligned title-screen style
+ * @param {{title?:boolean, list?:boolean, side?:boolean}} opts - title = big left-aligned title-screen style,
+ *        side = docked on the right so the 3D scene stays visible
  */
-export function showCard(html, buttons = [], { title = false, list = false } = {}) {
+export function showCard(html, buttons = [], { title = false, list = false, side = false } = {}) {
   card.innerHTML = html;
   const row = document.createElement('div');
   row.className = list ? 'menu-list' : 'btns';
@@ -31,6 +35,7 @@ export function showCard(html, buttons = [], { title = false, list = false } = {
   }
   if (buttons.length) card.appendChild(row);
   overlay.classList.toggle('title', title);
+  overlay.classList.toggle('side', side);
   overlay.hidden = false;
   card.scrollTop = 0;
   const first = row.querySelector('.primary') || row.querySelector('button');
@@ -96,7 +101,7 @@ export function showTitle(actions) {
     `<div class="logo">GET<span>AWAY</span></div>
      <p class="sub">A heist gone wrong. Someone on your crew talked. Get out, lose the cops, and find the rat.</p>`,
     [
-      { label: 'Story: Chapter 1', sub: 'The Harbor Trust Job. Part 1: the rooftop escape', primary: true, onClick: actions.chapter1 },
+      { label: 'Story', sub: 'Escape, drive, and find out who betrayed you', primary: true, onClick: () => showChapterSelect(actions) },
       { label: 'Rooftop Run', sub: `Parkour survival: outrun the police helicopters. Best: ${best.rooftopRun.toLocaleString('en-US')}`, onClick: actions.rooftopRun },
       { label: 'Street Chase', sub: `Driving survival: lose the cops, use nitro. Best: ${best.streetChase.toLocaleString('en-US')}`, onClick: actions.streetChase },
       { label: 'Free Run', sub: 'Practise parkour on the rooftops, no helicopters', onClick: actions.freeRun },
@@ -104,4 +109,39 @@ export function showTitle(actions) {
     ],
     { title: true, list: true },
   );
+}
+
+/** Chapter select: pick a chapter (and part), see ratings, open the Case Board. */
+export function showChapterSelect(actions) {
+  const p = save.data.progress;
+  const back = () => showChapterSelect(actions);
+  const rows = CHAPTER_LIST.map((c, i) => {
+    const unlocked = c.available && i + 1 <= (p.chapterUnlocked || 1);
+    const rating = p.ratings?.[c.id];
+    const best = p.bestTimes?.[`${c.id}.total`];
+    const status = !c.available ? 'Coming in Milestone 7'
+      : !unlocked ? 'Locked: solve the previous chapter'
+      : [p.solved?.[c.id] ? 'Solved' : 'Not solved yet', rating ? `rating ${rating}` : '', best != null ? `best ${formatTime(best)}` : ''].filter(Boolean).join(' · ');
+    return { c, unlocked, status };
+  });
+  const buttons = [];
+  for (const r of rows) {
+    buttons.push({ label: r.c.title, sub: r.status, primary: r.c.id === 'chapter1', disabled: !r.unlocked,
+      onClick: () => showChapterParts(r.c.id, actions, back) });
+  }
+  buttons.push({ label: 'Back', onClick: () => showTitle(actions) });
+  showCard('<h2>Story</h2><p class="sub">Each chapter: escape on foot, lose the police, then work out who betrayed you.</p>', buttons, { list: true });
+}
+
+function showChapterParts(chapterId, actions, back) {
+  const chapter = CHAPTERS[chapterId];
+  const found = new Set(save.data.progress.clues?.[chapterId] || []);
+  showCard(`<p class="sub kicker">${chapter.title}</p><h2>Choose where to start</h2>
+    <p class="sub">A chapter rating needs a full run from Part 1. Starting later is good for practice.</p>`, [
+    { label: 'Part 1: The rooftops', sub: 'Play the whole chapter from the start', primary: true, onClick: () => actions.story(chapterId, 'rooftops') },
+    { label: 'Part 2: The drive', sub: 'Jump straight into the getaway drive', onClick: () => actions.story(chapterId, 'drive') },
+    { label: 'Case Board', sub: `Every clue you have ever found (${found.size}/${Object.keys(chapter.clues).length})`,
+      onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back)) },
+    { label: 'Back', onClick: back },
+  ], { list: true });
 }

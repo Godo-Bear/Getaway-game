@@ -71,8 +71,9 @@ export class ChapterRooftopsMode {
       const ring = new THREE.Mesh(new THREE.RingGeometry(0.7, 0.85, 24), makeGlowMaterial(0xffb020, 0.7));
       ring.rotation.x = -Math.PI / 2;
       ring.position.y = 0.04;
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 6, 8, 1, true), makeGlowMaterial(0xffb020, 0.25));
-      beam.position.y = 3;
+      // Tall amber beam so clues can be spotted from several roofs away.
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 30, 8, 1, true), makeGlowMaterial(0xffb020, 0.35));
+      beam.position.y = 15;
       g.add(item, gem, ring, beam);
       this.level.group.add(g);
       return { ...c, group: g, gem };
@@ -121,15 +122,7 @@ export class ChapterRooftopsMode {
     hud.setPhase(`${this.chapter.title} · Part 1: The rooftops`);
     hud.setObjective(this.chapter.rooftopObjective);
 
-    if (first) {
-      const intro = this.chapter.intro;
-      s.showStoryCard(`
-        <p class="sub" style="color:var(--amber);margin-bottom:4px">${intro.kicker}</p>
-        <h2>${intro.title}</h2>
-        ${intro.text.map((t) => `<p>${t}</p>`).join('')}
-        <p class="sub">Follow the orange arrows and the blue checkpoint lights. Keep out of the helicopter's spotlight. Clues are hidden on the roofs, some off the main path.</p>`,
-      'Start the escape');
-    }
+    if (first) s.showStoryCards(this.chapter.prologue, 'Start the escape');
   }
 
   get checkpoint() {

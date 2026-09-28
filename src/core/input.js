@@ -16,7 +16,8 @@ export const BINDINGS = {
   sprint: ['ShiftLeft', 'ShiftRight'],
   crouch: ['KeyC', 'ControlLeft'],
   respawn: ['KeyR'],
-  view: ['KeyV'],           // on foot: first / third person
+  view: ['KeyV'],
+  caseBoard: ['Tab'],       // story: open the Case Board           // on foot: first / third person
   horn: ['KeyQ'],          // driving: honk so traffic moves aside
   camera: ['KeyC', 'KeyV'], // driving: change camera
   pause: ['KeyP', 'Escape'],
@@ -25,7 +26,7 @@ export const BINDINGS = {
 };
 
 // Keys whose default browser behaviour (scrolling, etc.) we block while playing.
-const BLOCK_DEFAULT = new Set(['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F3', 'Backquote']);
+const BLOCK_DEFAULT = new Set(['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F3', 'Backquote']);
 
 export class Input {
   /** @param {HTMLElement} target - the element to lock the mouse to (the canvas). */
@@ -50,7 +51,9 @@ export class Input {
 
   _bind() {
     window.addEventListener('keydown', (e) => {
-      if (BLOCK_DEFAULT.has(e.code)) e.preventDefault();
+      // (Tab still moves between buttons while a menu is open.)
+      const menuOpen = document.getElementById('overlay')?.hidden === false;
+      if (BLOCK_DEFAULT.has(e.code) && !(e.code === 'Tab' && menuOpen)) e.preventDefault();
       if (!e.repeat) this.pressed.add(e.code);
       this.down.add(e.code);
     });
