@@ -52,6 +52,12 @@ export class StreetChaseMode {
     s.beacon.set(n.x, n.z, 'Cash drop', 0x4dffa6);
   }
 
+  /** Roadblocks from heat 4, more often at heat 5. Spike strips too. */
+  roadblockRules() {
+    if (this.heat < 4) return null;
+    return { roadblockEvery: this.heat === 4 ? 20 : 13, spikes: true };
+  }
+
   onPoliceRam() {
     this.heatProgress += 4; // ramming the police makes them angrier
   }

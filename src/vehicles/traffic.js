@@ -96,11 +96,20 @@ export class Traffic {
     }
   }
 
-  update(dt, player, camera, otherCars) {
+  update(dt, player, camera, otherCars, policeUnits = []) {
     const graph = this.city.graph;
     const lights = this.city.trafficLights;
     for (const c of this.civs) {
       const car = c.car;
+
+      // Pull over for police cars coming up behind with sirens on.
+      for (const u of policeUnits) {
+        if (u.mode === 'search') continue;
+        const dx = car.pos.x - u.car.pos.x, dz = car.pos.z - u.car.pos.z;
+        const ahead = dx * u.car.fwdX + dz * u.car.fwdZ;     // how far in front of the cop
+        const side = Math.abs(-dx * u.car.fwdZ + dz * u.car.fwdX);
+        if (ahead > 0 && ahead < 28 && side < 6) c.swerveTimer = Math.max(c.swerveTimer, 1.5);
+      }
 
       // Knocked by a collision: coast to a stop, then get recycled.
       if (car.lastImpact > 7 && c.knockedTimer <= 0) c.knockedTimer = 5;

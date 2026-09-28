@@ -271,6 +271,35 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     }
   }
 
+  // --- Elevated railway ("the El") over one avenue -------------------------
+  // Pillars stand along both kerbs, the deck runs 8 m up. Driving underneath
+  // helps you lose the police, like alleys and parks.
+  const elK = Math.floor(n / 2) - 1;
+  const elZ = roadC(elK);
+  const EL_HALF = 6.5, EL_Y = 8;
+  const pillarLook = { side: 'plain', top: 'plain', color: 0x3b4048 };
+  for (let x = outer + 6; x < outerMax - 6; x += 17) {
+    const nearNode = Math.abs(x - roadC(Math.round((x - roadC(0)) / PITCH))) < ROAD / 2 + 3;
+    if (nearNode) continue;
+    for (const side of [-1, 1]) {
+      const pz = elZ + side * (ROAD / 2 - 0.55);
+      world.addBox(x - 0.4, 0, pz - 0.4, x + 0.4, EL_Y, pz + 0.4, { tag: 'pillar' });
+      batch.addBox({ x: x - 0.4, y: 0, z: pz - 0.4 }, { x: x + 0.4, y: EL_Y, z: pz + 0.4 }, pillarLook);
+    }
+  }
+  world.addBox(outer, EL_Y, elZ - EL_HALF, outerMax, EL_Y + 1.2, elZ + EL_HALF, { tag: 'bridge' });
+  batch.addBox({ x: outer, y: EL_Y, z: elZ - EL_HALF }, { x: outerMax, y: EL_Y + 1.2, z: elZ + EL_HALF },
+    { side: 'metal', top: 'concrete', bottom: 'plain', color: 0x5a6068, uvScale: [2, 1.2], topScale: [4, 4] });
+  for (const side of [-1, 1]) {
+    // Side girders and the rails
+    batch.addBox({ x: outer, y: EL_Y + 1.2, z: elZ + side * EL_HALF - 0.25 }, { x: outerMax, y: EL_Y + 2.0, z: elZ + side * EL_HALF + 0.25 }, pillarLook);
+    for (const r of [-0.75, 0.75]) {
+      const rz = elZ + side * 2.8 + r;
+      batch.addBox({ x: outer, y: EL_Y + 1.2, z: rz - 0.07 }, { x: outerMax, y: EL_Y + 1.35, z: rz + 0.07 }, { side: 'plain', top: 'plain', color: 0x8a8f96 });
+    }
+  }
+  minimapShapes.push({ type: 'bridge', x0: outer, z0: elZ - EL_HALF, x1: outerMax, z1: elZ + EL_HALF });
+
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));
   group.add(buildRampMeshes(ramps));
@@ -305,6 +334,9 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     return 0;
   }
 
+  const train = new ElevatedTrain(outer, outerMax, elZ + 2.8, EL_Y + 1.35);
+  group.add(train.group);
+
   const inRect = (x, z, r, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && z > r.z0 - pad && z < r.z1 + pad;
 
   return {
@@ -314,6 +346,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     groundHeight,
     isInAlley: (x, z) => alleys.some((a) => inRect(x, z, a)),
     isInPark: (x, z) => parks.some((p) => inRect(x, z, p)),
+    isUnderBridge: (x, z) => Math.abs(z - elZ) < EL_HALF && x > outer && x < outerMax,
+    train,
   };
 }
 
@@ -475,5 +509,44 @@ export class TrafficLights {
       this.heads.setColorAt(i, this._c.set(colors[this.state(a.node, a.axis)]));
     });
     this.heads.instanceColor.needsUpdate = true;
+  }
+}
+
+// ----------------------------------------------------------------------
+// A three-car train that runs back and forth along the elevated line.
+// Pure decoration: it has no collider (nothing can reach it anyway).
+// ----------------------------------------------------------------------
+class ElevatedTrain {
+  constructor(minX, maxX, z, y) {
+    this.minX = minX + 30;
+    this.maxX = maxX - 30;
+    this.x = this.minX;
+    this.dir = 1;
+    this.wait = 0;
+    this.group = new THREE.Group();
+    this.group.position.set(this.x, y, z);
+    const body = new THREE.MeshLambertMaterial({ color: 0x9aa3ad });
+    const glow = new THREE.MeshBasicMaterial({ color: 0xfff0c0, toneMapped: false });
+    const carGeo = new THREE.BoxGeometry(14, 3.2, 3);
+    const winGeo = new THREE.BoxGeometry(12, 0.9, 3.05);
+    for (let i = 0; i < 3; i++) {
+      const car = new THREE.Mesh(carGeo, body);
+      car.position.set(-i * 14.6, 1.8, 0);
+      const win = new THREE.Mesh(winGeo, glow);
+      win.position.set(-i * 14.6, 2.2, 0);
+      this.group.add(car, win);
+    }
+  }
+
+  update(dt) {
+    if (this.wait > 0) { this.wait -= dt; return; }
+    this.x += this.dir * 18 * dt;
+    if (this.x > this.maxX || this.x < this.minX) {
+      this.x = Math.max(this.minX, Math.min(this.maxX, this.x));
+      this.dir *= -1;
+      this.wait = 4;
+      this.group.rotation.y = this.dir > 0 ? 0 : Math.PI;
+    }
+    this.group.position.x = this.x;
   }
 }

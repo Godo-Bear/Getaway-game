@@ -8,6 +8,7 @@ import { makeCarMesh } from '../vehicles/carModel.js';
 import { Traffic } from '../vehicles/traffic.js';
 import { ParticleSystem } from '../vehicles/particles.js';
 import { PoliceForce } from '../ai/police.js';
+import { Roadblocks } from '../ai/roadblocks.js';
 import { Minimap } from '../ui/minimap.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
@@ -83,6 +84,7 @@ export class DrivingState extends PlayState {
     this.police = new PoliceForce(this.scene, this.city, this.rng);
     this.traffic = new Traffic(this.scene, this.city, this.rng, 22);
     this.particles = new ParticleSystem(this.scene, 320);
+    this.roadblocks = new Roadblocks(this.scene, this.city, this.rng);
     this.minimap = new Minimap(game.hud.el.map, this.city);
     this.beacon = this._buildBeacon();
     this.mode.build?.();
@@ -122,6 +124,10 @@ export class DrivingState extends PlayState {
 
   restart() {
     this.player.health = 1;
+    this.flatTyres = 0;
+    this.player.speedFactor = 1;
+    this.player.gripFactor = 1;
+    this.roadblocks.clear();
     this.nitro = 1;
     this.time = 0;
     this.busted = 0;
@@ -174,7 +180,7 @@ export class DrivingState extends PlayState {
     this.police.setCount(heat.cops, p, this.camera);
     this.police.update(dt, p, heat, this.camera);
     const all = [p, ...this.police.cars, ...this.traffic.cars];
-    this.traffic.update(dt, p, this.camera, all);
+    this.traffic.update(dt, p, this.camera, all, this.police.units);
 
     // --- Physics
     for (const car of all) car.step(dt, ground);
@@ -214,6 +220,7 @@ export class DrivingState extends PlayState {
       this._updatePursuit(dt);
       this._updateBusted(dt);
       this._updateNearMisses();
+      this._updateRoadblocks(dt);
       this.mode.update(dt);
       this._updateEffects();
     }
@@ -222,6 +229,7 @@ export class DrivingState extends PlayState {
     this.police.syncMeshes(this.time);
     this.traffic.syncMeshes();
     this.city.trafficLights.update(frozen ? 0 : dt);
+    this.city.train.update(frozen ? 0 : dt);
     this.playerMesh.userData.flames.visible = p.boosting;
     this.playerMesh.userData.tailMat.color.setHex(p.controls.throttle < 0 ? 0xff2030 : 0x881018);
     this.beacon.ring.rotation.z += dt;
@@ -237,7 +245,9 @@ export class DrivingState extends PlayState {
       color: Math.floor(this.time * 4 + u.car.pos.x) % 2 ? '#ff3346' : '#3d7bff',
     }));
     const target = this.beacon.group.visible ? this.beacon.pos : null;
-    this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color);
+    const police = this.police;
+    const search = police.searching ? { x: police.lastKnown.x, z: police.lastKnown.z, r: police.searchRadius } : null;
+    this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color, search);
     if (target) {
       const bd = Math.hypot(target.x - p.pos.x, target.z - p.pos.z);
       hud.setMarker(target.clone().setY(4), this.camera, this.beacon.label, this.beacon.color, bd);
@@ -249,10 +259,10 @@ export class DrivingState extends PlayState {
     } else hud.setDebug('');
   }
 
-  /** Is the player somewhere the cops struggle to see (alley or park)? */
+  /** Is the player somewhere the cops struggle to see (alley, park, under the El)? */
   get playerHidden() {
     const p = this.player.pos;
-    return this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z);
+    return this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z) || this.city.isUnderBridge(p.x, p.z);
   }
 
   /** Losing the cops: stay out of sight long enough and they start searching. */
@@ -288,6 +298,33 @@ export class DrivingState extends PlayState {
       this.busted = 0;
       this.game.hud.setMeter(0, '');
       this.mode.onBusted();
+    }
+  }
+
+  /** Roadblocks and spike strips (only when the mode's rules allow them). */
+  _updateRoadblocks(dt) {
+    const p = this.player;
+    const rules = this.mode.roadblockRules?.() ?? null;
+    if (this.roadblocks.update(dt, p, rules) === 'spiked') {
+      this.flatTyres = 10;
+      this.game.hud.toast('Tyres burst!', 'Spike strip. Less grip and a lower top speed for 10 seconds.', 'var(--red)');
+      for (let i = 0; i < 30; i++) {
+        this.particles.emit(p.pos.x, 0.4, p.pos.z, { vx: (Math.random() - 0.5) * 8, vy: 2 + Math.random() * 3, vz: (Math.random() - 0.5) * 8, size: 0.35, grow: -0.2, life: 0.5, alpha: 1, color: [1, 0.7, 0.2] });
+      }
+    }
+    if (this.flatTyres > 0) {
+      this.flatTyres -= dt;
+      p.speedFactor = 0.6;
+      p.gripFactor = 0.45;
+      // Sparks from the rims
+      if (p.speed > 5 && Math.random() < 0.5) {
+        this.particles.emit(p.pos.x - p.fwdX * 1.4, 0.2, p.pos.z - p.fwdZ * 1.4, { vx: -p.vel.x * 0.2 + (Math.random() - 0.5) * 3, vy: 1.5, vz: -p.vel.z * 0.2 + (Math.random() - 0.5) * 3, size: 0.3, grow: -0.2, life: 0.35, alpha: 1, color: [1, 0.75, 0.3] });
+      }
+      if (this.flatTyres <= 0) {
+        p.speedFactor = 1;
+        p.gripFactor = 1;
+        this.game.hud.toast('Tyres re-inflated', 'Run-flat foam did its job.', 'var(--safe)');
+      }
     }
   }
 
@@ -370,6 +407,7 @@ export class DrivingState extends PlayState {
   }
 
   teardown() {
+    this.roadblocks?.clear();
     this.police?.clear();
     this.traffic?.clear();
     this.particles?.dispose();

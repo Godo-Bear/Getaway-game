@@ -58,7 +58,8 @@ export class Car {
     this.roll = 0;
     this.wheelSpin = 0;
     this.lastImpact = 0;     // biggest collision this step (m/s)
-    this.speedFactor = 1;    // multiplier the AI can use (heat level)
+    this.speedFactor = 1;    // top speed multiplier (heat level for AI, burst tyres for the player)
+    this.gripFactor = 1;     // tyre grip multiplier (burst tyres slide more)
     this.controls = { throttle: 0, steer: 0, handbrake: false, nitro: false };
     this._groundVy = 0;
   }
@@ -122,7 +123,7 @@ export class Car {
       if (c.handbrake) vF -= Math.sign(vF) * Math.min(Math.abs(vF), 7 * dt);
 
       // --- Tyre grip: bleed off sideways speed
-      let grip = c.handbrake ? s.driftGrip : s.grip;
+      let grip = (c.handbrake ? s.driftGrip : s.grip) * this.gripFactor;
       if (!c.handbrake && Math.abs(vL) > 5) grip *= 0.45; // a slide takes a moment to recover
       vL *= Math.exp(-grip * dt);
 

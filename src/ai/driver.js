@@ -53,7 +53,10 @@ export function handleStuck(car, ai, dt) {
     ai.stuckTimer = 0;
     ai.stuckCount++;
     ai.reverseTimer = 1.1;
-    ai.reverseSteer = car.controls.steer || 1;
+    // Reverse with the wheels turned hard, so we back out at an angle
+    // instead of straight back into the same obstacle.
+    const st = car.controls.steer;
+    ai.reverseSteer = Math.abs(st) > 0.2 ? Math.sign(st) : (Math.random() < 0.5 ? -1 : 1);
   }
   // Decay the counter slowly; lots of stuck events in a short time = give up.
   ai.stuckCount = Math.max(0, ai.stuckCount - dt * 0.15);

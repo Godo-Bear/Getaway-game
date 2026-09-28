@@ -26,7 +26,13 @@ export class Minimap {
     g.fillStyle = '#3a3e4a'; // roads (everything not covered is road)
     g.fillRect(0, 0, off.width, off.height);
     for (const s of city.minimapShapes) {
+      if (s.type === 'bridge') continue;
       g.fillStyle = s.type === 'park' ? '#1f4a2a' : '#12151d';
+      g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
+    }
+    for (const s of city.minimapShapes) {
+      if (s.type !== 'bridge') continue;
+      g.fillStyle = 'rgba(120,130,150,0.35)';
       g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
     }
     for (const a of city.alleys) {
@@ -41,7 +47,7 @@ export class Minimap {
    * @param {{x:number,z:number,color:string}[]} dots
    * @param {{x:number,z:number}|null} target
    */
-  draw(player, dots, target, time, targetColor = '#4dffa6') {
+  draw(player, dots, target, time, targetColor = '#4dffa6', search = null) {
     const g = this.ctx, S = this.size, scale = S / (VIEW_RADIUS * 2);
     g.save();
     g.clearRect(0, 0, S, S);
@@ -66,6 +72,16 @@ export class Minimap {
       g.beginPath();
       g.arc(target.x, target.z, 6 / scale * 0.9, 0, Math.PI * 2);
       g.fill();
+    }
+    // Area the police are searching (after you've lost them)
+    if (search) {
+      g.fillStyle = 'rgba(255,51,70,0.12)';
+      g.strokeStyle = 'rgba(255,51,70,0.6)';
+      g.lineWidth = 2 / scale;
+      g.beginPath();
+      g.arc(search.x, search.z, search.r, 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
     }
     // Police and other dots
     for (const d of dots) {
