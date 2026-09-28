@@ -20,6 +20,10 @@ export class FreeRunMode {
     hud.setObjective('Explore the rooftops');
   }
 
+  audioMix() {
+    return { music: 0.3, intensity: 0.2 };
+  }
+
   update() {
     const s = this.state;
     s.game.hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span><span>Falls <b>${s.falls}</b></span>`);

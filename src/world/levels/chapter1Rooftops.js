@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { RooftopKit } from '../rooftopKit.js';
 import { makeTextTexture, makeGlowMaterial } from '../materials.js';
 import { makeCarMesh } from '../../vehicles/carModel.js';
+import { playerCarColour } from '../../vehicles/carColours.js';
 
 // ======================================================================
 //  Chapter 1, Part 1: the rooftop escape
@@ -186,7 +187,7 @@ export function buildChapter1Rooftops() {
     m.position.set(x, 13, z);
     group.add(m);
   }
-  const car = makeCarMesh({ kind: 'player', color: 0xff9f1a });
+  const car = makeCarMesh({ kind: 'player', color: playerCarColour() });
   car.position.copy(carPos);
   car.rotation.y = Math.PI;
   group.add(car);

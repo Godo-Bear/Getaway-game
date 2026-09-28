@@ -6,6 +6,7 @@ import { SUSPECTS } from '../story/crew.js';
 import { getChapterRun, totalTime, chapterRating } from '../story/chapterRun.js';
 import { save } from '../core/save.js';
 import { formatTime, makeRng } from '../core/utils.js';
+import { audio } from '../core/audio.js';
 
 // Part 3 of a chapter: the deduction.
 //
@@ -227,6 +228,7 @@ export class DeductionState {
 
   _wrong(id, verdict) {
     this.wrong++;
+    audio.sfx('sting');
     this._highlight(id, 0xff3346);
     const { found, total } = this._clueCount();
     const missed = total - found;
@@ -245,6 +247,7 @@ export class DeductionState {
   }
 
   _solved(id, verdict) {
+    audio.sfx('win');
     this._highlight(id, 0x4dffa6);
     const chapter = this.chapter;
     const run = this.run;
@@ -312,6 +315,7 @@ export class DeductionState {
 
   update(dt) {
     this.time += dt;
+    audio.setMix({ music: 0.35, intensity: 0.08, city: 0.05 });
     // Slow drift, like a handheld camera in a quiet room.
     const t = this.time;
     this.camera.position.set(0.7 + Math.sin(t * 0.15) * 0.25, 1.7 + Math.sin(t * 0.22) * 0.08, 7.0 + Math.sin(t * 0.1) * 0.2);

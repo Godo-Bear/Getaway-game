@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeGlowMaterial, getGlowTexture } from '../world/materials.js';
 
 // Box-built car meshes (player getaway car, police cruisers, civilian cars).
@@ -41,7 +42,8 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888 } = {}) {
   const body = new THREE.Group(); // tilts for pitch/roll without moving wheels' parent
   g.add(body);
   const isVan = kind === 'van';
-  const bodyMat = lambert(color);
+  // The player's paint gets its own material so the colour can change live.
+  const bodyMat = kind === 'player' ? new THREE.MeshLambertMaterial({ color }) : lambert(color);
 
   if (isVan) {
     addBox(body, 2.2, 1.9, 5.0, bodyMat, 0, 1.4, 0);
@@ -146,8 +148,36 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888 } = {}) {
     g.add(flames);
   }
 
-  g.userData = { wheels, sirens, flames, body, beam, tailMat };
+  // Hubcaps only on the player's car (nobody looks that closely at traffic).
+  if (kind !== 'player') for (const w of wheels) w.clear();
+  // Performance: merge all the static body boxes that share a material into
+  // one mesh each. A car goes from ~20 draw calls to ~8.
+  const keep = new Set([tailMat, sirens?.red, sirens?.blue].filter(Boolean));
+  mergeStatic(body, keep);
+
+  g.userData = { wheels, sirens, flames, body, beam, tailMat, paint: kind === 'player' ? bodyMat : null };
   return g;
+}
+
+/** Merge the plain Mesh children of `group` by material (except `keep`). */
+function mergeStatic(group, keep) {
+  const byMat = new Map();
+  for (const child of [...group.children]) {
+    if (!child.isMesh || keep.has(child.material)) continue;
+    child.updateMatrix();
+    const geo = child.geometry.clone().applyMatrix4(child.matrix);
+    if (!byMat.has(child.material)) byMat.set(child.material, []);
+    byMat.get(child.material).push(geo);
+    group.remove(child);
+  }
+  for (const [mat, geos] of byMat) {
+    const merged = mergeGeometries(geos, false);
+    geos.forEach((g) => g.dispose());
+    const mesh = new THREE.Mesh(merged, mat);
+    mesh.castShadow = true;
+    mesh.renderOrder = mat.depthTest === false ? 10 : 0;
+    group.add(mesh);
+  }
 }
 
 /** Flash police lights. Call every frame with the running time. */

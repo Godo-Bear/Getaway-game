@@ -25,6 +25,12 @@ Handy URL options for testing:
 
 Press **F3** (or **`**) in game for an FPS / debug readout.
 
+**Controls:** keyboard + mouse, any standard gamepad (Xbox layout: sticks, A jump/handbrake, RB nitro/sprint, RT/LT gas/brake, Y view, Menu pause; the d-pad and A/B drive menus), or touch (virtual joystick + buttons appear on the first touch). See *Controls* on the title screen.
+
+**Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, graphics quality (low / medium / high), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
+
+**Audio:** recorded sounds and voices in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
+
 ## Modes
 
 * **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight.

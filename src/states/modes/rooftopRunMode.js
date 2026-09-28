@@ -4,6 +4,7 @@ import { makeGlowMaterial } from '../../world/materials.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { save } from '../../core/save.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
+import { audio } from '../../core/audio.js';
 
 // Rooftop Run: endless helicopter survival.
 //
@@ -61,6 +62,18 @@ export class RooftopRunMode {
   onFall() {
     this.state.respawnToSafety('You fell. The helicopter gets a head start.');
     this.spotted = Math.max(this.spotted, 0.4);
+  }
+
+  audioMix() {
+    const p = this.state.player.pos;
+    let d = Infinity;
+    for (const h of this.helis) d = Math.min(d, Math.hypot(h.pos.x - p.x, h.pos.z - p.z));
+    return {
+      rotor: this.helis.length ? clamp(1 - d / 110, 0.05, 1) * 0.55 : 0,
+      siren: 0.06,
+      music: 0.5,
+      intensity: 0.3 + this.spotted * 0.7 + this.level * 0.03,
+    };
   }
 
   _spawnHelicopter() {
@@ -147,6 +160,7 @@ export class RooftopRunMode {
         this.score += bonus;
         this.cashCollected++;
         hud.toast(`+${bonus} cash!`, '', 'var(--safe)');
+        audio.sfx('cash');
         this._placePickup();
       }
       hud.setMarker(pk.pos.clone().setY(pk.pos.y + 1.5), s.camera, 'Cash', 'var(--safe)', d);
@@ -163,6 +177,7 @@ export class RooftopRunMode {
     const s = this.state;
     const score = Math.floor(this.score);
     const isBest = save.submitBest('rooftopRun', score);
+    audio.sfx('caught');
     s.game.hud.setMeter(0, '');
     s.gameOver(`
       <h2>Caught!</h2>

@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { NightLighting } from '../world/lighting.js';
 import { generateRooftopCity } from '../world/rooftopCity.js';
 import { showTitle, hideCard } from '../ui/menus.js';
+import { showSettings } from '../ui/settings.js';
+import { audio } from '../core/audio.js';
 
 // Title screen: the menu card on the left, and behind it a slow camera
 // fly-around of the night-time rooftops.
@@ -23,6 +25,7 @@ export class TitleState {
     }
     this.game.hud.hideAll();
     showTitle({
+      settings: (back) => showSettings(this.game, back),
       story: (chapterId, part) => {
         this.game.chapterRun = null;
         if (part === 'drive') this.game.sm.change('driving', { mode: chapterId });
@@ -40,6 +43,7 @@ export class TitleState {
 
   update(dt) {
     this.time += dt;
+    audio.setMix({ music: 0.45, intensity: 0.15, city: 0.08 });
     const a = this.time * 0.04;
     this.camera.position.set(Math.cos(a) * 90, 52, Math.sin(a) * 90);
     this.camera.lookAt(Math.cos(a + 0.9) * 20, 18, Math.sin(a + 0.9) * 20);

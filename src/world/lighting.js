@@ -11,8 +11,13 @@ import { makeRng } from '../core/utils.js';
 
 export const SKY_COLOR = 0x0b0f1c;
 
+/** Lighting options for a graphics quality setting ('low' | 'medium' | 'high'). */
+export function lightingForQuality(q) {
+  return { shadows: q !== 'low', mapSize: q === 'high' ? 2048 : 1024 };
+}
+
 export class NightLighting {
-  constructor(scene, { shadows = true } = {}) {
+  constructor(scene, { shadows = true, mapSize = 2048 } = {}) {
     this.scene = scene;
     scene.background = new THREE.Color(SKY_COLOR);
     // Linear fog: fully clear up to 60 m, fully fogged by 320 m.
@@ -28,7 +33,7 @@ export class NightLighting {
     this.moon.castShadow = shadows;
     if (shadows) {
       const s = this.moon.shadow;
-      s.mapSize.set(2048, 2048);
+      s.mapSize.set(mapSize, mapSize);
       s.camera.left = -35;
       s.camera.right = 35;
       s.camera.top = 35;

@@ -7,6 +7,8 @@ import { CHAPTER1 } from '../../story/chapter1.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { newChapterRun } from '../../story/chapterRun.js';
+import { audio } from '../../core/audio.js';
+import { SUSPECTS } from '../../story/crew.js';
 
 // Chapter 1, Part 1: the rooftop escape (a hand-built story level).
 //
@@ -125,6 +127,19 @@ export class ChapterRooftopsMode {
     if (first) s.showStoryCards(this.chapter.prologue, 'Start the escape');
   }
 
+  audioMix() {
+    const p = this.state.player.pos;
+    const heliOn = this.state.time > HELI_DELAY && this.heli;
+    const d = heliOn ? Math.hypot(this.heli.pos.x - p.x, this.heli.pos.z - p.z) : Infinity;
+    audio.sirenDistance(90); // police cars down on the street
+    return {
+      rotor: heliOn ? clamp(1 - d / 110, 0.05, 1) * 0.55 : 0,
+      siren: 0.12,
+      music: 0.5,
+      intensity: 0.35 + this.spotted * 0.65,
+    };
+  }
+
   get checkpoint() {
     return this.level.checkpoints[this.cp];
   }
@@ -165,6 +180,7 @@ export class ChapterRooftopsMode {
         if (p.pos.x > r.minX && p.pos.x < r.maxX && p.pos.z > r.minZ && p.pos.z < r.maxZ && Math.abs(p.pos.y - r.h) < 1) {
           this.cp = i;
           hud.toast('Checkpoint reached', cps[i].name, 'var(--cyan)');
+          audio.sfx('checkpoint');
         }
       }
     }
@@ -183,7 +199,10 @@ export class ChapterRooftopsMode {
     if (t > HELI_DELAY) {
       if (!this.heliAnnounced) {
         this.heliAnnounced = true;
-        hud.toast('Police helicopter!', 'Stay out of the spotlight. Hide under water towers or in stairwell huts.', 'var(--red)');
+        // Det. Hale on the helicopter loudspeaker (with a subtitle)
+        const c = this.chapter.heliCallout;
+        hud.toast(`${SUSPECTS[c.who].name}, on the loudspeaker`, `"${c.line}" Stay out of the spotlight: hide under water towers or in stairwell huts.`, SUSPECTS[c.who].color, 7);
+        audio.voice(c.voice);
       }
       const params = { spotSpeed: 5.8 + Math.min(1.2, t / 90), fill: 0.6, lead: 0.15 };
       this.heli.update(dt, p, params);
@@ -194,6 +213,7 @@ export class ChapterRooftopsMode {
         lit ? 'var(--red)' : '#8a8f9c');
       if (this.spotted >= 1) {
         this.caught++;
+        audio.sfx('caught');
         this._respawnAtCheckpoint('Caught!', 'The helicopter pinned you. Back to the last checkpoint.', 'var(--red)');
       }
     }
@@ -240,6 +260,7 @@ export class ChapterRooftopsMode {
     c.group.visible = false;
     save.addClue(this.chapter.id, c.id);
     const info = this.chapter.clues[c.id];
+    audio.sfx('clue');
     this.state.game.hud.toast(`Clue: ${info.name}`, info.text, 'var(--amber)', 7);
   }
 
@@ -253,6 +274,7 @@ export class ChapterRooftopsMode {
 
   _complete() {
     this.done = true;
+    audio.sfx('win');
     const s = this.state;
     const time = s.time;
     const key = `${this.chapter.id}.rooftops`;

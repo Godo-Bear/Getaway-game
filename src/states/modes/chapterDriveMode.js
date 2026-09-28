@@ -4,6 +4,7 @@ import { CHAPTER1 } from '../../story/chapter1.js';
 import { getChapterRun } from '../../story/chapterRun.js';
 import { save } from '../../core/save.js';
 import { formatTime } from '../../core/utils.js';
+import { audio } from '../../core/audio.js';
 
 // Chapter 1, Part 2: the getaway drive.
 //
@@ -104,6 +105,7 @@ export class ChapterDriveMode {
   }
 
   onEvade() {
+    audio.sfx('checkpoint');
     this.state.game.hud.toast('Cops lost!', 'They\'re searching the area. Get to the safehouse before they find you again.', 'var(--safe)');
   }
 
@@ -130,6 +132,7 @@ export class ChapterDriveMode {
         this.run.clues.add('keycard');
         save.addClue(this.chapter.id, 'keycard');
         const info = this.chapter.clues.keycard;
+        audio.sfx('clue');
         hud.toast(`Clue: ${info.name}`, info.text, 'var(--amber)', 7);
       }
     }
@@ -184,6 +187,7 @@ export class ChapterDriveMode {
 
   _complete() {
     this.done = true;
+    audio.sfx('door');
     const s = this.state;
     const run = this.run;
     run.parts.drive = s.time;

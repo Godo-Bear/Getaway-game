@@ -2,6 +2,8 @@ import { showCard, hideCard, controlsHtml } from '../ui/menus.js';
 import { playStoryCards } from '../ui/storyCards.js';
 import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
+import { showSettings } from '../ui/settings.js';
+import { audio } from '../core/audio.js';
 
 // Shared behaviour for every "playing" mode (on foot, driving):
 //   - pause menu (P / Esc, or automatically when the mouse lock is lost)
@@ -51,7 +53,7 @@ export class PlayState {
   /** Are we waiting for the player to click so we can lock the mouse? */
   get waitingForLock() {
     const inp = this.game.input;
-    return this.needsPointerLock && !inp.pointerLocked && !inp.pointerLockFailed;
+    return this.needsPointerLock && !inp.pointerLocked && !inp.pointerLockFailed && !inp.noMouseNeeded;
   }
 
   _updateClickPrompt() {
@@ -60,7 +62,7 @@ export class PlayState {
 
   _lockChanged() {
     // Losing the mouse lock mid-game (Esc) pauses, like most PC games.
-    if (!this.game.input.pointerLocked && this.needsPointerLock && !this.paused && !this.over && !this.inCard) {
+    if (!this.game.input.pointerLocked && this.needsPointerLock && !this.game.input.noMouseNeeded && !this.paused && !this.over && !this.inCard) {
       this.pause();
     }
     this._updateClickPrompt();
@@ -80,6 +82,7 @@ export class PlayState {
       { label: 'Resume', primary: true, onClick: resume },
       ...(chapter ? [{ label: 'Case Board', onClick: () => showCaseBoard(chapter, run.clues, back) }] : []),
       { label: 'Restart', onClick: () => { hideCard(); this.paused = false; this.restart(); this._afterResume(); } },
+      { label: 'Settings', onClick: () => showSettings(this.game, back) },
       { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]) },
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ]);
@@ -105,7 +108,7 @@ export class PlayState {
     this._updateClickPrompt();
     playStoryCards(pages, {
       finalLabel,
-      onDone: () => { this.inCard = false; onDone(); this._afterResume(); },
+      onDone: () => { audio.stopVoice(); this.inCard = false; onDone(); this._afterResume(); },
     });
   }
 
@@ -130,7 +133,7 @@ export class PlayState {
   }
 
   _afterResume() {
-    if (this.needsPointerLock) this.game.input.requestPointerLock();
+    if (this.needsPointerLock && !this.game.input.noMouseNeeded) this.game.input.requestPointerLock();
     this._updateClickPrompt();
   }
 
@@ -158,6 +161,7 @@ export class PlayState {
     if (input.wasPressed('caseBoard')) this.openCaseBoard();
     if (input.wasPressed('debug')) this.game.showDebug = !this.game.showDebug;
     this.game.hud.update(dt);
+    this._updateClickPrompt(); // e.g. hides the prompt once a gamepad is used
 
     const frozen = this.paused || this.over || this.inCard || this.waitingForLock;
     if (!frozen) {
@@ -174,6 +178,9 @@ export class PlayState {
       if (steps === 12) this.accumulator = 0; // way behind: drop time rather than spiral
     }
     this.frameUpdate(dt, frozen);
+    // While paused / in a menu: only quiet music (the state's own mix is skipped).
+    if (frozen) audio.setMix({ music: 0.3, intensity: 0.1 });
+    else audio.setMix(this.audioMix?.() ?? {});
   }
 
   render(renderer) {

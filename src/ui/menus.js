@@ -91,7 +91,26 @@ export function controlsHtml() {
       <kbd>C</kbd><span>Change camera</span>
       <kbd>R</kbd><span>Unstick the car (when stopped)</span>
     </div>
-    <div class="controls-grid"><kbd>P / Esc</kbd><span>Pause</span><kbd>H</kbd><span>Show / hide the controls help</span></div>`;
+    <div class="controls-grid"><kbd>P / Esc</kbd><span>Pause</span><kbd>Tab</kbd><span>Case Board (story)</span><kbd>H</kbd><span>Show / hide the controls help</span></div>
+    <p class="sub">Gamepad (Xbox layout)</p>
+    <div class="controls-grid">
+      <kbd>Left stick</kbd><span>Move / steer</span>
+      <kbd>Right stick</kbd><span>Look around</span>
+      <kbd>A</kbd><span>Jump / handbrake</span>
+      <kbd>RB or L3</kbd><span>Sprint / nitro</span>
+      <kbd>RT / LT</kbd><span>Accelerate / brake (driving)</span>
+      <kbd>X</kbd><span>Horn</span>
+      <kbd>Y</kbd><span>Switch view / camera</span>
+      <kbd>D-pad down</kbd><span>Back to safety / unstick</span>
+      <kbd>Menu / View</kbd><span>Pause / Case Board</span>
+      <kbd>D-pad + A / B</kbd><span>Move around menus, select, go back</span>
+    </div>
+    <p class="sub">Touch screen</p>
+    <div class="controls-grid">
+      <kbd>Left joystick</kbd><span>Move / steer and accelerate</span>
+      <kbd>Drag right side</kbd><span>Look around</span>
+      <kbd>Buttons</kbd><span>Jump or Drift, Sprint or Nitro, View or Camera, Horn, Pause</span>
+    </div>`;
 }
 
 /** Title screen. `actions` = { rooftopRun, freeRun, streetChase } callbacks. */
@@ -105,6 +124,7 @@ export function showTitle(actions) {
       { label: 'Rooftop Run', sub: `Parkour survival: outrun the police helicopters. Best: ${best.rooftopRun.toLocaleString('en-US')}`, onClick: actions.rooftopRun },
       { label: 'Street Chase', sub: `Driving survival: lose the cops, use nitro. Best: ${best.streetChase.toLocaleString('en-US')}`, onClick: actions.streetChase },
       { label: 'Free Run', sub: 'Practise parkour on the rooftops, no helicopters', onClick: actions.freeRun },
+      { label: 'Settings', sub: 'Volume, controls, graphics, car colour', onClick: () => actions.settings(() => showTitle(actions)) },
       { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: () => showTitle(actions) }]) },
     ],
     { title: true, list: true },

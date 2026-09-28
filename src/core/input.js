@@ -1,8 +1,13 @@
-// Input: keyboard + mouse, turned into named "actions".
+// Input: keyboard + mouse, gamepad and touch, all turned into named "actions".
 //
 // Game code never asks "is the W key down?". It asks "is `forward` down?".
-// That way we can add gamepad and touch controls later (Milestone 6) by
-// feeding the same actions, without touching the player or car code.
+// Keyboard keys, gamepad buttons and on-screen touch buttons all feed the
+// same actions, so the player and car code work with any of them.
+//
+// Analog input (sticks, triggers, the touch joystick) comes through axis():
+// axis('left', 'right') and axis('back', 'forward') return -1..1.
+// Camera look from the right stick or a touch drag is added to the same
+// "mouse movement" the mouse uses, so cameras don't care where it came from.
 
 /** Which keys trigger which action. Several keys can share an action. */
 export const BINDINGS = {
@@ -16,14 +21,29 @@ export const BINDINGS = {
   sprint: ['ShiftLeft', 'ShiftRight'],
   crouch: ['KeyC', 'ControlLeft'],
   respawn: ['KeyR'],
-  view: ['KeyV'],
-  caseBoard: ['Tab'],       // story: open the Case Board           // on foot: first / third person
-  horn: ['KeyQ'],          // driving: honk so traffic moves aside
+  view: ['KeyV'],           // on foot: first / third person
+  caseBoard: ['Tab'],       // story: open the Case Board
+  horn: ['KeyQ'],           // driving: honk so traffic moves aside
   camera: ['KeyC', 'KeyV'], // driving: change camera
   pause: ['KeyP', 'Escape'],
   help: ['KeyH'],
   debug: ['F3', 'Backquote'],
 };
+
+/** Standard-layout gamepad buttons for each action (Xbox names). */
+export const PAD_BINDINGS = {
+  jump: [0],          // A: jump / handbrake
+  sprint: [5, 10],    // RB or left stick click: sprint / nitro
+  horn: [2],          // X
+  view: [3],          // Y: first/third person
+  camera: [3],        // Y: driving camera
+  respawn: [13],      // d-pad down
+  caseBoard: [8],     // View / Back
+  pause: [9],         // Menu / Start
+  help: [12],         // d-pad up
+};
+const DEADZONE = 0.18;
+const deadzone = (v) => (Math.abs(v) < DEADZONE ? 0 : (v - Math.sign(v) * DEADZONE) / (1 - DEADZONE));
 
 // Keys whose default browser behaviour (scrolling, etc.) we block while playing.
 const BLOCK_DEFAULT = new Set(['Tab', 'Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F3', 'Backquote']);
@@ -43,6 +63,11 @@ export class Input {
     this.pointerLockSupported = 'requestPointerLock' in target;
     this.pointerLocked = false;
     this.pointerLockFailed = !this.pointerLockSupported;
+
+    // Touch controls (ui/touch.js writes into this) and gamepad state (poll()).
+    this.touchMode = false;
+    this.touch = { x: 0, y: 0, buttons: new Set(), pressed: new Set() };
+    this.pad = { x: 0, y: 0, lt: 0, rt: 0, down: new Set(), pressed: new Set(), active: false };
     this.everLocked = false;
     this._dragging = false;
 
@@ -108,26 +133,43 @@ export class Input {
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
-  /** True while any key bound to `action` is held. */
+  /** True while any key / button bound to `action` is held. */
   isDown(action) {
     const keys = BINDINGS[action];
     for (let i = 0; i < keys.length; i++) if (this.down.has(keys[i])) return true;
+    if (this.touch.buttons.has(action)) return true;
+    const pb = PAD_BINDINGS[action];
+    if (pb) for (const b of pb) if (this.pad.down.has(b)) return true;
     return false;
   }
 
-  /** True only on the frame a key bound to `action` was pressed. */
+  /** True only on the frame a key / button bound to `action` was pressed. */
   wasPressed(action) {
     const keys = BINDINGS[action];
     for (let i = 0; i < keys.length; i++) if (this.pressed.has(keys[i])) return true;
+    if (this.touch.pressed.has(action)) return true;
+    const pb = PAD_BINDINGS[action];
+    if (pb) for (const b of pb) if (this.pad.pressed.has(b)) return true;
     return false;
   }
 
-  /** -1..1 axis from two opposing actions, e.g. axis('left', 'right'). */
+  /**
+   * -1..1 axis from two opposing actions, e.g. axis('left', 'right').
+   * Keyboard wins if pressed; otherwise the touch joystick, then the gamepad.
+   */
   axis(negative, positive) {
-    return (this.isDown(positive) ? 1 : 0) - (this.isDown(negative) ? 1 : 0);
+    const keys = (this.isDown(positive) ? 1 : 0) - (this.isDown(negative) ? 1 : 0);
+    if (keys) return keys;
+    if (negative === 'left' && positive === 'right') return this.touch.x || this.pad.x;
+    if (negative === 'back' && positive === 'forward') {
+      if (this.touch.y) return this.touch.y;
+      const triggers = this.pad.rt - this.pad.lt; // driving: RT gas, LT brake
+      return Math.abs(triggers) > 0.05 ? triggers : this.pad.y;
+    }
+    return 0;
   }
 
-  /** Read and reset the mouse movement collected since the last call. */
+  /** Read and reset the look movement collected since the last call. */
   consumeMouse() {
     const d = { x: this.mouseDX, y: this.mouseDY };
     this.mouseDX = 0;
@@ -135,8 +177,62 @@ export class Input {
     return d;
   }
 
+  /** A gamepad or touch screen is in use (so mouse lock isn't needed). */
+  get noMouseNeeded() {
+    return this.touchMode || this.pad.active;
+  }
+
+  /** Call once at the start of every frame: reads the gamepad. */
+  poll(dt) {
+    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
+    const gp = [...pads].find((p) => p && p.connected);
+    const pad = this.pad;
+    if (!gp) { pad.x = pad.y = pad.rt = pad.lt = 0; pad.down.clear(); return; }
+    const prev = pad.down;
+    const now = new Set();
+    gp.buttons.forEach((b, i) => { if (b.pressed) now.add(i); });
+    for (const b of now) if (!prev.has(b)) pad.pressed.add(b);
+    pad.down = now;
+    pad.x = deadzone(gp.axes[0] || 0);
+    pad.y = -deadzone(gp.axes[1] || 0);
+    pad.lt = gp.buttons[6]?.value || 0;
+    pad.rt = gp.buttons[7]?.value || 0;
+    const lookX = deadzone(gp.axes[2] || 0), lookY = deadzone(gp.axes[3] || 0);
+    // Right stick looks around: full tilt is like moving the mouse 800 px/s.
+    this.mouseDX += lookX * 800 * dt;
+    this.mouseDY += lookY * 800 * dt;
+    if (now.size || pad.x || pad.y || lookX || lookY || pad.rt > 0.1) pad.active = true;
+    this._menuNavigation(pad);
+  }
+
+  /** Let the gamepad drive menus: d-pad / stick to move, A to press, B to go back. */
+  _menuNavigation(pad) {
+    const overlay = document.getElementById('overlay');
+    if (!overlay || overlay.hidden) return;
+    const buttons = [...overlay.querySelectorAll('button:not([disabled])')];
+    if (!buttons.length) return;
+    const idx = buttons.indexOf(document.activeElement);
+    const stickDown = pad.y < -0.6, stickUp = pad.y > 0.6;
+    const now = performance.now();
+    const repeatOk = now - (this._navAt || 0) > 220;
+    let move = 0;
+    if (pad.pressed.has(13) || pad.pressed.has(15) || (stickDown && repeatOk)) move = 1;
+    if (pad.pressed.has(12) || pad.pressed.has(14) || (stickUp && repeatOk)) move = -1;
+    if (move) {
+      this._navAt = now;
+      const next = buttons[(Math.max(0, idx) + move + buttons.length) % buttons.length];
+      next.focus({ preventScroll: false });
+    }
+    if (pad.pressed.has(0)) (document.activeElement && buttons.includes(document.activeElement) ? document.activeElement : buttons[0]).click();
+    if (pad.pressed.has(1)) buttons.find((b) => /^(Back|Resume)/.test(b.textContent))?.click();
+    // Menu presses shouldn't also count as game input this frame.
+    if (pad.pressed.has(0) || pad.pressed.has(1)) pad.pressed.clear();
+  }
+
   /** Call once at the very end of every frame. */
   endFrame() {
     this.pressed.clear();
+    this.touch.pressed.clear();
+    this.pad.pressed.clear();
   }
 }

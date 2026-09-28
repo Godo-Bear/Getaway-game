@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PlayState } from './playState.js';
-import { NightLighting } from '../world/lighting.js';
+import { NightLighting, lightingForQuality } from '../world/lighting.js';
 import { generateStreetCity } from '../world/streetCity.js';
 import { makeGlowMaterial } from '../world/materials.js';
 import { Car, CAR_SPECS, collideCarWithWorld, collideCars } from '../vehicles/car.js';
@@ -12,6 +12,8 @@ import { Roadblocks } from '../ai/roadblocks.js';
 import { Minimap } from '../ui/minimap.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
+import { audio } from '../core/audio.js';
+import { playerCarColour } from '../vehicles/carColours.js';
 import { StreetChaseMode } from './modes/streetChaseMode.js';
 import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 
@@ -60,7 +62,7 @@ export class DrivingState extends PlayState {
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 900);
-    this.lighting = new NightLighting(this.scene, { shadows: game.settings.graphics !== 'low' });
+    this.lighting = new NightLighting(this.scene, lightingForQuality(game.settings.graphics));
     const sc = this.lighting.moon.shadow.camera;
     sc.left = sc.bottom = -50;
     sc.right = sc.top = 50;
@@ -71,7 +73,7 @@ export class DrivingState extends PlayState {
     this.scene.add(this.city.group);
 
     // Player car + a real headlight (the only moving real light)
-    this.playerMesh = makeCarMesh({ kind: 'player', color: 0xff9f1a });
+    this.playerMesh = makeCarMesh({ kind: 'player', color: playerCarColour() });
     this.scene.add(this.playerMesh);
     this.player = new Car(CAR_SPECS.player, this.playerMesh);
     this.player.active = true;
@@ -82,7 +84,9 @@ export class DrivingState extends PlayState {
     this.playerMesh.add(head, head.target);
 
     this.police = new PoliceForce(this.scene, this.city, this.rng);
-    this.traffic = new Traffic(this.scene, this.city, this.rng, 22);
+    // Fewer civilian cars on lower graphics settings.
+    const trafficCount = { low: 12, medium: 18, high: 22 }[game.settings.graphics] ?? 18;
+    this.traffic = new Traffic(this.scene, this.city, this.rng, trafficCount);
     this.particles = new ParticleSystem(this.scene, 320);
     this.roadblocks = new Roadblocks(this.scene, this.city, this.rng);
     this.minimap = new Minimap(game.hud.el.map, this.city);
@@ -158,7 +162,10 @@ export class DrivingState extends PlayState {
     c.steer = input.axis('left', 'right');
     c.handbrake = input.isDown('jump');
     c.nitro = input.isDown('sprint') && this.nitro > 0.02;
-    if (input.wasPressed('horn')) this.traffic.honk(this.player);
+    if (input.wasPressed('horn')) {
+      this.traffic.honk(this.player);
+      audio.sfx('horn');
+    }
     if (input.wasPressed('camera')) this.camMode = (this.camMode + 1) % 2;
     if (input.wasPressed('respawn')) this._unstick();
   }
@@ -205,7 +212,35 @@ export class DrivingState extends PlayState {
     if (p.airborne) this.nitro = Math.min(1, this.nitro + dt * 0.25);
   }
 
+  /** Looping sounds: engine, tyres, nitro, sirens (louder when close), music. */
+  audioMix() {
+    const p = this.player;
+    const c = p.controls;
+    audio.engine(p.speed, Math.max(0, c.throttle));
+    let nearest = Infinity;
+    for (const u of this.police.units) nearest = Math.min(nearest, Math.hypot(u.car.pos.x - p.pos.x, u.car.pos.z - p.pos.z));
+    audio.sirenDistance(nearest);
+    if (p.boosting && !this._wasBoosting) audio.sfx('nitroStart');
+    this._wasBoosting = p.boosting;
+    const chased = this.police.everSeen && !this.police.searching;
+    const skid = p.airborne ? 0 : clamp(Math.abs(p.lateralSpeed) / 14, 0, 1) * (p.speed > 6 ? 1 : 0);
+    return {
+      engine: 0.35 + Math.max(0, c.throttle) * 0.2,
+      screech: skid * 0.45,
+      nitro: p.boosting ? 0.3 : 0,
+      siren: this.police.units.length ? clamp(1 - nearest / 160, 0.03, 1) * 0.55 : 0,
+      city: 0.07,
+      music: 0.55,
+      intensity: chased ? 0.85 + clamp(1 - nearest / 60, 0, 0.15) : 0.35,
+    };
+  }
+
+  applySettings() {
+    this.playerMesh.userData.paint?.color.setHex(playerCarColour());
+  }
+
   _damage(amount, impact) {
+    if (impact > 5) audio.sfx('crash', { vol: clamp(impact / 20, 0.3, 1) });
     const before = this.player.health;
     this.player.health = Math.max(0, this.player.health - amount);
     if (before > 0.5 && this.player.health <= 0.5) this.game.hud.toast('Engine damaged', 'Your car is slowing down.', 'var(--red)');
@@ -248,7 +283,12 @@ export class DrivingState extends PlayState {
     const target = this.beacon.group.visible ? this.beacon.pos : null;
     const police = this.police;
     const search = police.searching ? { x: police.lastKnown.x, z: police.lastKnown.z, r: police.searchRadius } : null;
-    this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color, search);
+    // The minimap only needs ~30 updates a second.
+    this._mapTimer = (this._mapTimer || 0) - dt;
+    if (this._mapTimer <= 0) {
+      this._mapTimer = 1 / 30;
+      this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color, search);
+    }
     if (target) {
       const bd = Math.hypot(target.x - p.pos.x, target.z - p.pos.z);
       hud.setMarker(target.clone().setY(4), this.camera, this.beacon.label, this.beacon.color, bd);
@@ -297,6 +337,7 @@ export class DrivingState extends PlayState {
     this.game.hud.setMeter(this.busted, this.busted > 0.01 && close ? 'BUSTED! Get moving!' : 'Busted', 'var(--blue)');
     if (this.busted >= 1) {
       this.busted = 0;
+      audio.sfx('caught');
       this.game.hud.setMeter(0, '');
       this.mode.onBusted();
     }
@@ -309,6 +350,7 @@ export class DrivingState extends PlayState {
     if (this.roadblocks.update(dt, p, rules) === 'spiked') {
       this.flatTyres = 10;
       this.game.hud.toast('Tyres burst!', 'Spike strip. Less grip and a lower top speed for 10 seconds.', 'var(--red)');
+      audio.sfx('spike');
       for (let i = 0; i < 30; i++) {
         this.particles.emit(p.pos.x, 0.4, p.pos.z, { vx: (Math.random() - 0.5) * 8, vy: 2 + Math.random() * 3, vz: (Math.random() - 0.5) * 8, size: 0.35, grow: -0.2, life: 0.5, alpha: 1, color: [1, 0.7, 0.2] });
       }
@@ -342,6 +384,7 @@ export class DrivingState extends PlayState {
       } else if (rec && d > NEAR_MISS_DIST + 1) {
         if (rec.fast && !rec.hit) {
           this.nitro = Math.min(1, this.nitro + 0.15);
+          audio.sfx('whoosh');
           this.mode.onNearMiss?.();
         }
         this.nearTrack.delete(car);

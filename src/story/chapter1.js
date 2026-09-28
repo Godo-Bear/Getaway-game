@@ -10,6 +10,7 @@
 //
 // Story cards are lists of "pages": { kicker, title, who, lines[] }.
 // `who` is a suspect id (colours the speaker name) or omitted for narration.
+// `voice` is an optional recorded line in public/audio/voice/.
 
 export const CHAPTER1 = {
   id: 'chapter1',
@@ -31,7 +32,14 @@ export const CHAPTER1 = {
     {
       kicker: 'On the radio',
       who: 'vince',
-      lines: ['"Take the roofs. I left a car on top of the Pier Street garage. Go, go, go!"'],
+      voice: 'c1_alarm_2',
+      lines: ['"Forget the van. Take the stairs to the roof. Your car is parked on the Pier Street garage roof."'],
+    },
+    {
+      kicker: 'On the radio',
+      who: 'marla',
+      voice: 'c1_alarm_3',
+      lines: ['"Someone tipped them off. Keep your eyes open for anything that tells us who."'],
     },
     {
       kicker: 'How to play',
@@ -43,18 +51,22 @@ export const CHAPTER1 = {
     },
   ],
   rooftopObjective: 'Cross the rooftops to the getaway car',
+  // Played over the helicopter's loudspeaker when it arrives
+  heliCallout: { who: 'hale', voice: 'c1_roof_1', line: 'This is Detective Hale. The building is surrounded. There is nowhere left to run.' },
 
   // ---------------------------------------------------------------- Part 2
   driveIntro: [
     {
       kicker: 'Pier Street garage, 12:19 a.m.',
       who: 'dex',
-      lines: ['Dex, on the radio at last, breathless: "The whole block is crawling with cops. You\'ll have to drive through them."'],
+      voice: 'c1_car_1',
+      lines: ['On the radio at last, breathless: "The whole block is crawling with cops. You\'ll have to drive through them."'],
     },
     {
       kicker: 'On the radio',
       who: 'vince',
-      lines: ['"Lose them first, then get to the safehouse on the north side of town. Look for the green light. Whatever you do, don\'t lead them there."'],
+      voice: 'c1_car_2',
+      lines: ['"Lose them and get to the safehouse on the north side of town. Look for the green light."', 'Whatever you do, don\'t lead the police there.'],
     },
     {
       kicker: 'How to play',
@@ -73,6 +85,12 @@ export const CHAPTER1 = {
       kicker: 'The safehouse, 12:31 a.m.',
       title: 'Safe. For now.',
       lines: ['The garage door rattles down behind you. The engine ticks as it cools. The cash is here. The crew isn\'t.'],
+    },
+    {
+      kicker: 'On the radio',
+      who: 'marla',
+      voice: 'c1_safe_2',
+      lines: ['"Dex\'s phone is off. And the cops knew exactly when we\'d be in the vault."'],
     },
     {
       kicker: 'The safehouse',

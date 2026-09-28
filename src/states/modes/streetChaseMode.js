@@ -1,5 +1,6 @@
 import { save } from '../../core/save.js';
 import { formatTime } from '../../core/utils.js';
+import { audio } from '../../core/audio.js';
 
 // Street Chase: endless driving survival.
 //
@@ -66,6 +67,7 @@ export class StreetChaseMode {
     this.evades++;
     const bonus = 500 * this.heat;
     this.score += bonus;
+    audio.sfx('checkpoint');
     this.state.game.hud.toast('Cops lost!', `+${bonus}. They're searching the area... keep your head down.`, 'var(--safe)');
   }
 
@@ -110,6 +112,7 @@ export class StreetChaseMode {
       this.score += bonus;
       this.cashDrops++;
       hud.toast(`Cash drop! +${bonus}`, '', 'var(--safe)');
+      audio.sfx('cash');
       this._placeCashDrop();
     }
 

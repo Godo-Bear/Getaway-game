@@ -3,6 +3,8 @@ import { Input } from './core/input.js';
 import { StateMachine } from './core/stateMachine.js';
 import { save } from './core/save.js';
 import { Hud } from './ui/hud.js';
+import { audio } from './core/audio.js';
+import { TouchControls } from './ui/touch.js';
 import { TitleState } from './states/titleState.js';
 import { OnFootState } from './states/onFootState.js';
 import { DrivingState } from './states/drivingState.js';
@@ -55,7 +57,27 @@ function start(renderer) {
     showDebug: false,
     fps: 60,
     goTitle: () => game.sm.change('title'),
+    /** Apply settings that can change live (called by the settings screen). */
+    applySettings: () => {
+      const st = game.settings;
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, { low: 1, medium: 1.25, high: 1.75 }[st.graphics] ?? 1.5));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      audio.setVolumes(st);
+      game.sm.current?.applySettings?.();
+    },
   };
+  audio.setVolumes(settings);
+  game.touch = new TouchControls(game.input);
+  game.audio = audio; // handy for debugging in the console
+
+  // Browsers only allow sound after the first click/key/touch.
+  const unlockAudio = () => audio.unlock();
+  window.addEventListener('pointerdown', unlockAudio);
+  window.addEventListener('keydown', unlockAudio);
+  // Menu button clicks
+  document.addEventListener('click', (e) => {
+    if (e.target.closest?.('.btn, .chip, .swatch')) audio.sfx('click', { vol: 0.6 });
+  }, true);
 
   game.sm
     .add('title', new TitleState(game))
@@ -94,6 +116,8 @@ function start(renderer) {
     last = now;
     game.fps = game.fps * 0.95 + (1 / Math.max(dt, 1e-4)) * 0.05;
 
+    game.input.poll(dt);
+    game.touch.setMode(game.sm.currentName === 'onFoot' ? 'onFoot' : game.sm.currentName === 'driving' ? 'driving' : 'none');
     game.sm.update(dt);
     game.sm.render(renderer);
     game.input.endFrame();

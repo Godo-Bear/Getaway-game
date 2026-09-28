@@ -4,8 +4,9 @@ import { PlayerController } from '../player/playerController.js';
 import { PlayerModel } from '../player/playerModel.js';
 import { FirstPersonArms } from '../player/firstPersonArms.js';
 import { save } from '../core/save.js';
+import { audio } from '../core/audio.js';
 import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
-import { NightLighting } from '../world/lighting.js';
+import { NightLighting, lightingForQuality } from '../world/lighting.js';
 import { CONTROLS } from '../ui/menus.js';
 import { damp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
@@ -48,7 +49,7 @@ export class OnFootState extends PlayState {
     const game = this.game;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(68, window.innerWidth / window.innerHeight, 0.1, 900);
-    this.lighting = new NightLighting(this.scene, { shadows: game.settings.graphics !== 'low' });
+    this.lighting = new NightLighting(this.scene, lightingForQuality(game.settings.graphics));
 
     const ModeClass = MODES[params.mode] || FreeRunMode;
     this.mode = new ModeClass(this);
@@ -125,7 +126,8 @@ export class OnFootState extends PlayState {
     this.cam.applyTurn(input.axis('turnLeft', 'turnRight'), dt); // arrows / Q E
 
     c.moveZ = input.axis('back', 'forward');
-    if (input.pointerLocked) {
+    if (input.pointerLocked || input.noMouseNeeded) {
+      // Mouse lock, gamepad or touch: left/right strafes, the camera turns separately.
       c.moveX = input.axis('left', 'right');
     } else {
       // No mouse lock: A/D turn instead of strafing.
@@ -156,8 +158,16 @@ export class OnFootState extends PlayState {
 
     // React to movement events (landing dip etc.)
     for (const e of p.events) {
-      if (e.type === 'land' && e.impact > 6) this.cam.addLandingDip(e.impact);
-      if (e.type === 'roll') hud.toast('Roll!', '', 'var(--cyan)');
+      if (e.type === 'land' && e.impact > 6) {
+        this.cam.addLandingDip(e.impact);
+        audio.sfx('land', { vol: Math.min(1, e.impact / 18) });
+      } else if (e.type === 'land' && e.impact > 2) audio.sfx('step');
+      if (e.type === 'jump') audio.sfx('jump');
+      if (e.type === 'vault' || e.type === 'mantle') audio.sfx('step', { vol: 1.2 });
+      if (e.type === 'roll') {
+        hud.toast('Roll!', '', 'var(--cyan)');
+        audio.sfx('whoosh', { vol: 0.6 });
+      }
     }
     p.events.length = 0;
 
@@ -173,6 +183,12 @@ export class OnFootState extends PlayState {
     }
 
     this.model.update(frozen ? 0 : dt, p);
+    // Footsteps: one every half cycle of the running animation.
+    const stepIndex = Math.floor(this.model.runPhase / Math.PI);
+    if (stepIndex !== this._lastStep) {
+      this._lastStep = stepIndex;
+      if (!frozen && p.state === 'ground' && p.horizontalSpeed > 1.5) audio.sfx('step', { vol: Math.min(1, p.horizontalSpeed / 9) });
+    }
     // Head bob in first person: follows the running cycle of the (hidden) body.
     const running = p.state === 'ground' && p.horizontalSpeed > 0.5 && !frozen;
     const bobTarget = running ? Math.abs(Math.sin(this.model.runPhase)) * 0.06 * Math.min(1, p.horizontalSpeed / 8) - 0.03 : 0;
@@ -186,6 +202,28 @@ export class OnFootState extends PlayState {
         `pos ${p.pos.x.toFixed(1)} ${p.pos.y.toFixed(1)} ${p.pos.z.toFixed(1)}\n` +
         `calls ${this.game.renderer.info.render.calls}`);
     } else hud.setDebug('');
+  }
+
+  /** Looping sounds for this frame: rooftop wind + whatever the mode adds. */
+  audioMix() {
+    const p = this.player;
+    const high = Math.min(1, Math.max(0, (p.pos.y - 8) / 16));
+    audio.windSpeed(p.horizontalSpeed);
+    return {
+      wind: high * (0.05 + Math.min(0.1, p.horizontalSpeed * 0.01)),
+      city: 0.05 + (1 - high) * 0.08,
+      music: 0.35,
+      intensity: 0.25,
+      ...(this.mode.audioMix?.() ?? {}),
+    };
+  }
+
+  /** Settings changed in the pause menu: apply what can change live. */
+  applySettings() {
+    const s = this.game.settings;
+    this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
+    this.cam.invertY = s.invertY;
+    if (!!s.firstPerson !== this.cam.firstPerson) this.setFirstPerson(!!s.firstPerson);
   }
 
   /** Remember recent positions on solid roofs so a fall can send you back. */
