@@ -62,6 +62,9 @@ export class Input {
       if (this.pointerLocked) {
         this.pointerLockFailed = false;
         this.everLocked = true;
+        // Browsers often report one big bogus jump right after locking. Skip it.
+        this._skipMoves = 2;
+        this.mouseDX = this.mouseDY = 0;
       }
     });
     document.addEventListener('pointerlockerror', () => {
@@ -73,6 +76,7 @@ export class Input {
     document.addEventListener('mousemove', (e) => {
       // Locked: every movement turns the camera.
       // Unlocked fallback: only while a mouse button is held (drag to look).
+      if (this._skipMoves > 0) { this._skipMoves--; return; }
       if (this.pointerLocked || this._dragging) {
         this.mouseDX += e.movementX || 0;
         this.mouseDY += e.movementY || 0;
@@ -86,7 +90,7 @@ export class Input {
 
   /** Ask the browser to lock the mouse. Must be called from a click. */
   requestPointerLock() {
-    if (!this.pointerLockSupported || this.pointerLocked) return;
+    if (!this.pointerLockSupported || this.pointerLocked || this.lockDisabled) return;
     try {
       const result = this.target.requestPointerLock();
       // Newer browsers return a promise that rejects on failure.

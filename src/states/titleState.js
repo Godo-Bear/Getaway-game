@@ -23,6 +23,7 @@ export class TitleState {
     }
     this.game.hud.hideAll();
     showTitle({
+      chapter1: () => this.game.sm.change('onFoot', { mode: 'chapter1' }),
       rooftopRun: () => this.game.sm.change('onFoot', { mode: 'survival' }),
       freeRun: () => this.game.sm.change('onFoot', { mode: 'free' }),
       streetChase: () => this.game.sm.change('driving', { mode: 'survival' }),

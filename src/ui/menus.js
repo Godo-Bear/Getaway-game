@@ -34,7 +34,7 @@ export function showCard(html, buttons = [], { title = false, list = false } = {
   overlay.hidden = false;
   card.scrollTop = 0;
   const first = row.querySelector('.primary') || row.querySelector('button');
-  if (first) setTimeout(() => first.focus(), 30);
+  if (first) setTimeout(() => first.focus({ preventScroll: true }), 30);
 }
 
 export function hideCard() {
@@ -95,10 +95,10 @@ export function showTitle(actions) {
     `<div class="logo">GET<span>AWAY</span></div>
      <p class="sub">A heist gone wrong. Someone on your crew talked. Get out, lose the cops, and find the rat.</p>`,
     [
-      { label: 'Rooftop Run', sub: `Parkour survival: outrun the police helicopters. Best: ${best.rooftopRun.toLocaleString('en-US')}`, primary: true, onClick: actions.rooftopRun },
+      { label: 'Story: Chapter 1', sub: 'The Harbor Trust Job. Part 1: the rooftop escape', primary: true, onClick: actions.chapter1 },
+      { label: 'Rooftop Run', sub: `Parkour survival: outrun the police helicopters. Best: ${best.rooftopRun.toLocaleString('en-US')}`, onClick: actions.rooftopRun },
       { label: 'Street Chase', sub: `Driving survival: lose the cops, use nitro. Best: ${best.streetChase.toLocaleString('en-US')}`, onClick: actions.streetChase },
       { label: 'Free Run', sub: 'Practise parkour on the rooftops, no helicopters', onClick: actions.freeRun },
-      { label: 'Story: Chapter 1', sub: 'Coming in a later milestone', disabled: true, onClick: () => {} },
       { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: () => showTitle(actions) }]) },
     ],
     { title: true, list: true },

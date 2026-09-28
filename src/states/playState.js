@@ -16,6 +16,7 @@ export class PlayState {
     this.needsPointerLock = needsPointerLock;
     this.paused = false;
     this.over = false;     // game over screen showing
+    this.inCard = false;   // a story card is showing (game frozen, no pause menu)
     this.accumulator = 0;
     this._pausedAt = 0;
     this.clickEl = document.getElementById('click-to-play');
@@ -51,19 +52,19 @@ export class PlayState {
   }
 
   _updateClickPrompt() {
-    this.clickEl.hidden = !(this.waitingForLock && !this.paused && !this.over);
+    this.clickEl.hidden = !(this.waitingForLock && !this.paused && !this.over && !this.inCard);
   }
 
   _lockChanged() {
     // Losing the mouse lock mid-game (Esc) pauses, like most PC games.
-    if (!this.game.input.pointerLocked && this.needsPointerLock && !this.paused && !this.over) {
+    if (!this.game.input.pointerLocked && this.needsPointerLock && !this.paused && !this.over && !this.inCard) {
       this.pause();
     }
     this._updateClickPrompt();
   }
 
   pause() {
-    if (this.over) return;
+    if (this.over || this.inCard) return;
     this.paused = true;
     this._pausedAt = performance.now();
     this.game.input.exitPointerLock();
@@ -77,6 +78,20 @@ export class PlayState {
     ]);
   }
 
+  /**
+   * Show a story card that freezes the game until the player continues.
+   * Clicking the button also grabs the mouse lock (browsers need a click).
+   */
+  showStoryCard(html, buttonLabel = 'Continue', onDone = () => {}) {
+    this.inCard = true;
+    this.game.input.exitPointerLock();
+    this._updateClickPrompt();
+    showCard(html, [{
+      label: buttonLabel, primary: true,
+      onClick: () => { hideCard(); this.inCard = false; onDone(); this._afterResume(); },
+    }]);
+  }
+
   resume() {
     hideCard();
     this.paused = false;
@@ -88,13 +103,13 @@ export class PlayState {
     this._updateClickPrompt();
   }
 
-  /** Show a game-over card. */
-  gameOver(html, extraButtons = []) {
+  /** Show a game-over (or level complete) card. */
+  gameOver(html, extraButtons = [], { retryLabel = 'Try again' } = {}) {
     this.over = true;
     this.game.input.exitPointerLock();
     this._updateClickPrompt();
     showCard(html, [
-      { label: 'Try again', primary: true, onClick: () => { hideCard(); this.over = false; this.restart(); this._afterResume(); } },
+      { label: retryLabel, primary: true, onClick: () => { hideCard(); this.over = false; this.restart(); this._afterResume(); } },
       ...extraButtons,
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ]);
@@ -104,7 +119,7 @@ export class PlayState {
     const input = this.game.input;
     // (Ignore the key briefly after pausing: Esc both releases the mouse
     // lock AND may arrive as a key press, which would instantly un-pause.)
-    if (input.wasPressed('pause') && !this.over && performance.now() - this._pausedAt > 300) {
+    if (input.wasPressed('pause') && !this.over && !this.inCard && performance.now() - this._pausedAt > 300) {
       if (this.paused) this.resume();
       else this.pause();
     }
@@ -112,7 +127,7 @@ export class PlayState {
     if (input.wasPressed('debug')) this.game.showDebug = !this.game.showDebug;
     this.game.hud.update(dt);
 
-    const frozen = this.paused || this.over || this.waitingForLock;
+    const frozen = this.paused || this.over || this.inCard || this.waitingForLock;
     if (!frozen) {
       this.readInput(dt);
       // Fixed timestep: run physics in equal small steps so it behaves the

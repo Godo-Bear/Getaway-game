@@ -121,3 +121,11 @@ html, body {
 
 #webgl-error { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 30px; text-align: center; font-size: 18px; }
 #webgl-error[hidden] { display: none; }
+
+/* Clue list, ratings */
+.clue { border-top: 1px solid rgba(255, 255, 255, 0.12); padding: 10px 0; }
+.clue strong { display: block; font-size: 17px; }
+.clue span { color: var(--muted); font-size: 16px; }
+.clue.missed strong { color: var(--muted); font-weight: 500; }
+.rank { display: inline-block; font-weight: 700; font-size: 18px; padding: 6px 14px; border-radius: 4px; margin-bottom: 14px; color: #1a1204; }
+.rank.gold { background: #ffcf4a; } .rank.silver { background: #cfd6e0; } .rank.bronze { background: #d08a4a; }

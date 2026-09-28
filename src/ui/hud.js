@@ -76,12 +76,12 @@ export class Hud {
   }
 
   /** Big centred message that fades after a few seconds. */
-  toast(title, body = '', color = 'var(--ink)') {
+  toast(title, body = '', color = 'var(--ink)', seconds = null) {
     this.el.toast.querySelector('.t').textContent = title;
     this.el.toast.querySelector('.t').style.color = color;
     this.el.toast.querySelector('.b').textContent = body;
     this.el.toast.classList.add('show');
-    this._toastTimer = body ? 4 : 2;
+    this._toastTimer = seconds ?? (body ? 4 : 2);
   }
 
   /** Show the controls help for `seconds` (the first minute of each mode). */

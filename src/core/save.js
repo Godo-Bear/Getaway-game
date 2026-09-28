@@ -21,6 +21,8 @@ const DEFAULTS = {
   },
   progress: {
     chapterUnlocked: 1,
+    clues: {},       // chapterId -> [clue ids ever found]  (for the Case Board)
+    bestTimes: {},   // e.g. 'chapter1.rooftops' -> seconds
   },
 };
 
@@ -54,6 +56,24 @@ export const save = {
     } catch {
       // ignore - saving is a nice-to-have
     }
+  },
+  /** Remember that a clue has been found (ever). */
+  addClue(chapterId, clueId) {
+    const list = (data.progress.clues[chapterId] ||= []);
+    if (!list.includes(clueId)) {
+      list.push(clueId);
+      this.write();
+    }
+  },
+  /** Record a time; returns true if it's a new best (lower is better). */
+  submitTime(key, seconds) {
+    const old = data.progress.bestTimes[key];
+    if (old == null || seconds < old) {
+      data.progress.bestTimes[key] = seconds;
+      this.write();
+      return true;
+    }
+    return false;
   },
   /** Record a score; returns true if it's a new best. */
   submitBest(mode, score) {

@@ -15,6 +15,7 @@ Handy URL options for testing:
 
 | URL | What it does |
 | --- | --- |
+| `/?mode=chapter1` | Jump straight into Story Chapter 1 (rooftop escape) |
 | `/?mode=rooftop` | Jump straight into Rooftop Run (helicopter survival) |
 | `/?mode=free` | Jump straight into Free Run (parkour practice) |
 | `/?mode=chase` | Jump straight into Street Chase (driving survival) |
@@ -27,7 +28,7 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 * **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight.
 * **Street Chase**: endless driving survival. Points for every second you stay free (more when fast or drifting). Heat rises every 35 s and when you ram cops. Shift = nitro (recharges while drifting, jumping and on near misses). Lose the cops by breaking line of sight; parks and alleys help.
 * **Free Run**: rooftops with no helicopters, for practising moves.
-* **Story (Chapter 1)**: coming in later milestones.
+* **Story: Chapter 1, Part 1**: a hand-built rooftop route from the Harbor Trust bank to the getaway car on the Pier Street garage. Checkpoints, one police helicopter (caught = back to the last checkpoint), 4 clues (2 on the main path, 2 behind harder shortcuts), and a bronze/silver/gold rating. Part 2 (the chase) arrives in Milestone 3.
 
 ## Project layout
 
@@ -41,6 +42,9 @@ src/
   vehicles/            car physics, car models, traffic, particles
   ai/                  helicopter, police, road graph, AI driving helpers
   ui/                  HUD, menus, minimap
-  states/              title, on-foot mode, driving mode (+ shared PlayState base)
+  story/               chapter data (intro text, clues), the crew
+  world/levels/        hand-built story levels
+  states/              title, on-foot state, driving state (+ shared PlayState base)
+  states/modes/        on-foot modes: Free Run, Rooftop Run, Chapter rooftops
 reference/getaway.html the original single-file prototype (for reference only)
 ```
