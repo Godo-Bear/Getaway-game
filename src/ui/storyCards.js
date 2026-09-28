@@ -9,7 +9,6 @@
 
 import { showCard, hideCard } from './menus.js';
 import { SUSPECTS } from '../story/crew.js';
-import { audio } from '../core/audio.js';
 
 export function pageHtml(page, index, total) {
   const who = page.who ? SUSPECTS[page.who] : null;
@@ -34,9 +33,6 @@ export function playStoryCards(pages, { finalLabel = 'Continue', onDone }) {
     const buttons = [{ label: last ? finalLabel : 'Next', primary: true, onClick: () => { if (last) finish(); else { i++; show(); } } }];
     if (!last) buttons.push({ label: 'Skip story', onClick: finish });
     showCard(pageHtml(pages[i], i, pages.length), buttons);
-    // Recorded voice line for this page, if there is one.
-    audio.stopVoice();
-    if (pages[i].voice) audio.voice(pages[i].voice);
   };
   show();
 }

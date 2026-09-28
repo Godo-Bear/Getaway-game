@@ -31,7 +31,7 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 **Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, graphics quality (low / medium / high), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
 
-**Audio:** recorded sounds and voices in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
+**Audio:** recorded sounds in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
 
 ## Publish on GitHub Pages
 

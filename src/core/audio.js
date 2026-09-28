@@ -3,8 +3,8 @@
 // Sound graph:
 //
 //   loops (engine, siren, rotor, wind...) ─┐
-//   one-shot effects (steps, crashes...)  ─┼─> sfx bus ──┐
-//   voices ────────────────────────────────┘             ├─> master ─> speakers
+//   one-shot effects (steps, crashes...)  ─┴─> sfx bus ──┐
+//                                                        ├─> master ─> speakers
 //   music ─> music filter ─> music bus ───────────────────┘
 //
 // Recorded sounds (public/audio/*.mp3, from the original prototype) are used
@@ -43,7 +43,6 @@ class AudioManager {
     this.last = {};
     this.volumes = { master: 0.8, music: 0.6, sfx: 0.9 };
     this.lastImpact = 0;
-    this.voiceNode = null;
   }
 
   /** Create the audio context. Call from a user gesture (click / key). */
@@ -368,42 +367,6 @@ class AudioManager {
         return;
       default:
         if (!this._playBuffer(name, vol, rate) && name === 'click') this._tone(1200, 0.04, 'square', 0.04);
-    }
-  }
-
-  /**
-   * Play a recorded voice line (public/audio/voice/<id>.mp3).
-   * Returns immediately; onEnd is called when it finishes (or fails).
-   */
-  async voice(id, onEnd = () => {}) {
-    if (!this.ctx || !id) { onEnd(); return; }
-    this.stopVoice();
-    const token = (this._voiceToken = (this._voiceToken || 0) + 1);
-    try {
-      if (!this.buffers[`voice:${id}`]) {
-        const res = await fetch(url(`audio/voice/${id}.mp3`));
-        this.buffers[`voice:${id}`] = await this.ctx.decodeAudioData(await res.arrayBuffer());
-      }
-      if (token !== this._voiceToken) return;
-      const n = this.ctx.createBufferSource();
-      n.buffer = this.buffers[`voice:${id}`];
-      const g = this.ctx.createGain();
-      g.gain.value = 1.15;
-      n.connect(g);
-      g.connect(this.sfxBus);
-      n.onended = () => { if (this.voiceNode === n) this.voiceNode = null; onEnd(); };
-      n.start();
-      this.voiceNode = n;
-    } catch {
-      onEnd();
-    }
-  }
-
-  stopVoice() {
-    this._voiceToken = (this._voiceToken || 0) + 1;
-    if (this.voiceNode) {
-      try { this.voiceNode.onended = null; this.voiceNode.stop(); } catch { /* already stopped */ }
-      this.voiceNode = null;
     }
   }
 }

@@ -130,7 +130,7 @@ export class PlayState {
     this._updateClickPrompt();
     playStoryCards(pages, {
       finalLabel,
-      onDone: () => { audio.stopVoice(); this.inCard = false; onDone(); this._afterResume(); },
+      onDone: () => { this.inCard = false; onDone(); this._afterResume(); },
     });
   }
 

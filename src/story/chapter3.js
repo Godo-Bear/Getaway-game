@@ -44,7 +44,7 @@ export const CHAPTER3 = {
       objective: 'Find Hale\'s ledger, then get to the car',
       officers: { count: 3, speed: 0.84, delay: 8 },
       heli: { delay: 45, spotSpeed: 6.2, fill: 0.65, lead: 0.3,
-        callout: { who: 'hale', voice: 'c1_roof_1', line: 'This is Detective Hale. The building is surrounded. There is nowhere left to run.' } },
+        callout: { who: 'hale', line: 'This is Detective Hale. The building is surrounded. There is nowhere left to run.' } },
       requiredClue: 'ledger',
       requiredLabel: 'Hale\'s ledger',
       requiredText: 'Find Hale\'s ledger first: it\'s by the skylight over his office, on the east side of the HQ roof.',

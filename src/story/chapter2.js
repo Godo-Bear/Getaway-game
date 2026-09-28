@@ -28,7 +28,7 @@ export const CHAPTER2 = {
     {
       id: 'chase', kind: 'drive', title: 'The chase',
       intro: [
-        { kicker: 'Outside The Anchor, 1:32 a.m.', who: 'marla', voice: 'c2_start_1',
+        { kicker: 'Outside The Anchor, 1:32 a.m.', who: 'marla',
           lines: ['"That\'s Vince\'s car outside The Anchor. He has a bag of cash and a ticket for the 2 am ferry."'] },
         { kicker: 'How to play', title: 'Catch Vince',
           lines: [
@@ -69,13 +69,13 @@ export const CHAPTER2 = {
   ],
 
   outro: [
-    { kicker: 'The end of the pier', who: 'vince', voice: 'c2_end_1',
+    { kicker: 'The end of the pier', who: 'vince',
       lines: ['"Alright! Alright, you got me. Just put the gun down... oh, it\'s a phone. Right."'] },
-    { kicker: 'The end of the pier', who: 'vince', voice: 'c2_end_2',
+    { kicker: 'The end of the pier', who: 'vince',
       lines: ['"Hale had me. Gambling debts, fake books at The Anchor. It was you lot or me in a cell."'] },
-    { kicker: 'The end of the pier', who: 'vince', voice: 'c2_end_3',
+    { kicker: 'The end of the pier', who: 'vince',
       lines: ['"But selling you out wasn\'t my idea. Hale works for someone. Someone who knew about that vault before I did."'] },
-    { kicker: 'On the radio', who: 'marla', voice: 'c2_end_4',
+    { kicker: 'On the radio', who: 'marla',
       lines: ['"Hold on. Dex\'s phone just switched back on. It\'s pinging from inside police headquarters."'] },
   ],
 

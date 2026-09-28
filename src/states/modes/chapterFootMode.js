@@ -313,7 +313,6 @@ export class ChapterFootMode {
         const c = part.heli.callout;
         if (c) {
           hud.toast(`${SUSPECTS[c.who].name}, on the loudspeaker`, `"${c.line}" Stay out of the spotlight: hide under water towers or in stairwell huts.`, SUSPECTS[c.who].color, 7);
-          audio.voice(c.voice);
         } else hud.toast('Police helicopter!', 'Stay out of the spotlight.', 'var(--red)');
       }
       const params = { spotSpeed: part.heli.spotSpeed + Math.min(1.2, t / 90), fill: part.heli.fill, lead: part.heli.lead };
