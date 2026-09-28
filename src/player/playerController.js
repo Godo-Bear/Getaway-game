@@ -14,6 +14,10 @@ import { clamp, easeOutCubic, easeInOut, dampAngle } from '../core/utils.js';
 //   ground -> air (jump / walk off an edge)
 //   ground/air -> mantle (climb a ledge, or vault a low obstacle)
 //   air -> roll (hard landing while moving)
+//   ground -> slide (crouch while sprinting: shorter body, slips under pipes)
+//   ground -> crouch (crouch while slow, or stuck under something low)
+//   air -> wallrun (jump alongside a tall wall: run along it, jump off it)
+//   any -> zip (jump into a zip line cable: ride it down)
 
 /** All the numbers that define how movement feels. Tweak these! */
 export const TUNING = {
@@ -47,6 +51,23 @@ export const TUNING = {
   rollImpactSpeed: 13, // fall speed (m/s) that counts as a hard landing (~3.3 m drop)
   rollDuration: 0.55,
   stumbleDuration: 0.35,
+
+  crouchHeight: 0.95,  // body height while sliding / crouching
+  crouchSpeed: 2.8,
+  slideMinSpeed: 6,    // need to be running this fast to slide
+  slideFriction: 5,    // m/s lost per second while sliding
+  slideMaxTime: 1.1,
+
+  wallRunMinSpeed: 5.5,
+  wallRunTime: 1.15,   // max seconds on a wall
+  wallRunGravity: 7,   // much lighter gravity while wall-running
+  wallJumpOut: 6.5,    // push away from the wall when jumping off
+  wallJumpUp: 8.5,
+
+  zipGrab: 1.1,        // how close your hands must be to the cable
+  zipHang: 2.0,        // feet hang this far below the cable
+  zipMinSpeed: 7,
+  zipMaxSpeed: 20,
 };
 
 const T = TUNING;
@@ -70,6 +91,13 @@ export class PlayerController {
     this.lastGroundY = 0;   // height of the last surface we stood on
 
     this.mantle = null;     // { from, to, duration, t, vault, keepSpeed }
+    this.height = T.height; // current body height (lower while sliding)
+    this.speedScale = 1;    // AI runners (police officers) can be slower
+    this.zipLines = [];     // set by the level: [{ a: Vector3, b: Vector3 }] (a = high end)
+    this.zip = null;        // { line, t, speed } while riding a zip line
+    this.zipCooldown = 0;
+    this.wallRun = null;    // { normal, tangent, speed } while wall-running
+    this.usedWallNormal = null; // can't wall-run the same wall twice in one jump
 
     // Events for other systems (camera dip, sounds, animation) to react to.
     // Filled during update(), read and cleared by whoever owns the player.
@@ -92,6 +120,10 @@ export class PlayerController {
     this.jumpBufferTimer = 0;
     this.stumbleTimer = 0;
     this.lastGroundY = y;
+    this.height = T.height;
+    this.zip = null;
+    this.wallRun = null;
+    this.usedWallNormal = null;
   }
 
   get horizontalSpeed() {
@@ -109,7 +141,7 @@ export class PlayerController {
    * One physics step.
    * @param {number} dt - seconds (small, e.g. 1/120)
    * @param {object} ctl - { moveX, moveZ (-1..1, camera-relative), camForward, camRight,
-   *                        jumpPressed, jumpHeld, sprint }
+   *                        jumpPressed, jumpHeld, sprint, crouch }
    */
   update(dt, ctl) {
     this.stateTime += dt;
@@ -128,18 +160,37 @@ export class PlayerController {
     if (wishLen > 1) { wish.divideScalar(wishLen); wishLen = 1; }
     this.sprinting = ctl.sprint && wishLen > 0.1 && ctl.moveZ > -0.1;
 
+    this.zipCooldown = Math.max(0, this.zipCooldown - dt);
     if (this.state === 'mantle') {
       this._updateMantle(dt);
       return;
     }
+    if (this.state === 'zip') {
+      this._updateZip(dt, ctl);
+      return;
+    }
+    if (this.state === 'wallrun') {
+      this._updateWallRun(dt, ctl);
+      return;
+    }
+
+    // --- Slide / crouch -----------------------------------------------------
+    this._updateCrouch(ctl);
 
     // --- Horizontal movement ----------------------------------------------
-    let targetSpeed = this.sprinting ? T.sprintSpeed : T.runSpeed;
+    let targetSpeed = (this.sprinting ? T.sprintSpeed : T.runSpeed) * this.speedScale;
     if (ctl.moveZ < -0.1 && Math.abs(ctl.moveX) < 0.5) targetSpeed *= T.backSpeedFactor;
     if (this.stumbleTimer > 0) targetSpeed *= 0.35;
+    if (this.state === 'crouch') targetSpeed = T.crouchSpeed;
 
     const onGround = this.grounded;
-    if (onGround && this.state !== 'roll') {
+    if (this.state === 'slide') {
+      // Sliding: keep going the way you were going, slowly losing speed.
+      const s = this.horizontalSpeed;
+      const ns = Math.max(0, s - T.slideFriction * dt);
+      if (s > 0.01) { this.vel.x *= ns / s; this.vel.z *= ns / s; }
+      this._accelerate(wish, wishLen, ns, dt * 0.15, false); // a little steering
+    } else if (onGround && this.state !== 'roll') {
       this._accelerate(wish, wishLen, targetSpeed, dt, true);
     } else if (this.state === 'roll') {
       // Rolling keeps your momentum; you can only steer a little.
@@ -155,10 +206,14 @@ export class PlayerController {
     // If there's no stick input, use the way the character is facing
     // (so pressing jump while standing at a ledge still climbs it).
     const moveDir = wishLen > 0.2 ? wish : this._facingDir();
-    if (this._tryParkour(moveDir, wishLen, ctl)) return;
+    if (this.state !== 'slide' && this.state !== 'crouch' && this._tryParkour(moveDir, wishLen, ctl)) return;
+    if (this._tryZip()) return;
+    if (!this.grounded && wishLen > 0.3 && this._tryWallRun(wish)) return;
 
     // --- Jumping ----------------------------------------------------------
-    if (this.jumpBufferTimer > 0 && this.coyoteTimer > 0 && this.state !== 'roll') {
+    const lowBody = this.state === 'slide' || this.state === 'crouch';
+    if (this.jumpBufferTimer > 0 && this.coyoteTimer > 0 && this.state !== 'roll' && (!lowBody || this._canStand())) {
+      if (lowBody) this.height = T.height; // slide-jump: pop back up and keep the speed
       this.vel.y = T.jumpSpeed;
       this.grounded = false;
       this.coyoteTimer = 0;
@@ -184,8 +239,18 @@ export class PlayerController {
     this._moveY(this.vel.y * dt);
 
     if (this.grounded && !wasGrounded) this._onLand(fallSpeed);
-    if (this.grounded) this.lastGroundY = this.pos.y;
-    if (!this.grounded && this.state === 'ground') this._setState('air');
+    if (this.grounded) {
+      this.lastGroundY = this.pos.y;
+      this.usedWallNormal = null;
+    }
+    if (!this.grounded && (this.state === 'ground' || this.state === 'crouch')) {
+      this.height = T.height;
+      this._setState('air');
+    }
+    if (!this.grounded && this.state === 'slide' && this.stateTime > 0.15) {
+      // Slid off an edge: stand up in the air (if there's room).
+      if (this._canStand()) { this.height = T.height; this._setState('air'); }
+    }
 
     // --- Turn the character to face where it's going ------------------------
     if (this.horizontalSpeed > 0.6) {
@@ -226,7 +291,7 @@ export class PlayerController {
   // ---------------------------------------------------------------------
 
   /** Query boxes overlapping the player's collider at position p (optional height). */
-  _overlapsAt(x, y, z, height = T.height, shrink = 0) {
+  _overlapsAt(x, y, z, height = this.height, shrink = 0) {
     const r = T.radius - shrink;
     return this.world.query(x - r, y + shrink, z - r, x + r, y + height - shrink, z + r, this._hits);
   }
@@ -273,7 +338,7 @@ export class PlayerController {
         p.y = Math.max(p.y, b.max.y);
         this.grounded = true;
       } else {
-        p.y = Math.min(p.y, b.min.y - T.height - EPS);
+        p.y = Math.min(p.y, b.min.y - this.height - EPS);
       }
     }
     this.vel.y = 0;
@@ -281,6 +346,7 @@ export class PlayerController {
 
   _onLand(impact) {
     this.events.push({ type: 'land', impact });
+    if (this.state === 'slide' || this.state === 'crouch') return;
     if (impact > T.rollImpactSpeed) {
       if (this.horizontalSpeed > 3) {
         // Parkour roll: turn the impact into forward momentum.
@@ -433,6 +499,183 @@ export class PlayerController {
       this.lastGroundY = this.pos.y;
       this.coyoteTimer = T.coyoteTime;
       this._setState('ground');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Slide and crouch
+  // ---------------------------------------------------------------------
+
+  /** Is there room to stand up (full height) where we are? */
+  _canStand() {
+    return this._overlapsAt(this.pos.x, this.pos.y + 0.02, this.pos.z, T.height, 0.02).length === 0;
+  }
+
+  _updateCrouch(ctl) {
+    const wantLow = !!ctl.crouch;
+    if (this.state === 'ground' && wantLow && this.grounded) {
+      if (this.horizontalSpeed > T.slideMinSpeed) {
+        // SLIDE: a little burst of speed, body drops to crouch height.
+        this._setState('slide');
+        this.height = T.crouchHeight;
+        const s = this.horizontalSpeed, boost = Math.min(s * 1.12, T.sprintSpeed + 1.5);
+        this.vel.x *= boost / s;
+        this.vel.z *= boost / s;
+        this.events.push({ type: 'slide' });
+      } else {
+        this._setState('crouch');
+        this.height = T.crouchHeight;
+      }
+      return;
+    }
+    if (this.state === 'slide') {
+      const done = (this.stateTime > T.slideMaxTime || this.horizontalSpeed < 3.5) &&
+        (!wantLow || this.horizontalSpeed < 3.5);
+      if (done) {
+        if (this._canStand()) { this.height = T.height; this._setState('ground'); }
+        else this._setState('crouch'); // stuck under something: crawl out
+      }
+      return;
+    }
+    if (this.state === 'crouch' && !wantLow && this._canStand()) {
+      this.height = T.height;
+      this._setState('ground');
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Wall-run
+  // ---------------------------------------------------------------------
+
+  /**
+   * Is there a tall wall right beside us (left or right of our movement)?
+   * Returns { normal, tangent } for that wall face, or null.
+   */
+  _findRunWall(dir) {
+    const p = this.pos;
+    for (const side of [1, -1]) {
+      // Perpendicular to the movement direction
+      const sx = -dir.z * side, sz = dir.x * side;
+      const px = p.x + sx * (T.radius + 0.6), pz = p.z + sz * (T.radius + 0.6);
+      const hits = this.world.query(px - 0.08, p.y + 0.6, pz - 0.08, px + 0.08, p.y + 1.6, pz + 0.08, this._hits);
+      const tall = hits.find((b) => b.max.y > p.y + 2.2);
+      if (!tall) continue;
+      // Snap to the wall's actual face: the wall normal points back toward us.
+      const normal = Math.abs(sx) > Math.abs(sz) ? new THREE.Vector3(-Math.sign(sx), 0, 0) : new THREE.Vector3(0, 0, -Math.sign(sz));
+      if (this.usedWallNormal && this.usedWallNormal.dot(normal) > 0.9) continue; // same wall again
+      const tangent = new THREE.Vector3(-normal.z, 0, normal.x);
+      if (tangent.dot(dir) < 0) tangent.negate();
+      // Must be moving mostly along the wall, not into it.
+      if (tangent.dot(dir) < 0.55) continue;
+      return { normal, tangent };
+    }
+    return null;
+  }
+
+  _tryWallRun(wish) {
+    if (this.state !== 'air' || this.horizontalSpeed < T.wallRunMinSpeed || this.vel.y < -7) return false;
+    const dir = this._wish.clone().set(this.vel.x, 0, this.vel.z).normalize();
+    const wall = this._findRunWall(dir);
+    if (!wall || wish.dot(wall.tangent) < 0.3) return false;
+    const speed = Math.max(this.horizontalSpeed, 7.5);
+    this.wallRun = { ...wall, speed };
+    // Keep a little lift, but a wall-run is for crossing gaps, not climbing.
+    this.vel.set(wall.tangent.x * speed, clamp(this.vel.y, 1.5, 3.2), wall.tangent.z * speed);
+    this.facing = Math.atan2(wall.tangent.x, wall.tangent.z);
+    this._setState('wallrun');
+    this.events.push({ type: 'wallrun' });
+    return true;
+  }
+
+  _updateWallRun(dt, ctl) {
+    const w = this.wallRun;
+    // Jump off the wall: away from it and up. Can then wall-run the opposite wall.
+    if (ctl.jumpPressed || this.jumpBufferTimer > 0) {
+      this.jumpBufferTimer = 0;
+      this.vel.set(w.tangent.x * w.speed * 0.85 + w.normal.x * T.wallJumpOut, T.wallJumpUp,
+        w.tangent.z * w.speed * 0.85 + w.normal.z * T.wallJumpOut);
+      this._endWallRun();
+      this.events.push({ type: 'walljump' });
+      return;
+    }
+    this.vel.y -= T.wallRunGravity * dt;
+    // Hug the wall a little so collisions keep us against it.
+    this.vel.x = w.tangent.x * w.speed - w.normal.x * 0.5;
+    this.vel.z = w.tangent.z * w.speed - w.normal.z * 0.5;
+    const fall = -this.vel.y;
+    this._moveAxis('x', this.vel.x * dt);
+    this._moveAxis('z', this.vel.z * dt);
+    this._moveY(this.vel.y * dt);
+    if (this.grounded) { this._endWallRun(); this._onLand(fall); return; }
+    // Ran out of time, or out of wall?
+    const stillWall = this._findRunWallFace(w.normal);
+    if (this.stateTime > T.wallRunTime || !stillWall) {
+      this.vel.x = w.tangent.x * w.speed;
+      this.vel.z = w.tangent.z * w.speed;
+      this._endWallRun();
+    }
+  }
+
+  /** Is the wall face with this normal still beside us? */
+  _findRunWallFace(normal) {
+    const p = this.pos;
+    const px = p.x - normal.x * (T.radius + 0.6), pz = p.z - normal.z * (T.radius + 0.6);
+    return this.world.query(px - 0.08, p.y + 0.6, pz - 0.08, px + 0.08, p.y + 1.6, pz + 0.08, this._hits).length > 0;
+  }
+
+  _endWallRun() {
+    this.usedWallNormal = this.wallRun.normal;
+    this.wallRun = null;
+    this._setState('air');
+  }
+
+  // ---------------------------------------------------------------------
+  // Zip lines
+  // ---------------------------------------------------------------------
+
+  /** Grab a zip line if our hands are near the cable (jumping or falling into it). */
+  _tryZip() {
+    if (!this.zipLines.length || this.zipCooldown > 0) return false;
+    if (this.grounded && this.jumpBufferTimer <= 0) return false; // on the ground: press jump to grab
+    const hx = this.pos.x, hy = this.pos.y + T.zipHang, hz = this.pos.z;
+    for (const line of this.zipLines) {
+      const ax = line.a.x, ay = line.a.y, az = line.a.z;
+      const dx = line.b.x - ax, dy = line.b.y - ay, dz = line.b.z - az;
+      const len2 = dx * dx + dy * dy + dz * dz;
+      const t = clamp(((hx - ax) * dx + (hy - ay) * dy + (hz - az) * dz) / len2, 0, 1);
+      if (t > 0.9) continue;
+      const cx = ax + dx * t, cy = ay + dy * t, cz = az + dz * t;
+      if (Math.hypot(hx - cx, hy - cy, hz - cz) > T.zipGrab) continue;
+      const len = Math.sqrt(len2);
+      const along = (this.vel.x * dx + this.vel.y * dy + this.vel.z * dz) / len;
+      this.zip = { line, t, len, speed: Math.max(T.zipMinSpeed, along) };
+      this.grounded = false;
+      this.jumpBufferTimer = 0;
+      this._setState('zip');
+      this.events.push({ type: 'zip' });
+      return true;
+    }
+    return false;
+  }
+
+  _updateZip(dt, ctl) {
+    const z = this.zip, l = z.line;
+    const dx = (l.b.x - l.a.x) / z.len, dy = (l.b.y - l.a.y) / z.len, dz = (l.b.z - l.a.z) / z.len;
+    // Speed builds up going downhill (dy < 0), with a little drag.
+    z.speed = clamp(z.speed + (-dy * 20 - 0.02 * z.speed * z.speed * 0.2) * dt, T.zipMinSpeed, T.zipMaxSpeed);
+    z.t += (z.speed * dt) / z.len;
+    const done = z.t >= 1;
+    z.t = Math.min(1, z.t);
+    this.pos.set(l.a.x + (l.b.x - l.a.x) * z.t, l.a.y + (l.b.y - l.a.y) * z.t - T.zipHang, l.a.z + (l.b.z - l.a.z) * z.t);
+    this.vel.set(dx * z.speed, dy * z.speed, dz * z.speed);
+    this.facing = Math.atan2(dx, dz);
+    if (done || ctl.jumpPressed) {
+      // Let go: keep the momentum (a little hop if you let go early).
+      if (!done) this.vel.y += 3;
+      this.zip = null;
+      this.zipCooldown = 0.5;
+      this._setState('air');
+      this.events.push({ type: 'zipEnd' });
     }
   }
 

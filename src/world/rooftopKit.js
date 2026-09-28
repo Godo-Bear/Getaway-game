@@ -32,6 +32,7 @@ export class RooftopKit {
     this.lamps = [];       // street lamps [x, z]
     this.signs = [];       // neon signs { b, side, text? }
     this.extra = new THREE.Group(); // one-off meshes (crane towers, big signs...)
+    this.zipLines = [];    // [{ a, b }] handed to the player controller
   }
 
   /** A solid box: collider + visible geometry. */
@@ -264,6 +265,100 @@ export class RooftopKit {
     light.position.set(x + armDir * armLen, h + 1.8, z);
     light.scale.setScalar(2.5);
     this.extra.add(light);
+  }
+
+  // ------------------------------------------------------------------
+  // Chapter 2 / 3 pieces
+  // ------------------------------------------------------------------
+
+  /**
+   * Zip line from (ax,ay,az) [high end] to (bx,by,bz). The y values are the
+   * CABLE heights: put them ~2.3 m above the roof you start from and ~2.2 m
+   * above the roof you land on (you hang 2 m below the cable).
+   */
+  zipLine(ax, ay, az, bx, by, bz, { startRoof = ay - 2.3, endRoof = by - 2.2 } = {}) {
+    const a = new THREE.Vector3(ax, ay, az), b = new THREE.Vector3(bx, by, bz);
+    this.zipLines.push({ a, b });
+    // Anchor posts (visual only, so they never block the ride)
+    const post = { side: 'plain', top: 'plain', color: 0x3a3c42 };
+    this.batch.addBox({ x: ax - 0.12, y: startRoof, z: az - 0.12 }, { x: ax + 0.12, y: ay + 0.4, z: az + 0.12 }, post);
+    this.batch.addBox({ x: bx - 0.12, y: endRoof, z: bz - 0.12 }, { x: bx + 0.12, y: by + 0.4, z: bz + 0.12 }, post);
+    // Cable: a thin cylinder from a to b
+    const len = a.distanceTo(b);
+    const cable = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, len, 6), new THREE.MeshLambertMaterial({ color: 0x9aa0a8 }));
+    cable.position.copy(a).add(b).multiplyScalar(0.5);
+    cable.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
+    this.extra.add(cable);
+    // A yellow handle hanging at the start, so it's easy to spot
+    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.08), new THREE.MeshBasicMaterial({ color: 0xffd040, toneMapped: false }));
+    handle.position.set(ax, ay - 0.35, az);
+    this.extra.add(handle);
+  }
+
+  /**
+   * A duct / pipe run across a roof with a gap underneath that's only
+   * slide-height (1.1 m). The duct itself is tall, so you can't climb over it.
+   */
+  duct(x0, z0, x1, z1, roofY, gap = 1.1, height = 3.4) {
+    const look = { side: 'metal', top: 'metal', color: 0x8f959e, uvScale: [1.5, 1.5] };
+    this.solid(x0, roofY + gap, z0, x1, roofY + height, z1, look, 'duct');
+    // Warning stripe along the bottom edge
+    this.batch.addBox({ x: x0, y: roofY + gap - 0.02, z: z0 - 0.02 }, { x: x1, y: roofY + gap + 0.12, z: z1 + 0.02 }, { side: 'glow', top: null, color: 0x8a6a10 });
+  }
+
+  /** A shipping container (12.2 x 2.6 x 2.44 m), along X or Z. */
+  container(x, y, z, alongX = true, color = 0xb04a2a) {
+    const w = alongX ? 12.2 : 2.44, d = alongX ? 2.44 : 12.2;
+    this.block(x, y, z, w, 2.6, d, { side: 'metal', top: 'metal', color, uvScale: [0.6, 2.6] }, 'container');
+  }
+
+  /** A stack of containers filling a rectangle, `levels` high. Returns its top height. */
+  containerStack(x0, z0, x1, z1, levels, y0 = 0, alongX = true) {
+    const colors = [0xb04a2a, 0x2a6ab0, 0x3a8a4a, 0xc0a030, 0x8a2a6a, 0x5a6a7a];
+    const w = alongX ? 12.2 : 2.44, d = alongX ? 2.44 : 12.2;
+    for (let l = 0; l < levels; l++) {
+      for (let x = x0 + w / 2; x <= x1 - w / 2 + 0.01; x += w) {
+        for (let z = z0 + d / 2; z <= z1 - d / 2 + 0.01; z += d) {
+          this.container(x, y0 + l * 2.6, z, alongX, colors[Math.floor(this.rng() * colors.length)]);
+        }
+      }
+    }
+    const top = y0 + levels * 2.6;
+    this.buildings.push({ minX: x0, maxX: x1, minZ: z0, maxZ: z1, h: top });
+    return top;
+  }
+
+  /** Harbour water: touching it counts as falling. */
+  water(minX, minZ, maxX, maxZ) {
+    this.world.addBox(minX, -3, minZ, maxX, 0, maxZ, { tag: 'street' });
+    this.batch.addBox({ x: minX, y: -0.4, z: minZ }, { x: maxX, y: -0.3, z: maxZ }, { side: null, top: 'plain', color: 0x0c1a2c });
+  }
+
+  /** A quay / pier deck at ground level (drop onto it = "ground units spot you"). */
+  quay(minX, minZ, maxX, maxZ, y = 0.4) {
+    this.world.addBox(minX, -2, minZ, maxX, y, maxZ, { tag: 'street' });
+    this.batch.addBox({ x: minX, y: -0.5, z: minZ }, { x: maxX, y, z: maxZ }, { side: 'concrete', top: 'asphalt', color: 0x8a8a8a, uvScale: [4, 4], topScale: [8, 8] });
+  }
+
+  /**
+   * A tall, thin mural wall along one axis: perfect for wall-running.
+   * axis 'z': the wall runs along Z at x = t.
+   */
+  muralWall(axis, a0, a1, t, y0, height, text, color) {
+    const look = { side: 'concrete', top: 'concrete', color: 0x6a6e78, uvScale: [4, 4] };
+    const th = 0.4;
+    if (axis === 'z') this.solid(t - th / 2, y0, Math.min(a0, a1), t + th / 2, y0 + height, Math.max(a0, a1), look, 'wall');
+    else this.solid(Math.min(a0, a1), y0, t - th / 2, Math.max(a0, a1), y0 + height, t + th / 2, look, 'wall');
+    const len = Math.abs(a1 - a0);
+    const tex = makeTextTexture(text, { color, bg: 'rgba(0,0,0,0)', width: 1024, height: 256, font: 'bold 150px "Bebas Neue", Impact, sans-serif' });
+    for (const side of [-1, 1]) {
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(len * 0.9, Math.min(height * 0.5, len * 0.22)),
+        new THREE.MeshBasicMaterial({ map: tex, transparent: true, toneMapped: false }));
+      const mid = (a0 + a1) / 2;
+      if (axis === 'z') { plane.position.set(t + side * (th / 2 + 0.02), y0 + height * 0.55, mid); plane.rotation.y = side * Math.PI / 2; }
+      else { plane.position.set(mid, y0 + height * 0.55, t + side * (th / 2 + 0.02)); plane.rotation.y = side > 0 ? 0 : Math.PI; }
+      this.extra.add(plane);
+    }
   }
 
   /** Neon sign on a building face. side: 0 = -Z face, 1 = +Z, 2 = -X, 3 = +X */

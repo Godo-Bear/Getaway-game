@@ -56,7 +56,12 @@ function limb(parent, x, y, z, w, len, d, color) {
 }
 
 export class PlayerModel {
-  constructor() {
+  /**
+   * @param {object} [colors] - override any of COLORS (police officers, Vince...)
+   * @param {{bag?:boolean}} [opts]
+   */
+  constructor(colors = {}, { bag = true } = {}) {
+    const C = { ...COLORS, ...colors };
     this.root = new THREE.Group();
     this.tumble = new THREE.Group();
     this.tumble.position.y = 0.55;
@@ -69,50 +74,52 @@ export class PlayerModel {
     // --- Torso + head
     this.torso = new THREE.Group();
     this.hips.add(this.torso);
-    this.torso.add(box(0.5, 0.62, 0.28, COLORS.hoodie, 0.34));
-    this.torso.add(box(0.44, 0.12, 0.26, COLORS.trousers, 0.02)); // belt line
+    this.torso.add(box(0.5, 0.62, 0.28, C.hoodie, 0.34));
+    this.torso.add(box(0.44, 0.12, 0.26, C.trousers, 0.02)); // belt line
     this.head = new THREE.Group();
     this.head.position.y = 0.72;
     this.torso.add(this.head);
-    this.head.add(box(0.1, 0.08, 0.1, COLORS.skin, 0.03)); // neck
-    this.head.add(box(0.28, 0.3, 0.28, COLORS.mask, 0.2)); // balaclava
-    this.head.add(box(0.22, 0.06, 0.02, COLORS.skin, 0.24, 0, 0.14)); // eye slit
+    this.head.add(box(0.1, 0.08, 0.1, C.skin, 0.03)); // neck
+    this.head.add(box(0.28, 0.3, 0.28, C.mask, 0.2)); // balaclava
+    this.head.add(box(0.22, 0.06, 0.02, C.skin, 0.24, 0, 0.14)); // eye slit
     this.head.add(box(0.3, 0.07, 0.3, 0x2a2b31, 0.36)); // beanie rim
 
     // --- Arms (shoulder -> elbow)
     const armLen = 0.32, foreLen = 0.3;
-    this.shoulderL = limb(this.torso, -0.32, 0.6, 0, 0.14, armLen, 0.15, COLORS.hoodie);
-    this.shoulderR = limb(this.torso, 0.32, 0.6, 0, 0.14, armLen, 0.15, COLORS.hoodie);
-    this.elbowL = limb(this.shoulderL, 0, -armLen, 0, 0.12, foreLen, 0.13, COLORS.hoodie);
-    this.elbowR = limb(this.shoulderR, 0, -armLen, 0, 0.12, foreLen, 0.13, COLORS.hoodie);
-    this.elbowL.add(box(0.13, 0.1, 0.14, COLORS.gloves, -foreLen - 0.04));
-    this.elbowR.add(box(0.13, 0.1, 0.14, COLORS.gloves, -foreLen - 0.04));
+    this.shoulderL = limb(this.torso, -0.32, 0.6, 0, 0.14, armLen, 0.15, C.hoodie);
+    this.shoulderR = limb(this.torso, 0.32, 0.6, 0, 0.14, armLen, 0.15, C.hoodie);
+    this.elbowL = limb(this.shoulderL, 0, -armLen, 0, 0.12, foreLen, 0.13, C.hoodie);
+    this.elbowR = limb(this.shoulderR, 0, -armLen, 0, 0.12, foreLen, 0.13, C.hoodie);
+    this.elbowL.add(box(0.13, 0.1, 0.14, C.gloves, -foreLen - 0.04));
+    this.elbowR.add(box(0.13, 0.1, 0.14, C.gloves, -foreLen - 0.04));
 
     // --- Legs (hip -> knee)
     const thigh = 0.46, shin = 0.44;
-    this.hipL = limb(this.hips, -0.13, 0, 0, 0.18, thigh, 0.2, COLORS.trousers);
-    this.hipR = limb(this.hips, 0.13, 0, 0, 0.18, thigh, 0.2, COLORS.trousers);
-    this.kneeL = limb(this.hipL, 0, -thigh, 0, 0.16, shin, 0.18, COLORS.trousers);
-    this.kneeR = limb(this.hipR, 0, -thigh, 0, 0.16, shin, 0.18, COLORS.trousers);
-    this.kneeL.add(box(0.17, 0.08, 0.28, COLORS.shoes, -shin - 0.02, 0, 0.05));
-    this.kneeR.add(box(0.17, 0.08, 0.28, COLORS.shoes, -shin - 0.02, 0, 0.05));
+    this.hipL = limb(this.hips, -0.13, 0, 0, 0.18, thigh, 0.2, C.trousers);
+    this.hipR = limb(this.hips, 0.13, 0, 0, 0.18, thigh, 0.2, C.trousers);
+    this.kneeL = limb(this.hipL, 0, -thigh, 0, 0.16, shin, 0.18, C.trousers);
+    this.kneeR = limb(this.hipR, 0, -thigh, 0, 0.16, shin, 0.18, C.trousers);
+    this.kneeL.add(box(0.17, 0.08, 0.28, C.shoes, -shin - 0.02, 0, 0.05));
+    this.kneeR.add(box(0.17, 0.08, 0.28, C.shoes, -shin - 0.02, 0, 0.05));
 
     // --- Duffel bag of cash, slung across the back
     this.bag = new THREE.Group();
     this.bag.position.set(0, 0.42, -0.26);
+    this.bag.visible = bag;
     this.torso.add(this.bag);
-    const bagBody = box(0.62, 0.3, 0.3, COLORS.bag, 0);
+    const bagBody = box(0.62, 0.3, 0.3, C.bag, 0);
     bagBody.rotation.z = 0.18;
     this.bag.add(bagBody);
     // End caps and a zip line make it read as a duffel from a distance
-    this.bag.add(box(0.05, 0.31, 0.31, COLORS.strap, 0.055, -0.3));
-    this.bag.add(box(0.05, 0.31, 0.31, COLORS.strap, -0.055, 0.3));
-    const cash = box(0.18, 0.06, 0.1, COLORS.cash, 0.17, 0.08, 0.02); // bills poking out
+    this.bag.add(box(0.05, 0.31, 0.31, C.strap, 0.055, -0.3));
+    this.bag.add(box(0.05, 0.31, 0.31, C.strap, -0.055, 0.3));
+    const cash = box(0.18, 0.06, 0.1, C.cash, 0.17, 0.08, 0.02); // bills poking out
     cash.rotation.z = 0.18;
     this.bag.add(cash);
     // Strap diagonally across the chest
-    const strap = box(0.06, 0.8, 0.02, COLORS.strap, 0.36, 0, 0.15);
+    const strap = box(0.06, 0.8, 0.02, C.strap, 0.36, 0, 0.15);
     strap.rotation.z = 0.7;
+    strap.visible = bag;
     this.torso.add(strap);
 
     // Current joint angles (blended toward targets each frame)
@@ -120,7 +127,7 @@ export class PlayerModel {
       hipL: 0, hipR: 0, kneeL: 0, kneeR: 0,
       shL: 0, shR: 0, elL: 0, elR: 0,
       shLz: 0, shRz: 0,  // arms out to the side
-      lean: 0, bob: 0, headPitch: 0, bagSwing: 0,
+      lean: 0, bob: 0, headPitch: 0, bagSwing: 0, sideLean: 0,
     };
     this.runPhase = 0;
     this.time = 0;
@@ -149,10 +156,61 @@ export class PlayerModel {
       hipL: 0, hipR: 0, kneeL: 0.05, kneeR: 0.05,
       shL: 0.05, shR: 0.05, elL: -0.25, elR: -0.25,
       shLz: -0.08, shRz: 0.08,
-      lean: 0, bob: 0, headPitch: 0, bagSwing: 0,
+      lean: 0, bob: 0, headPitch: 0, bagSwing: 0, sideLean: 0,
     };
 
     switch (pc.state) {
+      case 'slide': {
+        // Feet first, leaning back, one hand trailing on the ground.
+        t.hipL = -1.5; t.kneeL = 0.2;
+        t.hipR = -1.2; t.kneeR = 1.0;
+        t.lean = -0.9;
+        t.bob = -0.45;
+        t.shL = 0.9; t.elL = -0.2; t.shLz = -0.5;
+        t.shR = -0.6; t.elR = -0.8;
+        t.bagSwing = 0.3;
+        break;
+      }
+      case 'crouch': {
+        this.runPhase += dt * speed * 1.2;
+        const sw = Math.sin(this.runPhase) * Math.min(1, speed / 3) * 0.5;
+        t.hipL = -1.2 - sw; t.hipR = -1.2 + sw;
+        t.kneeL = t.kneeR = 1.6;
+        t.bob = -0.4;
+        t.lean = 0.5;
+        t.shL = t.shR = -0.4;
+        t.elL = t.elR = -1.0;
+        break;
+      }
+      case 'wallrun': {
+        // Running along the wall, leaning away from it.
+        this.runPhase += dt * speed * 1.45;
+        const sn = Math.sin(this.runPhase), cs = Math.cos(this.runPhase);
+        t.hipL = -sn; t.hipR = sn;
+        t.kneeL = 0.2 + Math.max(0, cs) * 1.4;
+        t.kneeR = 0.2 + Math.max(0, -cs) * 1.4;
+        t.shL = sn * 0.8; t.shR = -sn * 0.8;
+        t.elL = t.elR = -1.2;
+        t.lean = 0.2;
+        // Which side is the wall? Lean the other way.
+        if (pc.wallRun) {
+          const n = pc.wallRun.normal;
+          const rightX = -Math.cos(pc.facing), rightZ = Math.sin(pc.facing); // model's right
+          t.sideLean = (n.x * rightX + n.z * rightZ) > 0 ? -0.35 : 0.35;
+        }
+        break;
+      }
+      case 'zip': {
+        // Hanging from the cable: both arms up, legs dangling.
+        t.shL = t.shR = -3.0;
+        t.elL = t.elR = 0;
+        t.shLz = 0.1; t.shRz = -0.1;
+        t.hipL = -0.4; t.kneeL = 0.5;
+        t.hipR = -0.1; t.kneeR = 0.3;
+        t.lean = 0.1;
+        t.bagSwing = Math.sin(this.time * 3) * 0.3;
+        break;
+      }
       case 'ground': {
         if (speed > 0.3) {
           // Running cycle: legs swing opposite to each other, arms opposite to legs.
@@ -258,6 +316,7 @@ export class PlayerModel {
     this.head.rotation.x = p.headPitch - p.lean * 0.6; // keep eyes up while leaning
     this.hips.position.y = 0.4 + p.bob;
     this.bag.rotation.x = p.bagSwing;
+    this.tumble.rotation.z = p.sideLean;
 
     // Roll: one full forward somersault over the roll duration.
     if (pc.state === 'roll') {

@@ -15,9 +15,11 @@ Handy URL options for testing:
 
 | URL | What it does |
 | --- | --- |
-| `/?mode=chapter1` | Jump straight into Story Chapter 1 (rooftop escape) |
+| `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2`, `chapter3`) |
+| `/?mode=chapter2&part=1` | Jump into a later part of a chapter (parts count from 0) |
+| `/?mode=chapter3&ghost` | Jump into a chapter in clue-hunt (ghost) mode |
 | `/?mode=drive1` | Jump straight into Story Chapter 1, Part 2 (the drive) |
-| `/?mode=deduce1` | Jump straight into the Chapter 1 deduction (with whatever clues this session found) |
+| `/?mode=deduce1` | Jump straight into a deduction (also `deduce2`, `deduce3`) with whatever clues you've found |
 | `/?mode=rooftop` | Jump straight into Rooftop Run (helicopter survival) |
 | `/?mode=free` | Jump straight into Free Run (parkour practice) |
 | `/?mode=chase` | Jump straight into Street Chase (driving survival) |
@@ -38,7 +40,11 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 * **Free Run**: rooftops with no helicopters, for practising moves.
 * **Story: Chapter 1, Part 1**: a hand-built rooftop route from the Harbor Trust bank to the getaway car on the Pier Street garage. Checkpoints, one police helicopter (caught = back to the last checkpoint), 4 clues (2 on the main path, 2 behind harder shortcuts), and a bronze/silver/gold rating.
 * **Story: Chapter 1, Part 2**: drive the getaway car from the garage to the crew's safehouse (green light). You must lose the cops before you pull up, or you'd lead them straight there. A fifth clue is hidden in the park in the middle of town (amber dot on the minimap).
-* **Story: Chapter 1, Part 3**: the deduction. Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2 (coming in Milestone 7).
+* **Story: Chapter 1, Part 3**: the deduction. Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2.
+* **Story: Chapter 2, The Ferry**: chase Vince's car across town before he reaches the ferry terminal (heat 3-4, roadblocks and spike strips), then chase him on foot across the docks: warehouse roofs, container stacks, a wall-run, a duct to slide under and a zip line down to the pier.
+* **Story: Chapter 3, Headquarters**: zip-line onto the police HQ roof, find Det. Hale's ledger while officers chase you out of the stairwells (and the helicopter joins later), zip down to the car, then race the clock to the last ferry through heat-5 roadblocks. The final deduction reveals who planned everything.
+* **Clue hunt (ghost mode)**: on the chapter's part screen. Replay any part with no police, no helicopter and no timer; an amber marker points at clues you haven't found. Clues found are saved and count in every later deduction.
+* **Moves**: sprint + C (or Ctrl) to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
 * **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen.
 
 ## Project layout
@@ -51,11 +57,11 @@ src/
   world/               rooftop city, street city, materials, lighting, mesh batching
   player/              on-foot controller (parkour physics) and box-character model
   vehicles/            car physics, car models, traffic, particles
-  ai/                  helicopter, police, road graph, AI driving helpers
+  ai/                  helicopter, police, officers on foot, fugitives, road graph, AI driving helpers
   ui/                  HUD, menus, minimap
-  story/               chapter data (intro text, clues), the crew
+  story/               chapter data (parts, story text, clues, verdicts), chapter flow, the crew
   world/levels/        hand-built story levels
   states/              title, on-foot state, driving state (+ shared PlayState base)
-  states/modes/        Free Run, Rooftop Run, Chapter rooftops, Street Chase, Chapter drive
+  states/modes/        Free Run, Rooftop Run, Street Chase, chapter on-foot parts, chapter driving parts
 reference/getaway.html the original single-file prototype (for reference only)
 ```

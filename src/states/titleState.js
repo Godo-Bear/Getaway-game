@@ -4,6 +4,7 @@ import { generateRooftopCity } from '../world/rooftopCity.js';
 import { showTitle, hideCard } from '../ui/menus.js';
 import { showSettings } from '../ui/settings.js';
 import { audio } from '../core/audio.js';
+import { startPart } from '../story/chapterFlow.js';
 
 // Title screen: the menu card on the left, and behind it a slow camera
 // fly-around of the night-time rooftops.
@@ -26,11 +27,7 @@ export class TitleState {
     this.game.hud.hideAll();
     showTitle({
       settings: (back) => showSettings(this.game, back),
-      story: (chapterId, part) => {
-        this.game.chapterRun = null;
-        if (part === 'drive') this.game.sm.change('driving', { mode: chapterId });
-        else this.game.sm.change('onFoot', { mode: chapterId });
-      },
+      story: (chapterId, part = 0, ghost = false) => startPart(this.game, chapterId, part, { ghost, fresh: true }),
       rooftopRun: () => this.game.sm.change('onFoot', { mode: 'survival' }),
       freeRun: () => this.game.sm.change('onFoot', { mode: 'free' }),
       streetChase: () => this.game.sm.change('driving', { mode: 'survival' }),

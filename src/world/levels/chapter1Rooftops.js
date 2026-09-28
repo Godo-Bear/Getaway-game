@@ -235,5 +235,6 @@ export function buildChapter1Rooftops() {
   return {
     group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots,
     spawn: checkpoints[0].spawn, checkpoints, clues, guides, carPos, beacon, policeCars,
+    goalPos: carPos, heliStart: new THREE.Vector3(0, 0, 70),
   };
 }

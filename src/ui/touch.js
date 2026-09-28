@@ -9,12 +9,12 @@
 // input.touch, which the Input class reads exactly like keys and gamepads.
 
 const LABELS = {
-  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: null },
+  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide' },
   driving: { a: 'Drift', b: 'Nitro', c: 'Cam', d: 'Horn' },
   none: { a: null, b: null, c: null, d: null },
 };
 const ACTIONS = {
-  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: null },
+  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: 'crouch' },
   driving: { a: 'jump', b: 'sprint', c: 'camera', d: 'horn' },
   none: {},
 };

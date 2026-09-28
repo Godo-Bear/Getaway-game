@@ -9,6 +9,7 @@ import { TitleState } from './states/titleState.js';
 import { OnFootState } from './states/onFootState.js';
 import { DrivingState } from './states/drivingState.js';
 import { DeductionState } from './states/deductionState.js';
+import { startPart } from './story/chapterFlow.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -94,17 +95,20 @@ function start(renderer) {
   window.game = game;
 
   // URL options for testing:
-  //   ?mode=chapter1 | drive1 | deduce1 | rooftop | free | chase  - jump straight into a mode
+  //   ?mode=chapter1|chapter2|chapter3 [&part=N] [&ghost]  - a story part (N from 0)
+  //   ?mode=deduce1|deduce2|deduce3 | rooftop | free | chase  - jump straight into a mode
   //   ?nolock                       - play without mouse lock (A/D turn, drag to look)
   const params = new URLSearchParams(location.search);
   if (params.has('nolock')) game.input.pointerLockFailed = game.input.lockDisabled = true;
   const mode = params.get('mode');
-  if (mode === 'chapter1') game.sm.change('onFoot', { mode: 'chapter1' });
+  // Story: ?mode=chapter2&part=1&ghost  (part is 0-based)
+  const story = /^chapter(\d)$/.exec(mode || '');
+  if (story) startPart(game, mode, Number(params.get('part') || 0), { ghost: params.has('ghost'), fresh: true });
   else if (mode === 'rooftop') game.sm.change('onFoot', { mode: 'survival' });
   else if (mode === 'free') game.sm.change('onFoot', { mode: 'free' });
   else if (mode === 'chase') game.sm.change('driving', { mode: 'survival' });
-  else if (mode === 'drive1') game.sm.change('driving', { mode: 'chapter1' });
-  else if (mode === 'deduce1') game.sm.change('deduction', { chapterId: 'chapter1' });
+  else if (mode === 'drive1') startPart(game, 'chapter1', 1, { fresh: true });
+  else if (/^deduce\d$/.test(mode || '')) game.sm.change('deduction', { chapterId: `chapter${mode.slice(-1)}` });
   else game.sm.change('title');
 
   // ---------------- Game loop ----------------

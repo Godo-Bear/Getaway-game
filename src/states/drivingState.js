@@ -47,7 +47,7 @@ const EVADE_TIME = 9;         // seconds out of sight to lose the cops
 const EVADE_TIME_HIDDEN = 5;  // ... when in an alley or park
 const NEAR_MISS_DIST = 4.4;
 
-const MODES = { survival: StreetChaseMode, chapter1: ChapterDriveMode };
+const MODES = { survival: StreetChaseMode, story: ChapterDriveMode, chapter1: ChapterDriveMode };
 
 export class DrivingState extends PlayState {
   constructor(game) {
@@ -58,7 +58,7 @@ export class DrivingState extends PlayState {
   buildWorld(params) {
     const game = this.game;
     const ModeClass = MODES[params.mode] || StreetChaseMode;
-    this.mode = new ModeClass(this);
+    this.mode = new ModeClass(this, params);
 
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 900);
@@ -184,9 +184,11 @@ export class DrivingState extends PlayState {
     const ground = this.city.groundHeight;
 
     // --- AI decisions
-    this.police.setCount(heat.cops, p, this.camera);
+    const cops = this.mode.copCount?.() ?? heat.cops;
+    this.police.setCount(cops, p, this.camera);
     this.police.update(dt, p, heat, this.camera);
-    const all = [p, ...this.police.cars, ...this.traffic.cars];
+    this.mode.simulate?.(dt);
+    const all = [p, ...this.police.cars, ...this.traffic.cars, ...(this.mode.extraCars?.() ?? [])];
     this.traffic.update(dt, p, this.camera, all, this.police.units);
 
     // --- Physics
@@ -263,6 +265,7 @@ export class DrivingState extends PlayState {
     p.syncMesh();
     this.police.syncMeshes(this.time);
     this.traffic.syncMeshes();
+    this.mode.syncMeshes?.();
     this.city.trafficLights.update(frozen ? 0 : dt);
     this.city.train.update(frozen ? 0 : dt);
     this.playerMesh.userData.flames.visible = p.boosting;
@@ -289,7 +292,10 @@ export class DrivingState extends PlayState {
       this._mapTimer = 1 / 30;
       this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color, search);
     }
-    if (target) {
+    const mt = this.mode.markerTarget?.();
+    if (mt) {
+      hud.setMarker(mt.pos, this.camera, mt.label, mt.color, Math.hypot(mt.pos.x - p.pos.x, mt.pos.z - p.pos.z));
+    } else if (target) {
       const bd = Math.hypot(target.x - p.pos.x, target.z - p.pos.z);
       hud.setMarker(target.clone().setY(4), this.camera, this.beacon.label, this.beacon.color, bd);
     } else hud.setMarker(null);

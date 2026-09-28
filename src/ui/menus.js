@@ -53,7 +53,8 @@ export function isCardOpen() {
 export const CONTROLS = {
   onFoot: `
     <kbd>Mouse</kbd> look around &nbsp; <kbd>W A S D</kbd> move<br>
-    <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb<br>
+    <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
+    Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it.<br>
     <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
@@ -78,6 +79,9 @@ export function controlsHtml() {
       <kbd>Shift</kbd><span>Sprint</span>
       <kbd>Space</kbd><span>Jump. Near a ledge: climb it (up to 2.7 m)</span>
       <kbd>Run into it</kbd><span>Vault over low obstacles like AC units</span>
+      <kbd>C / Ctrl</kbd><span>Slide while sprinting (under pipes); crouch when slow</span>
+      <kbd>Jump by a wall</kbd><span>Wall-run along a tall wall; press Space again to jump off it</span>
+      <kbd>Jump at a cable</kbd><span>Grab a zip line and ride it down; Space lets go</span>
       <kbd>V</kbd><span>Switch between first-person and third-person view</span>
       <kbd>R</kbd><span>Go back to the last safe spot</span>
     </div>
@@ -97,6 +101,7 @@ export function controlsHtml() {
       <kbd>Left stick</kbd><span>Move / steer</span>
       <kbd>Right stick</kbd><span>Look around</span>
       <kbd>A</kbd><span>Jump / handbrake</span>
+      <kbd>B</kbd><span>Slide / crouch</span>
       <kbd>RB or L3</kbd><span>Sprint / nitro</span>
       <kbd>RT / LT</kbd><span>Accelerate / brake (driving)</span>
       <kbd>X</kbd><span>Horn</span>
@@ -109,7 +114,7 @@ export function controlsHtml() {
     <div class="controls-grid">
       <kbd>Left joystick</kbd><span>Move / steer and accelerate</span>
       <kbd>Drag right side</kbd><span>Look around</span>
-      <kbd>Buttons</kbd><span>Jump or Drift, Sprint or Nitro, View or Camera, Horn, Pause</span>
+      <kbd>Buttons</kbd><span>Jump or Drift, Sprint or Nitro, View or Camera, Slide or Horn, Pause</span>
     </div>`;
 }
 
@@ -135,33 +140,44 @@ export function showTitle(actions) {
 export function showChapterSelect(actions) {
   const p = save.data.progress;
   const back = () => showChapterSelect(actions);
-  const rows = CHAPTER_LIST.map((c, i) => {
-    const unlocked = c.available && i + 1 <= (p.chapterUnlocked || 1);
+  const buttons = CHAPTER_LIST.map((c) => {
+    const unlocked = c.number <= (p.chapterUnlocked || 1);
     const rating = p.ratings?.[c.id];
     const best = p.bestTimes?.[`${c.id}.total`];
-    const status = !c.available ? 'Coming in Milestone 7'
-      : !unlocked ? 'Locked: solve the previous chapter'
+    const status = !unlocked ? 'Locked: solve the previous chapter'
       : [p.solved?.[c.id] ? 'Solved' : 'Not solved yet', rating ? `rating ${rating}` : '', best != null ? `best ${formatTime(best)}` : ''].filter(Boolean).join(' · ');
-    return { c, unlocked, status };
+    return { label: c.title, sub: status, primary: unlocked && !p.solved?.[c.id], disabled: !unlocked,
+      onClick: () => showChapterParts(c.id, actions, back) };
   });
-  const buttons = [];
-  for (const r of rows) {
-    buttons.push({ label: r.c.title, sub: r.status, primary: r.c.id === 'chapter1', disabled: !r.unlocked,
-      onClick: () => showChapterParts(r.c.id, actions, back) });
-  }
   buttons.push({ label: 'Back', onClick: () => showTitle(actions) });
-  showCard('<h2>Story</h2><p class="sub">Each chapter: escape on foot, lose the police, then work out who betrayed you.</p>', buttons, { list: true });
+  showCard('<h2>Story</h2><p class="sub">Each chapter: escape, lose the police, then work out who betrayed you.</p>', buttons, { list: true });
 }
 
 function showChapterParts(chapterId, actions, back) {
   const chapter = CHAPTERS[chapterId];
   const found = new Set(save.data.progress.clues?.[chapterId] || []);
+  const total = Object.keys(chapter.clues).length;
+  const parts = chapter.parts.map((part, i) => ({
+    label: `Part ${i + 1}: ${part.title}`,
+    sub: i === 0 ? 'Play the whole chapter from the start' : 'Start from this part (practice)',
+    primary: i === 0,
+    onClick: () => actions.story(chapterId, i, false),
+  }));
   showCard(`<p class="sub kicker">${chapter.title}</p><h2>Choose where to start</h2>
-    <p class="sub">A chapter rating needs a full run from Part 1. Starting later is good for practice.</p>`, [
-    { label: 'Part 1: The rooftops', sub: 'Play the whole chapter from the start', primary: true, onClick: () => actions.story(chapterId, 'rooftops') },
-    { label: 'Part 2: The drive', sub: 'Jump straight into the getaway drive', onClick: () => actions.story(chapterId, 'drive') },
-    { label: 'Case Board', sub: `Every clue you have ever found (${found.size}/${Object.keys(chapter.clues).length})`,
+    <p class="sub">A chapter rating needs a full run from Part 1. Clue hunt (ghost mode) has no police and no clock: just search for the clues you missed. Clues you find there count in every future deduction.</p>`, [
+    ...parts,
+    { label: 'Clue hunt (ghost mode)', sub: `Search any part for missing clues (${found.size}/${total} found)`, onClick: () => showGhostParts(chapterId, actions, () => showChapterParts(chapterId, actions, back)) },
+    { label: 'Case Board', sub: `Every clue you have ever found (${found.size}/${total})`,
       onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back)) },
+    { label: 'Back', onClick: back },
+  ], { list: true });
+}
+
+function showGhostParts(chapterId, actions, back) {
+  const chapter = CHAPTERS[chapterId];
+  showCard(`<p class="sub kicker">${chapter.title}</p><h2>Clue hunt</h2>
+    <p class="sub">No police, no helicopter, no timer. An amber marker points to the nearest clue you haven't found yet.</p>`, [
+    ...chapter.parts.map((part, i) => ({ label: `Part ${i + 1}: ${part.title}`, primary: i === 0, onClick: () => actions.story(chapterId, i, true) })),
     { label: 'Back', onClick: back },
   ], { list: true });
 }

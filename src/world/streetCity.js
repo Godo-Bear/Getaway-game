@@ -23,6 +23,14 @@ const PITCH = ROAD + BLOCK;
 export const LANE_OFFSETS = [2.3, 6.2]; // lane centres, measured from the road centre line
 const SIDEWALK = 3;
 
+/** Special buildings story chapters can place on a block (forceKinds). */
+const LANDMARKS = {
+  safehouse: { height: 8, tint: 0x6d6a64, door: 0x1f9a58 },
+  anchor: { height: 10, tint: 0x5a4a3a, door: 0x8a5a10, sign: 'THE ANCHOR', signColor: '#ffb020' },
+  terminal: { height: 9, tint: 0xa8a49a, door: 0x2a70a8, sign: 'FERRY TERMINAL', signColor: '#39e6ff' },
+  hq: { height: 30, tint: 0x6a7080, door: 0x2a4aa0, sign: 'POLICE', signColor: '#3d7bff', windows: true },
+};
+
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];
 
 /**
@@ -97,6 +105,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     blockKinds[i * blocks + j] = kind;
   }
   const landmarks = {};
+  const extraSigns = [];
 
   for (let i = 0; i < blocks; i++) {
     for (let j = 0; j < blocks; j++) {
@@ -108,8 +117,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
         landmarks[`${i},${j}`] = makePark(x0, z0, x1, z1);
         continue;
       }
-      if (kind === 'safehouse') {
-        landmarks[`${i},${j}`] = makeSafehouse(x0, z0, x1, z1);
+      if (LANDMARKS[kind]) {
+        landmarks[`${i},${j}`] = makeLandmark(x0, z0, x1, z1, LANDMARKS[kind]);
         continue;
       }
       // Sidewalk slab (visual only - too low to block the car)
@@ -199,29 +208,34 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   }
 
   /**
-   * The crew's safehouse: a low warehouse with a green-lit garage door
-   * facing the road on the block's west side (-X).
+   * A landmark building (safehouse, bar, ferry terminal, police HQ): a low
+   * building with a glowing door facing the road on the block's west side
+   * (-X), and a sign. Returns where the car should stop and the nearest junction.
    */
-  function makeSafehouse(x0, z0, x1, z1) {
+  function makeLandmark(x0, z0, x1, z1, L) {
     batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.15, z: z1 },
       { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
     // Neighbouring buildings on the rest of the block
     fillBuildings(x0 + SIDEWALK, z0 + SIDEWALK, x1 - SIDEWALK, z0 + 16);
     fillBuildings(x0 + SIDEWALK, z1 - 16, x1 - SIDEWALK, z1 - SIDEWALK);
-    // The warehouse
     const wx0 = x0 + SIDEWALK, wx1 = x1 - SIDEWALK - 10, wz0 = z0 + 18, wz1 = z1 - 18;
-    world.addBox(wx0, 0, wz0, wx1, 8, wz1, { tag: 'building' });
-    batch.addBox({ x: wx0, y: 0, z: wz0 }, { x: wx1, y: 8, z: wz1 },
-      { side: 'concrete', top: 'roof', color: 0x6d6a64, uvScale: [4, 4], topScale: [6, 6] });
-    // Corrugated roller door, lit green from inside
+    world.addBox(wx0, 0, wz0, wx1, L.height, wz1, { tag: 'building' });
+    batch.addBox({ x: wx0, y: 0, z: wz0 }, { x: wx1, y: L.height, z: wz1 },
+      { side: L.windows ? 'wall' : 'concrete', top: 'roof', color: L.tint, uvScale: L.windows ? FACADE_UV : [4, 4], topScale: [6, 6] });
+    // Glowing door / entrance
     const cz = (wz0 + wz1) / 2;
-    batch.addBox({ x: wx0 - 0.08, y: 0.1, z: cz - 3.2 }, { x: wx0, y: 4.4, z: cz + 3.2 },
-      { side: 'glow', top: null, color: 0x1f9a58 });
-    batch.addBox({ x: wx0 - 0.3, y: 4.4, z: cz - 3.6 }, { x: wx0, y: 4.8, z: cz + 3.6 },
-      { side: 'plain', top: 'plain', color: 0x2a2c30 });
+    batch.addBox({ x: wx0 - 0.08, y: 0.1, z: cz - 3.2 }, { x: wx0, y: 4.4, z: cz + 3.2 }, { side: 'glow', top: null, color: L.door });
+    batch.addBox({ x: wx0 - 0.3, y: 4.4, z: cz - 3.6 }, { x: wx0, y: 4.8, z: cz + 3.6 }, { side: 'plain', top: 'plain', color: 0x2a2c30 });
+    if (L.sign) {
+      const sign = new THREE.Mesh(new THREE.PlaneGeometry(10, 2.5),
+        new THREE.MeshBasicMaterial({ map: makeTextTexture(L.sign, { color: L.signColor }), transparent: true, toneMapped: false, depthWrite: false }));
+      sign.position.set(wx0 - 0.1, Math.min(L.height - 1.2, 7), cz);
+      sign.rotation.y = -Math.PI / 2;
+      extraSigns.push(sign);
+    }
     minimapShapes.push({ type: 'building', x0: wx0, z0: wz0, x1: wx1, z1: wz1 });
-    // Where the car has to stop: the road in front of the door
-    return { door: new THREE.Vector3(x0 - 4, 0, cz), block: { x0, x1, z0, z1 } };
+    const door = new THREE.Vector3(x0 - 4, 0, cz);
+    return { door, node: graph.nearestNode(door.x, door.z), block: { x0, x1, z0, z1 } };
   }
 
   function makeRamp(x0, z0, x1, z1, axis, dir, height) {
@@ -321,6 +335,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     signGroup.add(mesh);
   }
   group.add(signGroup);
+  for (const sgn of extraSigns) group.add(sgn);
 
   /** Height of the drivable surface at (x, z): 0 on roads, sloped on ramps. */
   function groundHeight(x, z) {

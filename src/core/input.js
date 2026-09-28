@@ -33,6 +33,7 @@ export const BINDINGS = {
 /** Standard-layout gamepad buttons for each action (Xbox names). */
 export const PAD_BINDINGS = {
   jump: [0],          // A: jump / handbrake
+  crouch: [1],        // B: slide / crouch
   sprint: [5, 10],    // RB or left stick click: sprint / nitro
   horn: [2],          // X
   view: [3],          // Y: first/third person

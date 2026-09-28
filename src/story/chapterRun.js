@@ -1,20 +1,21 @@
 // A "chapter run": your progress through one playthrough of a chapter.
-// It lives on the game object (game.chapterRun) so it carries over from the
-// rooftops to the drive (and later to the deduction screen).
+// It lives on the game object (game.chapterRun) so it carries over from part
+// to part and into the deduction.
 
-export function newChapterRun(chapterId) {
+export function newChapterRun(chapterId, { ghost = false } = {}) {
   return {
     chapterId,
-    parts: {},          // partName -> seconds taken
+    ghost,              // clue hunt: no police, no rating
+    parts: {},          // partId -> seconds taken
     caught: 0,          // times caught or busted (all parts)
     clues: new Set(),   // clue ids found this run
   };
 }
 
 /** Get the current run for this chapter, or start a new one. */
-export function getChapterRun(game, chapterId) {
+export function getChapterRun(game, chapterId, opts) {
   if (!game.chapterRun || game.chapterRun.chapterId !== chapterId) {
-    game.chapterRun = newChapterRun(chapterId);
+    game.chapterRun = newChapterRun(chapterId, opts);
   }
   return game.chapterRun;
 }
@@ -23,11 +24,16 @@ export function totalTime(run) {
   return Object.values(run.parts).reduce((a, b) => a + b, 0);
 }
 
-/** Chapter rating: gold / silver / bronze, from time, clues and catches. */
-export function chapterRating(run, totalClues) {
+/**
+ * Chapter rating: gold / silver / bronze, from time, clues and catches.
+ * Each chapter sets its own target times (chapter.rating.gold / silver, seconds).
+ */
+export function chapterRating(run, chapter) {
+  const totalClues = Object.keys(chapter.clues).length;
   const t = totalTime(run);
   const clues = run.clues.size;
-  if (t < 300 && clues >= totalClues - 1 && run.caught === 0) return 'gold';
-  if (t < 480 && clues >= Math.ceil(totalClues / 2) && run.caught <= 2) return 'silver';
+  const r = chapter.rating || { gold: 300, silver: 480 };
+  if (t < r.gold && clues >= totalClues - 1 && run.caught === 0) return 'gold';
+  if (t < r.silver && clues >= Math.ceil(totalClues / 2) && run.caught <= 2) return 'silver';
   return 'bronze';
 }

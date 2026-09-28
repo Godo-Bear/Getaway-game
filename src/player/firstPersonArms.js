@@ -64,6 +64,16 @@ export class FirstPersonArms {
         y = k < 0.5 ? -0.05 : -0.2 - (k - 0.5) * 0.3;
         z = -0.4;
         rx = k < 0.5 ? 1.0 : 0.2;
+      } else if (pc.state === 'zip') {
+        // Both hands up on the zip line handle
+        x = s * 0.12; y = 0.18; z = -0.35; rx = 1.4;
+      } else if (pc.state === 'slide') {
+        // Hands back, bracing
+        y = -0.5; x = s * 0.4; rx = -0.4;
+      } else if (pc.state === 'wallrun') {
+        const swing = Math.sin(runPhase) * s;
+        z += swing * 0.12;
+        rx += swing * 0.35;
       } else if (pc.state === 'roll') {
         y = -0.6; // tucked away out of view
       } else {

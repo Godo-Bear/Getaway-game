@@ -4,6 +4,7 @@ import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
 import { SUSPECTS } from '../story/crew.js';
 import { getChapterRun, totalTime, chapterRating } from '../story/chapterRun.js';
+import { startPart, knownClues } from '../story/chapterFlow.js';
 import { save } from '../core/save.js';
 import { formatTime, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
@@ -40,6 +41,8 @@ export class DeductionState {
   enter({ chapterId = 'chapter1' } = {}) {
     this.chapter = CHAPTERS[chapterId];
     this.run = getChapterRun(this.game, chapterId);
+    // Evidence = clues found this run plus anything found before (e.g. in a clue hunt).
+    this.evidence = knownClues(this.game, chapterId);
     this.wrong = 0;
     this.time = 0;
     this.game.hud.hideAll();
@@ -120,7 +123,7 @@ export class DeductionState {
 
     // Clue cards along the bottom, with red string to their suspect
     const ids = Object.keys(this.chapter.clues);
-    const found = ids.filter((id) => this.run.clues.has(id));
+    const found = ids.filter((id) => this.evidence.has(id));
     const stringMat = new THREE.LineBasicMaterial({ color: 0xd01a1a });
     found.forEach((id, i) => {
       const info = this.chapter.clues[id];
@@ -192,16 +195,16 @@ export class DeductionState {
   // ------------------------------------------------------------------
   _clueCount() {
     const ids = Object.keys(this.chapter.clues);
-    return { found: ids.filter((id) => this.run.clues.has(id)).length, total: ids.length };
+    return { found: ids.filter((id) => this.evidence.has(id)).length, total: ids.length };
   }
 
   _askWho() {
     this.highlight.visible = false;
     const { found, total } = this._clueCount();
     showCard(`
-      <p class="sub kicker">${this.chapter.title} · Part 3: The deduction</p>
-      <h2>Who tipped off the police?</h2>
-      <p class="sub">You found ${found} of ${total} clues. Check the Case Board if you need to: some clues point at the wrong person on purpose.</p>
+      <p class="sub kicker">${this.chapter.title} · Part ${this.chapter.parts.length + 1}: The deduction</p>
+      <h2>${this.chapter.deduction.question}</h2>
+      <p class="sub">You have ${found} of ${total} clues. Check the Case Board if you need to: some clues point at the wrong person on purpose.</p>
       <div class="accuse-grid">
         ${SUSPECT_ORDER.map((id) => {
           const s = SUSPECTS[id];
@@ -210,7 +213,7 @@ export class DeductionState {
         }).join('')}
       </div>`,
     [
-      { label: 'Case Board', onClick: () => showCaseBoard(this.chapter, this.run.clues, () => this._askWho(), 'clues', true) },
+      { label: 'Case Board', onClick: () => showCaseBoard(this.chapter, this.evidence, () => this._askWho(), 'clues', true) },
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ], { side: true });
     document.querySelectorAll('[data-accuse]').forEach((b) => {
@@ -240,7 +243,7 @@ export class DeductionState {
       Each wrong accusation lowers your chapter rating.</p>`,
     [
       { label: 'Accuse someone else', primary: true, onClick: () => this._askWho() },
-      { label: 'Case Board', onClick: () => showCaseBoard(this.chapter, this.run.clues, () => this._askWho(), 'clues', true) },
+      { label: 'Case Board', onClick: () => showCaseBoard(this.chapter, this.evidence, () => this._askWho(), 'clues', true) },
       ...(missed ? [{ label: 'Replay the chapter', onClick: () => this._replay() }] : []),
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ], { side: true });
@@ -257,7 +260,7 @@ export class DeductionState {
     const time = totalTime(run);
 
     // Rating: from time, clues and catches, then one tier lower per wrong guess.
-    let rating = chapterRating(run, total);
+    let rating = chapterRating(run, chapter);
     const tier = Math.min(2, RATING_ORDER.indexOf(rating) + this.wrong);
     rating = RATING_ORDER[tier];
 
@@ -280,7 +283,7 @@ export class DeductionState {
 
     const clueHtml = ids.map((cid) => {
       const info = chapter.clues[cid];
-      if (!this.run.clues.has(cid)) return `<div class="clue missed"><strong>??? (not found)</strong></div>`;
+      if (!this.evidence.has(cid)) return `<div class="clue missed"><strong>??? (not found)</strong></div>`;
       return `<div class="clue${info.redHerring ? ' herring' : ''}"><strong>${info.name}</strong><span>${info.explain}</span></div>`;
     }).join('');
 
@@ -302,15 +305,29 @@ export class DeductionState {
       <p style="margin-top:14px">${chapter.resultOutro}</p>
       <p class="sub">Gold: the whole chapter in under 5:00, at least ${total - 1} clues, never caught, right first time.</p>`,
     [
-      { label: 'Chapter 2 (coming in Milestone 7)', disabled: true, onClick: () => {} },
+      chapter.nextChapter
+        ? { label: `Continue: ${CHAPTERS[chapter.nextChapter].title}`, primary: true, onClick: () => startPart(this.game, chapter.nextChapter, 0, { fresh: true }) }
+        : { label: 'The End', primary: true, onClick: () => this._finale() },
       { label: 'Replay the chapter', onClick: () => this._replay() },
-      { label: 'Quit to title', primary: true, onClick: () => this.game.goTitle() },
+      { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ], { side: true });
   }
 
   _replay() {
-    this.game.chapterRun = null;
-    this.game.sm.change('onFoot', { mode: this.chapter.id });
+    startPart(this.game, this.chapter.id, 0, { fresh: true });
+  }
+
+  /** After the last chapter: the ending and credits. */
+  _finale() {
+    const ratings = save.data.progress.ratings || {};
+    const rows = Object.values(CHAPTERS).map((c) => `<div><span>${c.title}</span><b>${(ratings[c.id] || '-').toUpperCase()}</b></div>`).join('');
+    showCard(`
+      <p class="sub kicker">The End</p>
+      <h2>GETAWAY</h2>
+      <p>Vince is doing time for the back door. Dex is testifying. Det. Hale is in a cell with his own ledger as evidence. Marla is on a plane somewhere, and she owes you a share.</p>
+      <div class="stat-grid">${rows}</div>
+      <p class="sub">Thanks for playing. Gold ratings unlock new car colours in Settings, and every chapter has a Clue hunt (ghost mode) in the Story menu for finding anything you missed.</p>`,
+    [{ label: 'Back to title', primary: true, onClick: () => this.game.goTitle() }], { side: true });
   }
 
   update(dt) {

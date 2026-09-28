@@ -18,6 +18,9 @@ export const CHAPTER1 = {
   title: 'Chapter 1: The Harbor Trust Job',
   short: 'The Harbor Trust Job',
   traitor: 'vince',
+  nextChapter: 'chapter2',
+  rating: { gold: 300, silver: 480 }, // chapter time targets (seconds)
+  deduction: { question: 'Who tipped off the police?' },
 
   // ---------------------------------------------------------------- Part 1
   prologue: [
@@ -159,6 +162,34 @@ export const CHAPTER1 = {
       title: 'Hale is a cop, not the rat',
       text: 'Det. Hale was waiting for you, but a detective catching thieves isn\'t a betrayal. The question is who on your crew told Hale where to be.',
     },
+  },
+
+  // The parts of the chapter, played in order (then the deduction).
+  get parts() {
+    return [
+      {
+        id: 'rooftops', kind: 'onFoot', title: 'The rooftops',
+        level: 'ch1Rooftops',
+        intro: this.prologue, startLabel: 'Start the escape',
+        objective: this.rooftopObjective,
+        heli: { delay: 5, spotSpeed: 5.8, fill: 0.6, lead: 0.15, callout: this.heliCallout },
+        goal: { type: 'reach', label: 'Getaway car' },
+        doneTitle: 'Made it to the car',
+        doneText: 'The engine catches on the first try. Down below, the street is a wall of flashing lights. Time to drive.',
+      },
+      {
+        id: 'drive', kind: 'drive', title: 'The drive',
+        intro: this.driveIntro,
+        objective: this.driveObjective,
+        city: { seed: 1947, blocks: 8, forceKinds: { '4,3': 'park', '7,0': 'safehouse', '1,6': 'buildings', '2,6': 'alley' } },
+        start: { node: [1, 7], offset: [2.3, 25], heading: Math.PI },
+        goal: { type: 'safehouse', block: '7,0', label: 'Safehouse', loseCops: true },
+        clue: { id: 'keycard', park: '4,3', offset: [12, 0] },
+        heat: { start: 2, max: 3, riseEvery: 60 },
+        doneTitle: 'Safe. For now.',
+        doneText: 'You pull into the safehouse with the cash. Now to work out who sold you out.',
+      },
+    ];
   },
 
   resultOutro: 'Vince\'s phone goes straight to voicemail. The Anchor is dark. Whatever he was paid, he isn\'t done yet. Neither are you.',

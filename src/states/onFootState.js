@@ -11,7 +11,7 @@ import { CONTROLS } from '../ui/menus.js';
 import { damp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
 import { RooftopRunMode } from './modes/rooftopRunMode.js';
-import { ChapterRooftopsMode } from './modes/chapterRooftopsMode.js';
+import { ChapterFootMode } from './modes/chapterFootMode.js';
 
 // On-foot game state: everything the on-foot modes have in common.
 //   - the player (physics + animated model) and the third-person camera
@@ -21,7 +21,7 @@ import { ChapterRooftopsMode } from './modes/chapterRooftopsMode.js';
 // What you're actually DOING on the rooftops is decided by a "mode" object:
 //   free     -> FreeRunMode         (explore, practise)
 //   survival -> RooftopRunMode      (endless helicopter chase, score)
-//   chapter1 -> ChapterRooftopsMode (story level: checkpoints, clues, car)
+//   story    -> ChapterFootMode     (story level: checkpoints, clues, goals)
 //
 // A mode can implement:
 //   build()          -> { group, world, spawn }  the level to play in
@@ -32,7 +32,7 @@ import { ChapterRooftopsMode } from './modes/chapterRooftopsMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, chapter1: ChapterRooftopsMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {
@@ -52,7 +52,7 @@ export class OnFootState extends PlayState {
     this.lighting = new NightLighting(this.scene, lightingForQuality(game.settings.graphics));
 
     const ModeClass = MODES[params.mode] || FreeRunMode;
-    this.mode = new ModeClass(this);
+    this.mode = new ModeClass(this, params);
     this.level = this.mode.build();
     this.scene.add(this.level.group);
     this.world = this.level.world;
@@ -60,6 +60,7 @@ export class OnFootState extends PlayState {
     this.player = new PlayerController(this.world);
     this.model = new PlayerModel();
     this.scene.add(this.model.root);
+    this.mode.afterBuild?.();
     this.cam = new ThirdPersonCamera(this.camera, this.world);
     const s = game.settings;
     this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
@@ -137,6 +138,7 @@ export class OnFootState extends PlayState {
     c.jumpPressed = input.wasPressed('jump');
     c.jumpHeld = input.isDown('jump');
     c.sprint = input.isDown('sprint');
+    c.crouch = input.isDown('crouch');
     this.cam.getForward(this._fwd);
     this.cam.getRight(this._right);
 
@@ -164,6 +166,10 @@ export class OnFootState extends PlayState {
       } else if (e.type === 'land' && e.impact > 2) audio.sfx('step');
       if (e.type === 'jump') audio.sfx('jump');
       if (e.type === 'vault' || e.type === 'mantle') audio.sfx('step', { vol: 1.2 });
+      if (e.type === 'slide') audio.sfx('whoosh', { vol: 0.5 });
+      if (e.type === 'wallrun' || e.type === 'walljump') audio.sfx('step', { vol: 1.3 });
+      if (e.type === 'zip') audio.sfx('whoosh', { vol: 0.8 });
+      if (e.type === 'zipEnd') audio.sfx('land', { vol: 0.5 });
       if (e.type === 'roll') {
         hud.toast('Roll!', '', 'var(--cyan)');
         audio.sfx('whoosh', { vol: 0.6 });
