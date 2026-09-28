@@ -64,6 +64,10 @@ export class FirstPersonArms {
         y = k < 0.5 ? -0.05 : -0.2 - (k - 0.5) * 0.3;
         z = -0.4;
         rx = k < 0.5 ? 1.0 : 0.2;
+      } else if (pc.state === 'ladder') {
+        // Hand over hand up the rungs
+        const c = Math.sin((pc.climbPhase || 0) + (s > 0 ? Math.PI : 0));
+        x = s * 0.2; y = 0.05 + c * 0.12; z = -0.35; rx = 1.2;
       } else if (pc.state === 'zip') {
         // Both hands up on the zip line handle
         x = s * 0.12; y = 0.18; z = -0.35; rx = 1.4;

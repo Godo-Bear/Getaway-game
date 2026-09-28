@@ -7,7 +7,7 @@ import { formatTime } from '../../core/utils.js';
 export class FreeRunMode {
   constructor(state) {
     this.state = state;
-    this.hudSections = ['tl', 'meter', 'controls'];
+    this.hudSections = ['tl', 'meter', 'controls', 'marker'];
   }
 
   build() {

@@ -17,7 +17,7 @@ Handy URL options for testing:
 | --- | --- |
 | `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2`, `chapter3`) |
 | `/?mode=chapter2&part=1` | Jump into a later part of a chapter (parts count from 0) |
-| `/?mode=chapter3&ghost` | Jump into a chapter in clue-hunt (ghost) mode |
+| `/?mode=chapter3&ghost` | Jump into a chapter with ghost mode switched on |
 | `/?mode=drive1` | Jump straight into Story Chapter 1, Part 2 (the drive) |
 | `/?mode=deduce1` | Jump straight into a deduction (also `deduce2`, `deduce3`) with whatever clues you've found |
 | `/?mode=rooftop` | Jump straight into Rooftop Run (helicopter survival) |
@@ -49,7 +49,10 @@ The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in
 * **Story: Chapter 1, Part 3**: the deduction. Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2.
 * **Story: Chapter 2, The Ferry**: chase Vince's car across town before he reaches the ferry terminal (heat 3-4, roadblocks and spike strips), then chase him on foot across the docks: warehouse roofs, container stacks, a wall-run, a duct to slide under and a zip line down to the pier.
 * **Story: Chapter 3, Headquarters**: zip-line onto the police HQ roof, find Det. Hale's ledger while officers chase you out of the stairwells (and the helicopter joins later), zip down to the car, then race the clock to the last ferry through heat-5 roadblocks. The final deduction reveals who planned everything.
-* **Clue hunt (ghost mode)**: on the chapter's part screen. Replay any part with no police, no helicopter and no timer; an amber marker points at clues you haven't found. Clues found are saved and count in every later deduction.
+* **Ghost mode** (story parts): press **G** (d-pad left on a gamepad, the Ghost button on the left edge of a touch screen, or the pause menu). The police, helicopter and officers vanish and the clock stops, so you can roam freely; on foot, a marker points at the nearest clue you haven't found. Nothing counts while it's on (no clues, checkpoints or finishing), and turning it off puts you back where you turned it on, with the police back on your case.
+* **Ladders**: every building has a yellow ladder. Fall to the street and you're no longer sent back: walk into a ladder and hold forward to climb back up (a marker points to the nearest one). Only falling into the harbour sends you back.
+* **Hiding spots**: on foot, stand in a stairwell hut or under a water tower (green floor patch) to hide from the helicopter and the officers. Driving, pull into a parking garage (blue P on the minimap): the cops can't see you from the street and lose you in a few seconds.
+* **Safehouse**: you can pull in mid-chase as long as no cop can see you and none is within about a block.
 * **Moves**: sprint + C (or Ctrl) to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
 * **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen.
 

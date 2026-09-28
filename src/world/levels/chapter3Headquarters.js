@@ -110,7 +110,7 @@ export function buildChapter3Headquarters() {
   const guides = [[0, 25, -10, 0], [15, 24, -46, 0], [15, 24, -58, 0], [4, 24, -72, 0]];
 
   return {
-    group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, zipLines: kit.zipLines,
+    group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, zipLines: kit.zipLines,
     checkpoints, clues, guides, policeCars, beacon,
     goalPos: carPos,
     heliStart: new THREE.Vector3(0, 0, 60),

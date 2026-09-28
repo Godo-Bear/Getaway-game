@@ -2,10 +2,9 @@
 // It lives on the game object (game.chapterRun) so it carries over from part
 // to part and into the deduction.
 
-export function newChapterRun(chapterId, { ghost = false } = {}) {
+export function newChapterRun(chapterId) {
   return {
     chapterId,
-    ghost,              // clue hunt: no police, no rating
     parts: {},          // partId -> seconds taken
     caught: 0,          // times caught or busted (all parts)
     clues: new Set(),   // clue ids found this run
@@ -13,9 +12,9 @@ export function newChapterRun(chapterId, { ghost = false } = {}) {
 }
 
 /** Get the current run for this chapter, or start a new one. */
-export function getChapterRun(game, chapterId, opts) {
+export function getChapterRun(game, chapterId) {
   if (!game.chapterRun || game.chapterRun.chapterId !== chapterId) {
-    game.chapterRun = newChapterRun(chapterId, opts);
+    game.chapterRun = newChapterRun(chapterId);
   }
   return game.chapterRun;
 }

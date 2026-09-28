@@ -200,6 +200,16 @@ export class PlayerModel {
         }
         break;
       }
+      case 'ladder': {
+        // Climbing: arms reach up in turn, knees lift in turn.
+        const c = Math.sin(pc.climbPhase || 0);
+        t.shL = -2.4 + c * 0.5; t.shR = -2.4 - c * 0.5;
+        t.elL = -0.6 - c * 0.3; t.elR = -0.6 + c * 0.3;
+        t.hipL = -0.9 - c * 0.5; t.hipR = -0.9 + c * 0.5;
+        t.kneeL = 1.2 + c * 0.4; t.kneeR = 1.2 - c * 0.4;
+        t.lean = 0.1;
+        break;
+      }
       case 'zip': {
         // Hanging from the cable: both arms up, legs dangling.
         t.shL = t.shR = -3.0;

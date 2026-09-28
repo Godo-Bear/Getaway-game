@@ -16,7 +16,8 @@ import { ChapterFootMode } from './modes/chapterFootMode.js';
 // On-foot game state: everything the on-foot modes have in common.
 //   - the player (physics + animated model) and the third-person camera
 //   - turning keyboard/mouse input into movement
-//   - falling off the roofs, and remembering safe places to respawn
+//   - falling to the street (walk to a ladder to climb back up), falling
+//     into the water (respawn), and remembering safe places to respawn
 //
 // What you're actually DOING on the rooftops is decided by a "mode" object:
 //   free     -> FreeRunMode         (explore, practise)
@@ -28,7 +29,7 @@ import { ChapterFootMode } from './modes/chapterFootMode.js';
 //   hudSections      -> which HUD parts to show
 //   start()          -> (re)start the run
 //   update(dt)       -> per-frame game logic
-//   onFall()         -> the player fell to the street
+//   onFall()         -> the player fell into the water / off the map
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
@@ -58,6 +59,7 @@ export class OnFootState extends PlayState {
     this.world = this.level.world;
 
     this.player = new PlayerController(this.world);
+    this.player.ladders = this.level.ladders || [];
     this.model = new PlayerModel();
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
@@ -143,10 +145,16 @@ export class OnFootState extends PlayState {
     this.cam.getRight(this._right);
 
     if (input.wasPressed('view')) this.toggleView();
-    if (input.wasPressed('respawn')) {
-      if (this.mode.onRespawnKey) this.mode.onRespawnKey();
-      else this.respawnToSafety('Back to safety.');
-    }
+    if (input.wasPressed('respawn')) this.respawnKey();
+  }
+
+  get respawnLabel() {
+    return this.mode.onRespawnKey ? 'Back to the last checkpoint' : 'Back to safety';
+  }
+
+  respawnKey() {
+    if (this.mode.onRespawnKey) this.mode.onRespawnKey();
+    else this.respawnToSafety('Back to safety.');
   }
 
   simulate(dt) {
@@ -180,12 +188,14 @@ export class OnFootState extends PlayState {
     if (!frozen) {
       this.time += dt;
       this._trackSafety(dt);
-      if (p.pos.y < 2) {
+      if (p.pos.y < -1.5) {
+        // In the water (or off the edge of the world): back to safety.
         this.falls++;
         if (this.mode.onFall) this.mode.onFall();
-        else this.respawnToSafety('You fell to the street.');
+        else this.respawnToSafety('You fell.');
       }
       this.mode.update(dt);
+      this._streetHelp(dt);
     }
 
     this.model.update(frozen ? 0 : dt, p);
@@ -233,6 +243,33 @@ export class OnFootState extends PlayState {
   }
 
   /** Remember recent positions on solid roofs so a fall can send you back. */
+  /** Down on the street? Point at the nearest ladder so you can climb back up. */
+  _streetHelp(dt) {
+    const p = this.player;
+    const onStreet = p.pos.y < 1.5 && (p.grounded || p.state === 'ladder');
+    if (!onStreet) {
+      this._streetTipShown = false;
+      if (this._streetMarker) { this._streetMarker = false; this.game.hud.setMarker(null); }
+      return;
+    }
+    if (!this._streetTipShown && p.state !== 'ladder') {
+      this._streetTipShown = true;
+      this.game.hud.toast('Down on the street', 'Every building has a yellow ladder. Walk into it and hold forward to climb back up (or press R).', 'var(--cyan)', 5);
+    }
+    if (p.state === 'ladder') return;
+    let best = null, bd = Infinity;
+    for (const L of p.ladders) {
+      const d = Math.hypot(L.x - p.pos.x, L.z - p.pos.z);
+      if (d < bd) { bd = d; best = L; }
+    }
+    if (best) {
+      this._ladderTarget = this._ladderTarget || new THREE.Vector3();
+      this._ladderTarget.set(best.x + best.nx * 0.5, best.y0 + 2.5, best.z + best.nz * 0.5);
+      this.game.hud.setMarker(this._ladderTarget, this.camera, 'Ladder', 'var(--amber)', bd);
+      this._streetMarker = true;
+    }
+  }
+
   _trackSafety(dt) {
     const p = this.player;
     this.safeTimer -= dt;

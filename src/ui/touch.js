@@ -4,6 +4,8 @@
 //  - Right side: drag anywhere to look around (on foot)
 //  - Buttons on the right: the two main actions, a view/camera button, and
 //    the horn when driving. A pause button sits in the top-right corner.
+//  - Story parts: a ghost mode button on its own on the left edge (far from
+//    the other buttons, so you don't hit it by accident).
 //
 // They appear the first time the screen is touched, and write into
 // input.touch, which the Input class reads exactly like keys and gamepads.
@@ -36,9 +38,11 @@ export class TouchControls {
         <button data-b="b"></button>
         <button data-b="a" class="t-main"></button>
       </div>
-      <button class="t-pause" aria-label="Pause">II</button>`;
+      <button class="t-pause" aria-label="Pause">II</button>
+      <button class="t-ghost" hidden>Ghost</button>`;
     document.body.appendChild(this.root);
     this.stick = this.root.querySelector('.t-stick');
+    this.ghostBtn = this.root.querySelector('.t-ghost');
     this.knob = this.root.querySelector('.t-knob');
     this._bindStick();
     this._bindLook();
@@ -63,6 +67,14 @@ export class TouchControls {
       btn.textContent = label || '';
       btn.hidden = !label;
     }
+  }
+
+  /** Show/hide the ghost mode button and light it up while ghost mode is on. */
+  setGhost(available, on) {
+    if (this.ghostBtn.hidden !== !available) this.ghostBtn.hidden = !available;
+    this.ghostBtn.classList.toggle('on', on);
+    const label = on ? 'Ghost ON' : 'Ghost';
+    if (this.ghostBtn.textContent !== label) this.ghostBtn.textContent = label;
   }
 
   _bindStick() {
@@ -130,6 +142,10 @@ export class TouchControls {
     this.root.querySelector('.t-pause').addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.input.touch.pressed.add('pause');
+    });
+    this.ghostBtn.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.touch.pressed.add('ghost');
     });
   }
 }

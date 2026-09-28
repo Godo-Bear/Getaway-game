@@ -326,7 +326,7 @@ export class DeductionState {
       <h2>GETAWAY</h2>
       <p>Vince is doing time for the back door. Dex is testifying. Det. Hale is in a cell with his own ledger as evidence. Marla is on a plane somewhere, and she owes you a share.</p>
       <div class="stat-grid">${rows}</div>
-      <p class="sub">Thanks for playing. Gold ratings unlock new car colours in Settings, and every chapter has a Clue hunt (ghost mode) in the Story menu for finding anything you missed.</p>`,
+      <p class="sub">Thanks for playing. Gold ratings unlock new car colours in Settings, and ghost mode (G, or the pause menu) lets you explore any part without the police.</p>`,
     [{ label: 'Back to title', primary: true, onClick: () => this.game.goTitle() }], { side: true });
   }
 

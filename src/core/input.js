@@ -23,6 +23,7 @@ export const BINDINGS = {
   respawn: ['KeyR'],
   view: ['KeyV'],           // on foot: first / third person
   caseBoard: ['Tab'],       // story: open the Case Board
+  ghost: ['KeyG'],          // story: ghost mode on/off (no police, nothing counts)
   horn: ['KeyQ'],           // driving: honk so traffic moves aside
   camera: ['KeyC', 'KeyV'], // driving: change camera
   pause: ['KeyP', 'Escape'],
@@ -39,6 +40,7 @@ export const PAD_BINDINGS = {
   view: [3],          // Y: first/third person
   camera: [3],        // Y: driving camera
   respawn: [13],      // d-pad down
+  ghost: [14],        // d-pad left: ghost mode
   caseBoard: [8],     // View / Back
   pause: [9],         // Menu / Start
   help: [12],         // d-pad up

@@ -45,6 +45,7 @@ export const HEAT = [
 const BUST_RADIUS = 9;
 const EVADE_TIME = 9;         // seconds out of sight to lose the cops
 const EVADE_TIME_HIDDEN = 5;  // ... when in an alley or park
+const EVADE_TIME_GARAGE = 3;  // ... when parked in a garage
 const NEAR_MISS_DIST = 4.4;
 
 const MODES = { survival: StreetChaseMode, story: ChapterDriveMode, chapter1: ChapterDriveMode };
@@ -169,6 +170,9 @@ export class DrivingState extends PlayState {
     if (input.wasPressed('camera')) this.camMode = (this.camMode + 1) % 2;
     if (input.wasPressed('respawn')) this._unstick();
   }
+
+  get respawnLabel() { return 'Unstick the car (back on the road)'; }
+  respawnKey() { this._unstick(); }
 
   _unstick() {
     if (this.player.speed > 4) return;
@@ -306,18 +310,30 @@ export class DrivingState extends PlayState {
     } else hud.setDebug('');
   }
 
-  /** Is the player somewhere the cops struggle to see (alley, park, under the El)? */
+  /** Is the player somewhere the cops struggle to see (alley, park, under the El, a garage)? */
   get playerHidden() {
     const p = this.player.pos;
-    return this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z) || this.city.isUnderBridge(p.x, p.z);
+    return this.inGarage || this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z) || this.city.isUnderBridge(p.x, p.z);
+  }
+
+  get inGarage() {
+    return this.city.isInGarage(this.player.pos.x, this.player.pos.z);
   }
 
   /** Losing the cops: stay out of sight long enough and they start searching. */
   _updatePursuit() {
     const police = this.police;
+    if (this.mode.pursuitPaused) return; // ghost mode: no cops to lose
+    // First time in a garage: explain what it's for.
+    const inGarage = this.inGarage;
+    if (inGarage && !this._wasInGarage) {
+      this.game.hud.toast('Hiding spot', police.everSeen && !police.searching
+        ? 'Stay in here, out of sight. The cops lose you fast in a garage.' : 'Parking garages hide you from the cops (blue P on the minimap).', 'var(--blue)', 4);
+    }
+    this._wasInGarage = inGarage;
     // You can't "lose" cops that haven't found you yet.
     if (!police.searching && police.everSeen) {
-      const need = this.playerHidden ? EVADE_TIME_HIDDEN : EVADE_TIME;
+      const need = this.inGarage ? EVADE_TIME_GARAGE : this.playerHidden ? EVADE_TIME_HIDDEN : EVADE_TIME;
       if (police.timeSinceSeen > need) {
         police.searching = true;
         this.mode.onEvade?.();

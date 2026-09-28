@@ -78,15 +78,37 @@ export class PlayState {
     const back = () => { this.paused = false; this.pause(); };
     const run = this.game.chapterRun;
     const chapter = run && this.isStory ? CHAPTERS[run.chapterId] : null;
+    const ghostOn = !!this.mode?.ghost;
     showCard('<h2>Paused</h2>', [
       { label: 'Resume', primary: true, onClick: resume },
       ...(chapter ? [{ label: 'Case Board', onClick: () => showCaseBoard(chapter, run.clues, back) }] : []),
+      ...(this.canGhost ? [{
+        label: ghostOn ? 'Ghost mode: turn OFF' : 'Ghost mode: turn ON',
+        sub: ghostOn ? 'The police come back and you return to where you turned it on' : 'Remove the police and roam freely. Nothing counts while it\'s on',
+        onClick: () => { this.resume(); this.toggleGhost(); },
+      }] : []),
+      ...(this.respawnLabel ? [{ label: this.respawnLabel, onClick: () => { this.resume(); this.respawnKey(); } }] : []),
       { label: 'Restart', onClick: () => { hideCard(); this.paused = false; this.restart(); this._afterResume(); } },
       { label: 'Settings', onClick: () => showSettings(this.game, back) },
       { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]) },
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ]);
   }
+
+  /** Can ghost mode be switched on here? (story parts only) */
+  get canGhost() {
+    return this.isStory && !!this.mode?.setGhost;
+  }
+
+  /** Ghost mode on/off (G, d-pad left, the pause menu, or the touch button). */
+  toggleGhost() {
+    if (!this.canGhost || this.over || this.inCard || this.paused) return;
+    this.mode.setGhost(!this.mode.ghost);
+  }
+
+  /** What the R key does here, for the pause menu (touch screens have no R). */
+  get respawnLabel() { return null; }
+  respawnKey() {}
 
   /** Is this a story chapter (so the Case Board is available)? */
   get isStory() {
@@ -159,6 +181,8 @@ export class PlayState {
     }
     if (input.wasPressed('help')) this.game.hud.toggleControls();
     if (input.wasPressed('caseBoard')) this.openCaseBoard();
+    if (input.wasPressed('ghost')) this.toggleGhost();
+    this.game.touch?.setGhost(this.canGhost && !this.over && !this.inCard && !this.paused, !!this.mode?.ghost);
     if (input.wasPressed('debug')) this.game.showDebug = !this.game.showDebug;
     this.game.hud.update(dt);
     this._updateClickPrompt(); // e.g. hides the prompt once a gamepad is used

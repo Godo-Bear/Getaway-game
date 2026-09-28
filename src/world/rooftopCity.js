@@ -101,7 +101,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6 } = {}) {
   const spawn = findClearRoofSpot(kit.world, spawnB, rng) ||
     new THREE.Vector3((spawnB.minX + spawnB.maxX) / 2, spawnB.h + 0.05, (spawnB.minZ + spawnB.maxZ) / 2);
 
-  return { group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, spawn, bounds: extent };
+  return { group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent };
 }
 
 function splitSpan(rng, start, length, parts) {

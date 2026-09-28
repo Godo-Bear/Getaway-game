@@ -56,18 +56,19 @@ export const CONTROLS = {
     <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
     Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
-    Hold a direction into a ledge in mid-air to grab it.<br>
-    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
+    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
     <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb<br>
-    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd> pause`,
+    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
     <kbd>Space</kbd> handbrake (drift) &nbsp; <kbd>Shift</kbd> nitro<br>
     Drifting and near-misses recharge nitro. Keep moving: stopping near cops fills the Busted meter.<br>
     <kbd>Q</kbd> horn (traffic pulls aside) &nbsp; <kbd>C</kbd> camera<br>
-    <kbd>R</kbd> unstick (when stopped) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    Hide from the cops in parking garages (blue P on the minimap).<br>
+    <kbd>R</kbd> unstick (when stopped) &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
 };
 
 export function controlsHtml() {
@@ -83,6 +84,8 @@ export function controlsHtml() {
       <kbd>Jump by a wall</kbd><span>Wall-run along a tall wall; press Space again to jump off it</span>
       <kbd>Jump at a cable</kbd><span>Grab a zip line and ride it down; Space lets go</span>
       <kbd>V</kbd><span>Switch between first-person and third-person view</span>
+      <kbd>Walk into a ladder</kbd><span>Every building has a yellow ladder: hold W to climb back up from the street</span>
+      <kbd>Hiding spots</kbd><span>Stand in a stairwell hut or under a water tower (green floor) to hide from the helicopter and officers</span>
       <kbd>R</kbd><span>Go back to the last safe spot</span>
     </div>
     <p class="sub">Driving</p>
@@ -93,9 +96,12 @@ export function controlsHtml() {
       <kbd>Shift</kbd><span>Nitro boost</span>
       <kbd>Q</kbd><span>Horn: traffic ahead pulls aside</span>
       <kbd>C</kbd><span>Change camera</span>
+      <kbd>Parking garage</kbd><span>Hiding spot: drive in (blue P on the minimap) and the cops lose you fast</span>
       <kbd>R</kbd><span>Unstick the car (when stopped)</span>
     </div>
-    <div class="controls-grid"><kbd>P / Esc</kbd><span>Pause</span><kbd>Tab</kbd><span>Case Board (story)</span><kbd>H</kbd><span>Show / hide the controls help</span></div>
+    <div class="controls-grid"><kbd>P / Esc</kbd><span>Pause</span><kbd>Tab</kbd><span>Case Board (story)</span>
+      <kbd>G</kbd><span>Ghost mode on/off (story): no police, roam freely. Nothing counts while it's on; turning it off takes you back to where you turned it on</span>
+      <kbd>H</kbd><span>Show / hide the controls help</span></div>
     <p class="sub">Gamepad (Xbox layout)</p>
     <div class="controls-grid">
       <kbd>Left stick</kbd><span>Move / steer</span>
@@ -107,6 +113,7 @@ export function controlsHtml() {
       <kbd>X</kbd><span>Horn</span>
       <kbd>Y</kbd><span>Switch view / camera</span>
       <kbd>D-pad down</kbd><span>Back to safety / unstick</span>
+      <kbd>D-pad left</kbd><span>Ghost mode on/off (story)</span>
       <kbd>Menu / View</kbd><span>Pause / Case Board</span>
       <kbd>D-pad + A / B</kbd><span>Move around menus, select, go back</span>
     </div>
@@ -115,6 +122,8 @@ export function controlsHtml() {
       <kbd>Left joystick</kbd><span>Move / steer and accelerate</span>
       <kbd>Drag right side</kbd><span>Look around</span>
       <kbd>Buttons</kbd><span>Jump or Drift, Sprint or Nitro, View or Camera, Slide or Horn, Pause</span>
+      <kbd>Ghost (left edge)</kbd><span>Ghost mode on/off in story parts</span>
+      <kbd>Pause menu</kbd><span>Back to checkpoint / unstick the car (there's no R key on a phone)</span>
     </div>`;
 }
 
@@ -164,20 +173,11 @@ function showChapterParts(chapterId, actions, back) {
     onClick: () => actions.story(chapterId, i, false),
   }));
   showCard(`<p class="sub kicker">${chapter.title}</p><h2>Choose where to start</h2>
-    <p class="sub">A chapter rating needs a full run from Part 1. Clue hunt (ghost mode) has no police and no clock: just search for the clues you missed. Clues you find there count in every future deduction.</p>`, [
+    <p class="sub">A chapter rating needs a full run from Part 1. Want to look around without the police? Turn on ghost mode in any part: press G, use the pause menu, or tap the Ghost button on a touch screen. Nothing counts while it's on.</p>`, [
     ...parts,
-    { label: 'Clue hunt (ghost mode)', sub: `Search any part for missing clues (${found.size}/${total} found)`, onClick: () => showGhostParts(chapterId, actions, () => showChapterParts(chapterId, actions, back)) },
     { label: 'Case Board', sub: `Every clue you have ever found (${found.size}/${total})`,
       onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back)) },
     { label: 'Back', onClick: back },
   ], { list: true });
 }
 
-function showGhostParts(chapterId, actions, back) {
-  const chapter = CHAPTERS[chapterId];
-  showCard(`<p class="sub kicker">${chapter.title}</p><h2>Clue hunt</h2>
-    <p class="sub">No police, no helicopter, no timer. An amber marker points to the nearest clue you haven't found yet.</p>`, [
-    ...chapter.parts.map((part, i) => ({ label: `Part ${i + 1}: ${part.title}`, primary: i === 0, onClick: () => actions.story(chapterId, i, true) })),
-    { label: 'Back', onClick: back },
-  ], { list: true });
-}

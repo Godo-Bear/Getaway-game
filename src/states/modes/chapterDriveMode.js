@@ -3,7 +3,7 @@ import { makeGlowMaterial } from '../../world/materials.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
 import { getChapterRun } from '../../story/chapterRun.js';
-import { finishPart, knownClues } from '../../story/chapterFlow.js';
+import { finishPart } from '../../story/chapterFlow.js';
 import { FugitiveCar } from '../../ai/fugitive.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
@@ -18,10 +18,14 @@ import { audio } from '../../core/audio.js';
 //   heat       - { start, max, riseEvery }: police pressure over time
 //   roadblocks - { fromHeat, every, spikes }: roadblocks / spike strips ahead
 //
-// GHOST MODE (clue hunt): no police, no chase, no timer. Just find the clue.
+// GHOST MODE (G, the pause menu or the ghost button on touch screens):
+// the police vanish and the clock stops, so you can drive around freely.
+// Nothing you do counts while it's on: clues can't be picked up and the goal
+// won't finish. Turning it off puts you back where you turned it on.
 
-const ARRIVE_RADIUS = 9;
-const ARRIVE_SPEED = 15;       // m/s: you have to actually pull up
+const ARRIVE_RADIUS = 11;
+const ARRIVE_SPEED = 18;       // m/s: you have to actually pull up
+const COP_CLEAR_RADIUS = 45;   // no cop this close and watching = you can slip into the safehouse
 const CLUE_RADIUS = 7;
 const CATCH_RADIUS = 11;
 
@@ -31,7 +35,9 @@ export class ChapterDriveMode {
     this.chapter = CHAPTERS[params.chapterId || 'chapter1'];
     this.partIndex = params.part ?? this.chapter.parts.findIndex((p) => p.kind === 'drive');
     this.part = this.chapter.parts[this.partIndex];
-    this.ghost = !!params.ghost;
+    this.startGhost = !!params.ghost;
+    this.ghost = false;
+    this.ghostSnap = null;
     this.hudSections = ['tl', 'map', 'speedo', 'meter', 'controls', 'marker'];
     this.heat = this.part.heat?.start ?? 2;
     this.fugitive = null;
@@ -71,7 +77,10 @@ export class ChapterDriveMode {
   start(first) {
     const s = this.state;
     const part = this.part;
-    this.run = getChapterRun(s.game, this.chapter.id, { ghost: this.ghost });
+    this.run = getChapterRun(s.game, this.chapter.id);
+    this.ghost = false;
+    this.ghostSnap = null;
+    this.ghostWarn = 0;
     const g = s.city.graph;
     const st = part.start;
     const n = g.node(st.node[0], st.node[1]);
@@ -82,15 +91,14 @@ export class ChapterDriveMode {
     this.done = false;
     this.catchMeter = 0;
     this.timeLeft = part.goal.timer ?? null;
-    const known = this.ghost ? knownClues(s.game, this.chapter.id) : this.run.clues;
-    this.clueFound = part.clue ? known.has(part.clue.id) : true;
+    this.clueFound = part.clue ? this.run.clues.has(part.clue.id) : true;
     if (this.clue) this.clue.group.visible = !this.clueFound;
 
     // The fleeing car (chase parts)
     this.fugitive?.dispose();
     this.fugitive = null;
     const f = part.fugitive;
-    if (f && !this.ghost) {
+    if (f) {
       const dest = s.city.landmarks[part.goal.block].node;
       this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng);
       const fn = g.node(f.startNode[0], f.startNode[1]);
@@ -102,21 +110,61 @@ export class ChapterDriveMode {
 
     const hud = s.game.hud;
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${part.title}`);
-    hud.setObjective(this.ghost ? 'Clue hunt: find the missing clue' : part.objective);
+    hud.setObjective(part.objective);
     this._updateStats();
 
-    if (first) {
-      if (this.ghost) {
-        s.showStoryCards([{ kicker: 'Clue hunt', title: part.title, lines: [
-          'No police, no chase, no clock. The amber dot on the minimap marks the clue. Drive to the green light when you\'re done.',
-        ] }], 'Drive');
-      } else s.showStoryCards(part.intro, part.startLabel || 'Drive');
-    } else hud.toast('Go!', part.objective, 'var(--amber)');
+    if (first) s.showStoryCards(part.intro, part.startLabel || 'Drive', () => { if (this.startGhost) this.setGhost(true); });
+    else hud.toast('Go!', part.objective, 'var(--amber)');
+  }
+
+  /**
+   * Ghost mode on/off. On: remember where you are, clear the police and
+   * roadblocks, freeze the fleeing car and the clock. Off: back to that spot,
+   * and the police pick up where they left off.
+   */
+  setGhost(on) {
+    const s = this.state;
+    if (on === this.ghost || this.done) return;
+    const p = s.player, police = s.police, hud = s.game.hud;
+    if (on) {
+      this.ghostSnap = {
+        x: p.pos.x, z: p.pos.z, heading: p.heading,
+        everSeen: police.everSeen, searching: police.searching,
+        lastKnown: police.lastKnown.clone(), timeSinceSeen: police.timeSinceSeen,
+      };
+      this.ghost = true;
+      police.setCount(0, p, s.camera);
+      s.roadblocks.clear();
+      s.busted = 0;
+      if (this.fugitive) this.fugitive.car.mesh.visible = false;
+      hud.setMeter(0, '');
+      hud.setObjective('Ghost mode: drive anywhere');
+      hud.toast('Ghost mode on', 'No police and the clock is stopped. Nothing counts while it\'s on: turn it off to go back to where you were.', 'var(--cyan)', 5);
+    } else {
+      const g = this.ghostSnap;
+      this.ghost = false;
+      this.ghostSnap = null;
+      s.placePlayer(g.x, g.z, g.heading);
+      p.vel.set(0, 0, 0);
+      police.everSeen = g.everSeen;
+      police.searching = g.searching;
+      police.lastKnown.copy(g.lastKnown);
+      police.timeSinceSeen = g.timeSinceSeen;
+      if (this.fugitive) this.fugitive.car.mesh.visible = true;
+      hud.setObjective(this.part.objective);
+      hud.toast('Ghost mode off', 'Back where you left off. The police are back too.', 'var(--amber)', 4);
+    }
+    this._updateStats();
   }
 
   // --- hooks the driving state calls ------------------------------------
   copCount() {
     return this.ghost ? 0 : null; // null = use the heat level's normal count
+  }
+
+  /** The drive state skips losing/finding the cops while in ghost mode. */
+  get pursuitPaused() {
+    return this.ghost;
   }
 
   roadblockRules() {
@@ -126,11 +174,11 @@ export class ChapterDriveMode {
   }
 
   extraCars() {
-    return this.fugitive ? [this.fugitive.car] : [];
+    return this.fugitive && !this.ghost ? [this.fugitive.car] : [];
   }
 
   simulate(dt) {
-    if (!this.fugitive || this.done) return;
+    if (!this.fugitive || this.done || this.ghost) return;
     if (this.fugitive.update(dt) === 'escaped') this._failed(this.part.fugitive.escapeTitle, this.part.fugitive.escapeText);
   }
 
@@ -141,7 +189,7 @@ export class ChapterDriveMode {
   minimapDots() {
     const dots = [];
     if (!this.clueFound && this.cluePos) dots.push({ x: this.cluePos.x, z: this.cluePos.z, color: '#ffb020', size: 1.6 });
-    if (this.fugitive) dots.push({ x: this.fugitive.car.pos.x, z: this.fugitive.car.pos.z, color: '#ffffff', size: 1.8 });
+    if (this.fugitive && !this.ghost) dots.push({ x: this.fugitive.car.pos.x, z: this.fugitive.car.pos.z, color: '#ffffff', size: 1.8 });
     return dots;
   }
 
@@ -155,6 +203,7 @@ export class ChapterDriveMode {
   }
 
   onEvade() {
+    if (this.ghost) return;
     audio.sfx('checkpoint');
     this.state.game.hud.toast('Cops lost!', this.part.goal.loseCops ? 'They\'re searching the area. Get to the green light before they find you again.' : 'They\'re searching the area.', 'var(--safe)');
   }
@@ -183,8 +232,9 @@ export class ChapterDriveMode {
     const hud = s.game.hud;
     const part = this.part;
 
+    this.ghostWarn -= dt;
     // Heat rises over time (or sooner if you ram cops), up to the part's max.
-    this.heatTimer += dt;
+    if (!this.ghost) this.heatTimer += dt;
     const h = part.heat;
     if (h && this.heat < h.max && this.heatTimer > h.riseEvery) {
       this.heatTimer = 0;
@@ -196,7 +246,9 @@ export class ChapterDriveMode {
     if (!this.clueFound && this.cluePos) {
       this.clue.gem.rotation.y += dt * 2;
       this.clue.ring.rotation.z -= dt;
-      if (Math.hypot(p.pos.x - this.cluePos.x, p.pos.z - this.cluePos.z) < CLUE_RADIUS) {
+      if (Math.hypot(p.pos.x - this.cluePos.x, p.pos.z - this.cluePos.z) < CLUE_RADIUS && this.ghost) {
+        this._ghostNotice('Turn ghost mode off to pick up this clue.');
+      } else if (Math.hypot(p.pos.x - this.cluePos.x, p.pos.z - this.cluePos.z) < CLUE_RADIUS) {
         this.clueFound = true;
         this.clue.group.visible = false;
         const id = part.clue.id;
@@ -215,7 +267,7 @@ export class ChapterDriveMode {
     }
 
     // Chase: stay close to the fugitive (or ram them) to fill the catch meter.
-    if (this.fugitive) {
+    if (this.fugitive && !this.ghost) {
       const fc = this.fugitive.car;
       const d = Math.hypot(fc.pos.x - p.pos.x, fc.pos.z - p.pos.z);
       if (fc.lastImpact > 5 && d < 6) this.catchMeter += 0.12;
@@ -231,11 +283,13 @@ export class ChapterDriveMode {
     this.warnTimer -= dt;
     if (this.goalPos && !this.fugitive) {
       const d = Math.hypot(p.pos.x - this.goalPos.x, p.pos.z - this.goalPos.z);
-      if (d < ARRIVE_RADIUS) {
-        if (part.goal.loseCops && this.copsOnYou && !this.ghost) {
+      if (d < ARRIVE_RADIUS && this.ghost) {
+        this._ghostNotice('Turn ghost mode off to finish this part.');
+      } else if (d < ARRIVE_RADIUS) {
+        if (part.goal.loseCops && this.copsWatching) {
           if (this.warnTimer <= 0) {
             this.warnTimer = 4;
-            hud.toast('Not with cops on your tail!', 'Lose them first. Don\'t lead them here.', 'var(--red)');
+            hud.toast('Not while they can see you!', 'Get out of their sight and a block away from them, then pull in.', 'var(--red)');
           }
         } else if (p.speed > ARRIVE_SPEED) {
           if (this.warnTimer <= 0) {
@@ -253,9 +307,27 @@ export class ChapterDriveMode {
     this._updateStats();
   }
 
+  /**
+   * Can the cops see you pull into the safehouse? Only if they're chasing
+   * you AND one of them is close by or has you in sight right now. Out of
+   * sight and far enough away, you can slip in even mid-chase.
+   */
+  get copsWatching() {
+    if (!this.copsOnYou) return false;
+    const s = this.state, p = s.player.pos;
+    return s.police.units.some((u) => u.seesPlayer ||
+      Math.hypot(u.car.pos.x - p.x, u.car.pos.z - p.z) < COP_CLEAR_RADIUS);
+  }
+
+  _ghostNotice(text) {
+    if (this.ghostWarn > 0) return;
+    this.ghostWarn = 4;
+    this.state.game.hud.toast('Ghost mode', text, 'var(--cyan)');
+  }
+
   /** Where the on-screen marker points (the fugitive while chasing). */
   markerTarget() {
-    if (!this.fugitive) return null;
+    if (!this.fugitive || this.ghost) return null;
     const fc = this.fugitive.car;
     return { pos: fc.pos.clone().setY(3), label: this.part.fugitive.name, color: SUSPECTS[this.part.fugitive.who].color };
   }
@@ -263,9 +335,9 @@ export class ChapterDriveMode {
   _updateStats() {
     const s = this.state;
     const total = Object.keys(this.chapter.clues).length;
-    const found = this.ghost ? knownClues(s.game, this.chapter.id).size : this.run.clues.size;
+    const found = this.run.clues.size;
     const police = s.police;
-    const status = this.ghost ? '<span><b style="color:var(--cyan)">CLUE HUNT</b></span>'
+    const status = this.ghost ? '<span><b style="color:var(--cyan)">GHOST MODE</b></span>'
       : !police.everSeen ? '' : police.searching
         ? '<span><b style="color:var(--safe)">SEARCHING</b></span>'
         : '<span class="warn"><b>PURSUIT</b></span>';

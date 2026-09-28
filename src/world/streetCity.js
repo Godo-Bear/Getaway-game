@@ -11,6 +11,8 @@ import { RoadGraph } from '../ai/roadGraph.js';
 //    graph the police use to navigate).
 //  - Blocks between roads hold buildings, parks (drive straight through them,
 //    watch the trees!) and alleys (narrow cut-throughs, good for hiding).
+//  - Parking garages: drive in and the cops can't see you from the street
+//    (a hiding spot: they lose you much faster in there).
 //  - Ramps in the parks launch the car into the air.
 //  - Street lamps, lane markings and working traffic lights.
 //
@@ -55,6 +57,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   const ramps = [];     // { x0,x1,z0,z1, axis:'x'|'z', dir:+1|-1, height }
   const alleys = [];    // rectangles where you're "hidden"
   const parks = [];
+  const garages = [];   // covered car parks you can hide in
   const lamps = [];
   const trees = [];
   const buildingsList = [];
@@ -92,8 +95,13 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   for (let i = 0; i < blocks; i++) {
     for (let j = 0; j < blocks; j++) {
       const r = rng();
-      blockKinds.push(r < 0.14 ? 'park' : r < 0.36 ? 'alley' : 'buildings');
+      blockKinds.push(r < 0.14 ? 'park' : r < 0.36 ? 'alley' : r < 0.46 ? 'garage' : 'buildings');
     }
+  }
+  // Guarantee a few garages to hide in
+  for (let k = 0, tries = 0; blockKinds.filter((b) => b === 'garage').length < 4 && tries < 50; tries++) {
+    k = Math.floor(rng() * blockKinds.length);
+    if (blockKinds[k] === 'buildings') blockKinds[k] = 'garage';
   }
   // Guarantee at least two parks
   if (blockKinds.filter((k) => k === 'park').length < 2) {
@@ -126,6 +134,10 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
         { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
 
       const ix0 = x0 + SIDEWALK, ix1 = x1 - SIDEWALK, iz0 = z0 + SIDEWALK, iz1 = z1 - SIDEWALK;
+      if (kind === 'garage') {
+        makeGarage(x0, z0, x1, z1, ix0, iz0, ix1, iz1);
+        continue;
+      }
       if (kind === 'alley') {
         // Split the block in two with a 7 m alley running through it.
         const alongX = rng() < 0.5;
@@ -171,6 +183,45 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
         minimapShapes.push({ type: 'building', x0: bx0, z0: bz0, x1: bx1, z1: bz1 });
       }
     }
+  }
+
+  /**
+   * A parking garage on the block's west side: open at the front (facing the
+   * road), walls on the other three sides and a roof. Buildings fill the rest.
+   */
+  function makeGarage(x0, z0, x1, z1, ix0, iz0, ix1, iz1) {
+    const depth = 22, half = 8, H = 5, t = 0.6;
+    const cz = (z0 + z1) / 2;
+    const gx1 = x0 + depth;
+    const look = { side: 'concrete', top: 'concrete', color: 0x8c8c90, uvScale: [3, 3], topScale: [3, 3] };
+    const solid = (ax0, ay0, az0, ax1, ay1, az1, lk = look) => {
+      world.addBox(ax0, ay0, az0, ax1, ay1, az1, { tag: 'building' });
+      batch.addBox({ x: ax0, y: ay0, z: az0 }, { x: ax1, y: ay1, z: az1 }, lk);
+    };
+    solid(x0 + 1, 0, cz - half - t, gx1, H, cz - half);      // north wall
+    solid(x0 + 1, 0, cz + half, gx1, H, cz + half + t);      // south wall
+    solid(gx1 - t, 0, cz - half, gx1, H, cz + half);         // back wall
+    // Roof and two more parking decks above (visual; too high for the car)
+    solid(x0 + 1, H, cz - half - t, gx1, H + 0.5, cz + half + t);
+    batch.addBox({ x: x0 + 1, y: H + 0.5, z: cz - half - t }, { x: gx1, y: H * 3, z: cz + half + t },
+      { side: 'wall', top: 'roof', color: 0x77777c, uvScale: FACADE_UV, topScale: [4, 4] });
+    world.addBox(x0 + 1, H + 0.5, cz - half - t, gx1, H * 3, cz + half + t, { tag: 'building' });
+    // Dim floor, a blue light strip over the entrance and a "P" sign
+    batch.addBox({ x: x0 + 1, y: 0.02, z: cz - half }, { x: gx1 - t, y: 0.03, z: cz + half }, { side: null, top: 'asphalt', color: 0x55555c, topScale: [6, 6] });
+    batch.addBox({ x: x0 + 0.9, y: H - 0.35, z: cz - half }, { x: x0 + 1, y: H, z: cz + half }, { side: 'glow', top: null, color: 0x1a4a9a });
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(3, 3),
+      new THREE.MeshBasicMaterial({ map: makeTextTexture('P', { color: '#ffffff', bg: '#2a5ad8', width: 128, height: 128, font: 'bold 110px Arial, sans-serif' }), toneMapped: false }));
+    sign.position.set(x0 + 0.95, H + 2, cz);
+    sign.rotation.y = -Math.PI / 2;
+    extraSigns.push(sign);
+    garages.push({ x0: x0 + 1, x1: gx1 - t, z0: cz - half, z1: cz + half });
+    minimapShapes.push({ type: 'garage', x0: x0 + 1, z0: cz - half - t, x1: gx1, z1: cz + half + t });
+    // Pavement and buildings around it
+    batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.15, z: cz - half - t }, { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
+    batch.addBox({ x: x0, y: 0, z: cz + half + t }, { x: x1, y: 0.15, z: z1 }, { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
+    fillBuildings(ix0, iz0, gx1, cz - half - t - 1);
+    fillBuildings(ix0, cz + half + t + 1, gx1, iz1);
+    fillBuildings(gx1 + 1.5, iz0, ix1, iz1);
   }
 
   function makePark(x0, z0, x1, z1) {
@@ -361,6 +412,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     groundHeight,
     isInAlley: (x, z) => alleys.some((a) => inRect(x, z, a)),
     isInPark: (x, z) => parks.some((p) => inRect(x, z, p)),
+    isInGarage: (x, z) => garages.some((g) => inRect(x, z, g)),
+    garages,
     isUnderBridge: (x, z) => Math.abs(z - elZ) < EL_HALF && x > outer && x < outerMax,
     train,
   };

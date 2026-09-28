@@ -18,6 +18,7 @@ import { clamp, easeOutCubic, easeInOut, dampAngle } from '../core/utils.js';
 //   ground -> crouch (crouch while slow, or stuck under something low)
 //   air -> wallrun (jump alongside a tall wall: run along it, jump off it)
 //   any -> zip (jump into a zip line cable: ride it down)
+//   ground -> ladder (walk into a ladder on a building: climb up to the roof)
 
 /** All the numbers that define how movement feels. Tweak these! */
 export const TUNING = {
@@ -68,6 +69,10 @@ export const TUNING = {
   zipHang: 2.0,        // feet hang this far below the cable
   zipMinSpeed: 7,
   zipMaxSpeed: 20,
+
+  ladderSpeed: 3.6,    // m/s climbing (faster while sprinting)
+  ladderSprintSpeed: 5.5,
+  ladderReach: 3,      // you can only grab a ladder near its bottom (from the street)
 };
 
 const T = TUNING;
@@ -98,6 +103,9 @@ export class PlayerController {
     this.zipCooldown = 0;
     this.wallRun = null;    // { normal, tangent, speed } while wall-running
     this.usedWallNormal = null; // can't wall-run the same wall twice in one jump
+    this.ladders = [];      // set by the level: [{ x, z, nx, nz, y0, y1 }] (n = out of the wall)
+    this.ladder = null;     // the ladder we're on
+    this.ladderCooldown = 0;
 
     // Events for other systems (camera dip, sounds, animation) to react to.
     // Filled during update(), read and cleared by whoever owns the player.
@@ -124,6 +132,7 @@ export class PlayerController {
     this.zip = null;
     this.wallRun = null;
     this.usedWallNormal = null;
+    this.ladder = null;
   }
 
   get horizontalSpeed() {
@@ -161,6 +170,11 @@ export class PlayerController {
     this.sprinting = ctl.sprint && wishLen > 0.1 && ctl.moveZ > -0.1;
 
     this.zipCooldown = Math.max(0, this.zipCooldown - dt);
+    this.ladderCooldown = Math.max(0, this.ladderCooldown - dt);
+    if (this.state === 'ladder') {
+      this._updateLadder(dt, ctl);
+      return;
+    }
     if (this.state === 'mantle') {
       this._updateMantle(dt);
       return;
@@ -206,6 +220,7 @@ export class PlayerController {
     // If there's no stick input, use the way the character is facing
     // (so pressing jump while standing at a ledge still climbs it).
     const moveDir = wishLen > 0.2 ? wish : this._facingDir();
+    if (this._tryLadder(wish, wishLen)) return;
     if (this.state !== 'slide' && this.state !== 'crouch' && this._tryParkour(moveDir, wishLen, ctl)) return;
     if (this._tryZip()) return;
     if (!this.grounded && wishLen > 0.3 && this._tryWallRun(wish)) return;
@@ -676,6 +691,78 @@ export class PlayerController {
       this.zipCooldown = 0.5;
       this._setState('air');
       this.events.push({ type: 'zipEnd' });
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Ladders (on the side of buildings, to get back up from the street)
+  // ---------------------------------------------------------------------
+
+  /** Walking into the bottom of a ladder grabs it. */
+  _tryLadder(wish, wishLen) {
+    if (!this.ladders.length || this.ladderCooldown > 0 || wishLen < 0.3) return false;
+    const p = this.pos;
+    for (const L of this.ladders) {
+      if (p.y < L.y0 - 0.5 || p.y > L.y0 + T.ladderReach) continue;
+      const dx = p.x - L.x, dz = p.z - L.z;
+      const out = dx * L.nx + dz * L.nz;         // distance out from the wall
+      const side = dx * -L.nz + dz * L.nx;       // distance along the wall from the ladder's centre
+      if (out < -0.05 || out > T.radius + 0.45 || Math.abs(side) > 0.6) continue;
+      const into = -(wish.x * L.nx + wish.z * L.nz); // pushing towards the wall?
+      if (into < 0.45) continue;
+      this.ladder = L;
+      p.x = L.x + L.nx * (T.radius + 0.03);
+      p.z = L.z + L.nz * (T.radius + 0.03);
+      this.vel.set(0, 0, 0);
+      this.facing = Math.atan2(-L.nx, -L.nz);
+      this.grounded = false;
+      this.height = T.height;
+      this._setState('ladder');
+      this.events.push({ type: 'ladder' });
+      return true;
+    }
+    return false;
+  }
+
+  /** Forward = climb up, back = climb down, jump = let go. */
+  _updateLadder(dt, ctl) {
+    const L = this.ladder;
+    const climb = clamp(ctl.moveZ, -1, 1);
+    const speed = ctl.sprint ? T.ladderSprintSpeed : T.ladderSpeed;
+    this.vel.set(0, climb * speed, 0);
+    this.pos.y += climb * speed * dt;
+    this.facing = Math.atan2(-L.nx, -L.nz);
+    this.climbPhase = (this.climbPhase || 0) + climb * speed * dt * 3.2;
+
+    const letGo = (vx, vy, vz) => {
+      this.ladder = null;
+      this.ladderCooldown = 0.5;
+      this.vel.set(vx, vy, vz);
+      this._setState('air');
+    };
+    if (ctl.jumpPressed) {
+      // Push off the ladder, away from the wall.
+      letGo(L.nx * 4, 4.5, L.nz * 4);
+      this.events.push({ type: 'jump' });
+      return;
+    }
+    if (this.pos.y <= L.y0 && climb < 0) {
+      this.pos.y = L.y0;
+      this.ladder = null;
+      this.ladderCooldown = 0.5;
+      this.grounded = true;
+      this._setState('ground');
+      return;
+    }
+    // Near the top: climb over onto the roof (the same move as a mantle).
+    if (this.pos.y >= L.y1 - 1.4) {
+      const dir = new THREE.Vector3(-L.nx, 0, -L.nz);
+      const ledge = this.findLedge(dir, 0.2, T.mantleMaxRise);
+      this.ladder = null;
+      if (ledge) {
+        this._startMantle(ledge, { vault: false, dir });
+        this.mantle.exitSpeed = 0;
+      } else letGo(0, 0, 0);
     }
   }
 

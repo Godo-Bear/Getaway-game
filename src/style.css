@@ -168,6 +168,42 @@ html, body {
 #touch button.on { background: rgba(255, 176, 32, 0.5); }
 #touch .t-pause { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(210px + env(safe-area-inset-right, 0px)); width: 46px; height: 46px; pointer-events: auto; }
 body.touch-mode #hud-controls { display: none; }
+/* Touch: the speedometer sits between the joystick and the buttons */
+body.touch-mode #hud-speedo { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 150px; text-align: center; }
+body.touch-mode #hud-speed { font-size: 44px; }
+/* Ghost mode button: on its own, on the left edge, well away from the action buttons */
+#touch .t-ghost { position: absolute; left: calc(14px + env(safe-area-inset-left, 0px)); top: 42%; width: 64px; height: 38px; border-radius: 19px;
+  font-size: 12px; pointer-events: auto; border-color: rgba(57, 230, 255, 0.5); }
+#touch .t-ghost.on { background: rgba(57, 230, 255, 0.45); border-color: var(--cyan); }
+/* Menus and story cards must scroll with a finger (the page itself doesn't) */
+.overlay, .card { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.overlay.title .card { max-height: 100%; overflow: auto; }
+/* Short screens (phones held sideways): smaller HUD and compact cards */
+@media (max-height: 520px) {
+  #hud-tl { padding: 10px 14px; max-width: min(420px, 50vw); }
+  #hud-phase { font-size: 12px; }
+  #hud-objective { font-size: 21px; }
+  #hud-stats { font-size: 13px; gap: 10px; margin-top: 4px; }
+  #hud-map { width: 116px; height: 116px; }
+  #hud-map-wrap { top: 10px; right: 10px; }
+  #touch .t-pause { right: calc(138px + env(safe-area-inset-right, 0px)); top: calc(8px + env(safe-area-inset-top, 0px)); }
+  .overlay { padding: 8px 12px; }
+  .card { padding: 14px 18px 16px; }
+  .card h2 { font-size: 32px; margin-bottom: 6px; }
+  .card p { font-size: 15px; margin-bottom: 8px; }
+  .stat-grid { grid-template-columns: repeat(3, 1fr); gap: 6px 14px; margin-bottom: 10px; }
+  .stat-grid span { font-size: 12px; }
+  .stat-grid b { font-size: 26px; }
+  #touch .t-stick { width: 118px; height: 118px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+  #touch .t-buttons { bottom: calc(14px + env(safe-area-inset-bottom, 0px)); gap: 8px; }
+  #touch button { width: 62px; height: 62px; }
+  #touch button.t-main { width: 76px; height: 76px; }
+  #touch button.t-small { width: 48px; height: 48px; }
+  #touch .t-ghost { width: 60px; height: 34px; top: 38%; }
+  .btn { font-size: 16px; padding: 8px 14px; }
+  .btn small { font-size: 12px; }
+  .btns { gap: 8px; margin-top: 4px; }
+}
 @media (max-width: 700px) {
   #hud-map { width: 120px; height: 120px; }
   #hud-speedo { bottom: 150px; }

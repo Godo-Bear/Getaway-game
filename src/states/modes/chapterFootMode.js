@@ -8,7 +8,7 @@ import { FugitiveRunner } from '../../ai/fugitive.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
 import { getChapterRun } from '../../story/chapterRun.js';
-import { finishPart, knownClues } from '../../story/chapterFlow.js';
+import { finishPart } from '../../story/chapterFlow.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
@@ -24,8 +24,11 @@ import { audio } from '../../core/audio.js';
 //               { type: 'catch' } catch the fugitive
 //   requiredClue - a clue you must pick up before the goal counts
 //
-// GHOST MODE (clue hunt): no helicopter, no officers, no timer pressure.
-// A marker points at the nearest clue you haven't found yet.
+// GHOST MODE (G, the pause menu or the ghost button on touch screens):
+// the helicopter and officers vanish so you can roam freely. A marker points
+// at the nearest clue you haven't found. Nothing counts while it's on (no
+// clues, checkpoints or finishing); turning it off puts you back where you
+// turned it on.
 
 const CAR_RADIUS = 3.5;
 const PICKUP_RADIUS = 1.6;
@@ -36,7 +39,9 @@ export class ChapterFootMode {
     this.chapter = CHAPTERS[params.chapterId || 'chapter1'];
     this.partIndex = params.part || 0;
     this.part = this.chapter.parts[this.partIndex];
-    this.ghost = !!params.ghost;
+    this.startGhost = !!params.ghost;
+    this.ghost = false;
+    this.ghostSnap = null;
     this.hudSections = ['tl', 'meter', 'controls', 'marker'];
     this.heli = null;
     this.officers = null;
@@ -126,29 +131,19 @@ export class ChapterFootMode {
   start(first) {
     const s = this.state;
     const part = this.part;
-    this.run = getChapterRun(s.game, this.chapter.id, { ghost: this.ghost });
+    this.run = getChapterRun(s.game, this.chapter.id);
+    this.ghost = false;
+    this.ghostSnap = null;
+    this.ghostWarn = 0;
     this.cp = 0;
     this.caughtHere = 0;
     this.spotted = 0;
     this.done = false;
     this.warnTimer = 0;
-    this.known = knownClues(s.game, this.chapter.id);
-    for (const c of this.clueObjs) {
-      // In a clue hunt, clues you already know about are shown as collected.
-      c.group.visible = !(this.ghost ? this.known.has(c.id) : this.run.clues.has(c.id));
-    }
+    for (const c of this.clueObjs) c.group.visible = !this.run.clues.has(c.id);
 
-    this.heli?.dispose();
-    this.heli = null;
-    if (part.heli && !this.ghost) {
-      this.heli = new Helicopter(s.scene, s.world, { id: 0, startPos: this.level.heliStart || new THREE.Vector3(0, 0, 70) });
-    }
+    this._spawnPolice();
     this.heliAnnounced = false;
-    this.officers?.dispose();
-    this.officers = null;
-    if (part.officers && !this.ghost) {
-      this.officers = new OfficerSquad(s.scene, s.world, this.level.officerSpawns, part.officers);
-    }
     this.fugitive?.dispose();
     this.fugitive = null;
     if (part.fugitive) {
@@ -157,16 +152,72 @@ export class ChapterFootMode {
 
     const hud = s.game.hud;
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${part.title}`);
-    hud.setObjective(this.ghost ? 'Clue hunt: find the missing clues' : part.objective);
+    hud.setObjective(part.objective);
 
-    if (first) {
-      if (this.ghost) {
-        s.showStoryCards([{ kicker: 'Clue hunt', title: part.title, lines: [
-          'No police, no helicopter, no clock. Take your time and search for the clues you missed.',
-          'The amber marker points at the nearest clue you haven\'t found yet. Anything you find is saved to your Case Board.',
-        ] }], 'Start searching');
-      } else s.showStoryCards(part.intro, part.startLabel || 'Go');
+    if (first) s.showStoryCards(part.intro, part.startLabel || 'Go', () => { if (this.startGhost) this.setGhost(true); });
+  }
+
+  /** (Re)create the helicopter and officers this part uses. */
+  _spawnPolice() {
+    const s = this.state, part = this.part;
+    this.heli?.dispose();
+    this.heli = null;
+    if (part.heli) {
+      this.heli = new Helicopter(s.scene, s.world, { id: 0, startPos: this.level.heliStart || new THREE.Vector3(0, 0, 70) });
     }
+    this.officers?.dispose();
+    this.officers = null;
+    if (part.officers) {
+      this.officers = new OfficerSquad(s.scene, s.world, this.level.officerSpawns, part.officers);
+    }
+  }
+
+  /**
+   * Ghost mode on/off. On: remember where you are and send the police away.
+   * Off: back to that spot, and the police come back.
+   */
+  setGhost(on) {
+    const s = this.state, p = s.player, hud = s.game.hud;
+    if (on === this.ghost || this.done) return;
+    if (on) {
+      // Remember a safe spot: where you stand, or the checkpoint if mid-air.
+      const cp = this.checkpoint;
+      this.ghostSnap = p.grounded
+        ? { pos: p.pos.clone(), yaw: p.facing, heliSpot: this.heli?.spot.clone() }
+        : { pos: cp.spawn.clone(), yaw: cp.yaw, heliSpot: this.heli?.spot.clone() };
+      this.ghost = true;
+      this.heli?.dispose();
+      this.officers?.dispose();
+      this.heli = this.officers = null;
+      this.spotted = 0;
+      hud.setMeter(0, '');
+      hud.setObjective('Ghost mode: explore freely');
+      hud.toast('Ghost mode on', 'No police. The marker shows the nearest clue you haven\'t found. Nothing counts while it\'s on: turn it off to go back to where you were.', 'var(--cyan)', 6);
+    } else {
+      const g = this.ghostSnap;
+      this.ghost = false;
+      this.ghostSnap = null;
+      s.placePlayer(g.pos, g.yaw);
+      this._spawnPolice();
+      if (this.heli && g.heliSpot) { this.heli.spot.copy(g.heliSpot); this.heli.lastSeen.copy(g.heliSpot); }
+      this.officers?.scatter(p.pos);
+      hud.setObjective(this.part.objective);
+      hud.toast('Ghost mode off', 'Back where you left off. The police are back too.', 'var(--amber)', 4);
+    }
+  }
+
+  /** Standing in a stairwell hut or under a water tower? */
+  _inHideSpot(pos) {
+    for (const h of this.level.hideSpots || []) {
+      if (Math.hypot(h.x - pos.x, h.z - pos.z) < 1.5 && Math.abs(h.y - pos.y) < 1) return true;
+    }
+    return false;
+  }
+
+  _ghostNotice(text) {
+    if (this.ghostWarn > 0) return;
+    this.ghostWarn = 4;
+    this.state.game.hud.toast('Ghost mode', text, 'var(--cyan)');
   }
 
   get checkpoint() {
@@ -206,7 +257,7 @@ export class ChapterFootMode {
 
   audioMix() {
     const p = this.state.player.pos;
-    const heliOn = this.heli && this.state.time > this.part.heli.delay;
+    const heliOn = this.heli && this.state.time > this.part.heli?.delay;
     const d = heliOn ? Math.hypot(this.heli.pos.x - p.x, this.heli.pos.z - p.z) : Infinity;
     audio.sirenDistance(this.officers ? 40 : 90);
     const chase = this.fugitive || this.officers ? 0.3 : 0;
@@ -226,8 +277,12 @@ export class ChapterFootMode {
     const t = s.time;
     const part = this.part;
 
+    this.ghostWarn -= dt;
+    // --- Hiding: under a water tower or inside a stairwell hut
+    this.hidden = !this.ghost && this._inHideSpot(p.pos);
+
     // --- Checkpoints: stand on the checkpoint's roof to reach it
-    if (p.grounded) {
+    if (p.grounded && !this.ghost) {
       const cps = this.level.checkpoints;
       for (let i = this.cp + 1; i < cps.length; i++) {
         const r = cps[i].roof;
@@ -245,7 +300,10 @@ export class ChapterFootMode {
       if (!c.group.visible) continue;
       c.gem.rotation.y += dt * 1.8;
       c.gem.position.y = 1.2 + Math.sin(t * 2.4 + c.pos.x) * 0.15;
-      if (Math.hypot(p.pos.x - c.pos.x, p.pos.z - c.pos.z) < PICKUP_RADIUS && Math.abs(p.pos.y - c.pos.y) < 1.5) this._pickUpClue(c);
+      if (Math.hypot(p.pos.x - c.pos.x, p.pos.z - c.pos.z) < PICKUP_RADIUS && Math.abs(p.pos.y - c.pos.y) < 1.5) {
+        if (this.ghost) this._ghostNotice('Found it! Turn ghost mode off, then come back here to pick it up.');
+        else this._pickUpClue(c);
+      }
     }
 
     // --- Helicopter
@@ -273,7 +331,7 @@ export class ChapterFootMode {
         this.officersAnnounced = true;
         hud.toast('Officers on the roof!', 'They\'re slower than you when you sprint, but they don\'t give up. Zip lines lose them.', 'var(--red)', 5);
       }
-      const r = this.officers.update(dt, p);
+      const r = this.officers.update(dt, p, this.hidden);
       if (r === 'caught') this._caught('An officer tackled you. Back to the last checkpoint.');
     }
 
@@ -283,6 +341,7 @@ export class ChapterFootMode {
       if (!this.ghost && this.fugitive.distanceTo(p.pos) < 1.9) { this._complete(); return; }
     }
 
+
     // --- Decor: police lights in the street
     for (const m of this.level.policeCars || []) updateSirens(m, t + m.position.x * 0.1);
     if (this.level.beacon) this.level.beacon.material.opacity = 0.12 + Math.sin(t * 3) * 0.04;
@@ -290,17 +349,18 @@ export class ChapterFootMode {
     // --- Where to go next
     this._updateMarker();
     const total = Object.keys(this.chapter.clues).length;
-    const found = this.ghost ? knownClues(s.game, this.chapter.id).size : this.run.clues.size;
+    const found = this.run.clues.size;
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span>` +
       `<span>Clues <b>${found}/${total}</b></span>` +
-      (this.ghost ? '<span><b style="color:var(--cyan)">CLUE HUNT</b></span>' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`));
+      (this.ghost ? '<span><b style="color:var(--cyan)">GHOST MODE</b></span>' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`) +
+      (this.hidden ? '<span><b style="color:var(--safe)">HIDDEN</b></span>' : ''));
 
     // --- Reached the goal?
-    const goalType = this.ghost && part.goal.type === 'catch' ? 'reach' : part.goal.type;
-    if (goalType === 'reach') {
+    if (part.goal.type === 'reach') {
       const g = this.level.goalPos;
       if (Math.hypot(p.pos.x - g.x, p.pos.z - g.z) < CAR_RADIUS && Math.abs(p.pos.y - g.y) < 2.5) {
-        if (part.requiredClue && !this.run.clues.has(part.requiredClue) && !this.ghost) {
+        if (this.ghost) this._ghostNotice('Turn ghost mode off to finish this part.');
+        else if (part.requiredClue && !this.run.clues.has(part.requiredClue)) {
           this.warnTimer -= dt;
           if (this.warnTimer <= 0) {
             this.warnTimer = 4;
@@ -324,7 +384,7 @@ export class ChapterFootMode {
       if (best) { hud.setMarker(best.pos.clone().setY(best.pos.y + 1.5), s.camera, 'Missing clue', 'var(--amber)', bd); return; }
     }
     const req = this.part.requiredClue;
-    if (req && !this.run.clues.has(req) && !this.ghost) {
+    if (req && !this.run.clues.has(req)) {
       const c = this.clueObjs.find((x) => x.id === req);
       if (c && this.cp >= (this.part.requiredAfterCheckpoint ?? 0)) {
         hud.setMarker(c.pos.clone().setY(c.pos.y + 1.5), s.camera, this.part.requiredLabel || 'Objective', 'var(--amber)', p.distanceTo(c.pos));

@@ -42,6 +42,8 @@ export class PoliceUnit {
   }
 }
 
+const GARAGE_SIGHT = 14; // metres: how close a cop must be to spot you inside a garage
+
 export class PoliceForce {
   constructor(scene, city, rng) {
     this.scene = scene;
@@ -129,8 +131,11 @@ export class PoliceForce {
   update(dt, player, heat, camera) {
     this.time += dt;
     this.anySees = false;
+    // Inside a parking garage you can only be seen from right up close.
+    const inGarage = this.city.isInGarage?.(player.pos.x, player.pos.z);
     for (const u of this.units) {
-      u.seesPlayer = this.canSee(u.car.pos, player.pos);
+      u.seesPlayer = this.canSee(u.car.pos, player.pos) &&
+        (!inGarage || Math.hypot(u.car.pos.x - player.pos.x, u.car.pos.z - player.pos.z) < GARAGE_SIGHT);
       if (u.seesPlayer) this.anySees = true;
     }
     if (this.anySees) {

@@ -11,6 +11,8 @@ import { PlayerModel } from '../player/playerModel.js';
 //   - at a roof edge: jump if there's a roof to land on, otherwise stop
 //   - blocked by a wall/ledge: jump (the controller turns that into a climb)
 // They can't wall-run or ride zip lines, so those are your escape routes.
+// Hide (inside a stairwell hut or under a water tower) and they lose you:
+// they run to where they last saw you and search around there instead.
 // Officers that fall or get left far behind come back out of a stairwell
 // near you a few seconds later.
 
@@ -50,7 +52,8 @@ export class OfficerSquad {
       this.units.push({ pc, model, ctl, waitTimer: 1 + i * 1.5, jumpCooldown: 0, blockedTime: 0, lastPos: new THREE.Vector3() });
     }
     this.acc = 0;
-    this._hidden = false;
+    this.lastKnown = new THREE.Vector3();
+    this.searchTimer = 0;
   }
 
   /** Put every officer back at a spawn point (e.g. after the player respawns). */
@@ -70,9 +73,16 @@ export class OfficerSquad {
     u.model.root.visible = false;
   }
 
-  /** @returns {'caught'|null} */
-  update(dt, player) {
+  /**
+   * @param {number} dt
+   * @param {PlayerController} player
+   * @param {boolean} hidden - the player is in a hiding spot
+   * @returns {'caught'|null}
+   */
+  update(dt, player, hidden = false) {
     let result = null;
+    if (!hidden) this.lastKnown.copy(player.pos);
+    this.searchTimer -= dt;
     for (const u of this.units) {
       if (u.waitTimer > 0) {
         u.waitTimer -= dt;
@@ -83,7 +93,7 @@ export class OfficerSquad {
       let t = dt;
       while (t > 1e-4) {
         const h = Math.min(STEP, t);
-        this._think(u, player, h);
+        this._think(u, hidden ? this._searchPoint(u) : player.pos, h);
         u.pc.update(h, u.ctl);
         u.pc.events.length = 0;
         u.ctl.jumpPressed = false;
@@ -92,16 +102,28 @@ export class OfficerSquad {
       u.model.update(dt, u.pc);
       const p = u.pc.pos;
       const dx = player.pos.x - p.x, dz = player.pos.z - p.z;
-      if (Math.hypot(dx, dz) < CATCH_DIST && Math.abs(player.pos.y - p.y) < 1.4 && player.state !== 'zip') result = 'caught';
+      const catchDist = hidden ? 0.7 : CATCH_DIST; // they'd have to walk right into your hiding spot
+      if (Math.hypot(dx, dz) < catchDist && Math.abs(player.pos.y - p.y) < 1.4 && player.state !== 'zip') result = 'caught';
       // Fell off, or hopelessly behind: come back out of a stairwell soon.
       if (p.y < 2 || Math.hypot(dx, dz) > 90) { u.waitTimer = 3; u.model.root.visible = false; }
     }
     return result;
   }
 
-  /** Decide which "buttons" the officer presses this step. */
-  _think(u, player, dt) {
+  /** While you're hidden: run to where they last saw you, then poke around nearby. */
+  _searchPoint(u) {
+    if (!u.search || Math.hypot(u.search.x - u.pc.pos.x, u.search.z - u.pc.pos.z) < 1.2 || this.searchTimer <= 0) {
+      if (this.searchTimer <= 0) this.searchTimer = 4;
+      const a = Math.random() * Math.PI * 2, r = 4 + Math.random() * 9;
+      u.search = new THREE.Vector3(this.lastKnown.x + Math.cos(a) * r, this.lastKnown.y, this.lastKnown.z + Math.sin(a) * r);
+    }
+    return u.search;
+  }
+
+  /** Decide which "buttons" the officer presses this step (running toward `target`). */
+  _think(u, target, dt) {
     const pc = u.pc, c = u.ctl;
+    const player = { pos: target };
     const dx = player.pos.x - pc.pos.x, dz = player.pos.z - pc.pos.z;
     const dist = Math.hypot(dx, dz) || 1;
     const fx = dx / dist, fz = dz / dist;

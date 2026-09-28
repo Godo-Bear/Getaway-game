@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeRng } from '../core/utils.js';
 import { CollisionWorld } from '../core/collision.js';
 import { MeshBatcher } from './meshBatcher.js';
@@ -14,6 +15,7 @@ import { getMaterials, makeGlowMaterial, makeTextTexture, getGlowTexture, FACADE
 // Call finish() at the end to get one THREE.Group with everything merged.
 
 export const LIP = 0.35; // roof-edge lip height (low enough to walk over)
+const HIDE_GLOW = 0x0f4a2c; // dim green floor patch = a hiding spot
 export const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580];
 
 const SIGN_TEXTS = [
@@ -33,6 +35,7 @@ export class RooftopKit {
     this.signs = [];       // neon signs { b, side, text? }
     this.extra = new THREE.Group(); // one-off meshes (crane towers, big signs...)
     this.zipLines = [];    // [{ a, b }] handed to the player controller
+    this.ladders = [];     // [{ x, z, nx, nz, y0, y1 }] filled in by finish()
   }
 
   /** A solid box: collider + visible geometry. */
@@ -50,7 +53,7 @@ export class RooftopKit {
   // Ground level
   // ------------------------------------------------------------------
 
-  /** The street: one huge box. Touching it = you fell. */
+  /** The street: one huge box you can walk on (ladders lead back up). */
   street(minX, minZ, maxX, maxZ) {
     this.world.addBox(minX, -2, minZ, maxX, 0, maxZ, { tag: 'street' });
     this.batch.addBox({ x: minX, y: -0.5, z: minZ }, { x: maxX, y: 0, z: maxZ },
@@ -127,6 +130,7 @@ export class RooftopKit {
     this.batch.addBlock(x, y + legH - 0.15, z, 3.8, 0.15, 3.8, { side: 'plain', top: 'plain', color: 0x3a2e24 });
     this.tanks.push(new THREE.Vector3(x, y + legH, z));
     this.hideSpots.push(new THREE.Vector3(x, y, z));
+    this.batch.addBlock(x, y + 0.02, z, 1.6, 0.01, 1.6, { side: null, top: 'glow', color: HIDE_GLOW });
   }
 
   /**
@@ -153,7 +157,7 @@ export class RooftopKit {
     this.world.addBox(x0, y + h, z0, x1, y + h + 0.2, z1, { tag: 'hut' });
     this.batch.addBox({ x: x0 - 0.1, y: y + h, z: z0 - 0.1 }, { x: x1 + 0.1, y: y + h + 0.2, z: z1 + 0.1 },
       { side: 'concrete', top: 'roof', color: 0x77746e, uvScale: [3, 3], topScale: [3, 3] });
-    this.batch.addBlock(x, y + 0.02, z, 1.2, 0.01, 1.2, { side: null, top: 'glow', color: 0x3a2a12 });
+    this.batch.addBlock(x, y + 0.02, z, 1.2, 0.01, 1.2, { side: null, top: 'glow', color: HIDE_GLOW });
     this.hideSpots.push(new THREE.Vector3(x, y, z));
   }
 
@@ -328,13 +332,13 @@ export class RooftopKit {
     return top;
   }
 
-  /** Harbour water: touching it counts as falling. */
+  /** Harbour water: you sink into it (that counts as falling). */
   water(minX, minZ, maxX, maxZ) {
-    this.world.addBox(minX, -3, minZ, maxX, 0, maxZ, { tag: 'street' });
+    this.world.addBox(minX, -4, minZ, maxX, -3, maxZ, { tag: 'water' });
     this.batch.addBox({ x: minX, y: -0.4, z: minZ }, { x: maxX, y: -0.3, z: maxZ }, { side: null, top: 'plain', color: 0x0c1a2c });
   }
 
-  /** A quay / pier deck at ground level (drop onto it = "ground units spot you"). */
+  /** A quay / pier deck at ground level (walkable; ladders lead back up). */
   quay(minX, minZ, maxX, maxZ, y = 0.4) {
     this.world.addBox(minX, -2, minZ, maxX, y, maxZ, { tag: 'street' });
     this.batch.addBox({ x: minX, y: -0.5, z: minZ }, { x: maxX, y, z: maxZ }, { side: 'concrete', top: 'asphalt', color: 0x8a8a8a, uvScale: [4, 4], topScale: [8, 8] });
@@ -361,6 +365,61 @@ export class RooftopKit {
     }
   }
 
+  /**
+   * One ladder on every building (and container stack), on a wall that faces
+   * open ground, so if you fall to the street you can climb back up.
+   */
+  _placeLadders() {
+    const w = this.world;
+    const hits = [];
+    // A box along the wall at (x, z): `from`..`to` metres out from the face
+    // (negative = inside the building), `half` wide, between heights y0..y1.
+    const clear = (x, z, face, from, to, half, y0, y1) => {
+      const tx = -face.nz, tz = face.nx; // along the wall
+      const ax = x + face.nx * from, az = z + face.nz * from;
+      const bx = x + face.nx * to, bz = z + face.nz * to;
+      return w.query(Math.min(ax, bx) - Math.abs(tx) * half, y0, Math.min(az, bz) - Math.abs(tz) * half,
+        Math.max(ax, bx) + Math.abs(tx) * half, y1, Math.max(az, bz) + Math.abs(tz) * half, hits).length === 0;
+    };
+    for (const b of this.buildings) {
+      if (b.h < 3.5 || b.noLadder) continue;
+      const faces = [
+        { nx: 0, nz: -1, len: b.maxX - b.minX, at: (t) => [b.minX + t, b.minZ] },
+        { nx: 0, nz: 1, len: b.maxX - b.minX, at: (t) => [b.minX + t, b.maxZ] },
+        { nx: -1, nz: 0, len: b.maxZ - b.minZ, at: (t) => [b.minX, b.minZ + t] },
+        { nx: 1, nz: 0, len: b.maxZ - b.minZ, at: (t) => [b.maxX, b.minZ + t] },
+      ];
+      // Collect every usable spot, then pick the most open one (a wall facing
+      // the street beats one in a narrow alley). Random face order breaks ties.
+      const start = Math.floor(this.rng() * 4);
+      let best = null;
+      for (let f = 0; f < 4; f++) {
+        const face = faces[(start + f) % 4];
+        if (face.len < 2.4) continue;
+        for (const k of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+          const t = Math.max(1, Math.min(face.len - 1, face.len * k));
+          const [x, z] = face.at(t);
+          // Solid ground just outside (not water, not another roof)...
+          const ground = w.groundHeight(x + face.nx * 1.2, z + face.nz * 1.2, 1.5);
+          if (ground < -0.5 || ground > 1) continue;
+          // ...nothing in the way from the ground to the roof...
+          if (!clear(x, z, face, 0.05, 0.9, 0.55, ground + 0.3, b.h + 1.5)) continue;
+          // ...and room to climb over onto the roof at the top.
+          if (!clear(x, z, face, -1.6, -0.02, 0.45, b.h + LIP + 0.05, b.h + 2.6)) continue;
+          // How open is it in front? (street > alley)
+          const open = clear(x, z, face, 0.9, 4, 0.8, ground + 0.2, ground + 2) ? 2 : clear(x, z, face, 0.9, 2.2, 0.6, ground + 0.2, ground + 2) ? 1 : 0;
+          if (!best || open > best.open) best = { x, z, nx: face.nx, nz: face.nz, y0: ground, y1: b.h, open };
+          if (open === 2) break;
+        }
+        if (best?.open === 2) break;
+      }
+      if (best) {
+        delete best.open;
+        this.ladders.push(best);
+      }
+    }
+  }
+
   /** Neon sign on a building face. side: 0 = -Z face, 1 = +Z, 2 = -X, 3 = +X */
   sign(b, side, text, color, y = null) {
     this.signs.push({ b, side, text, color, y });
@@ -370,8 +429,10 @@ export class RooftopKit {
   // Finish: build all meshes
   // ------------------------------------------------------------------
   finish() {
+    this._placeLadders();
     const group = new THREE.Group();
     group.add(this.batch.build(getMaterials()));
+    if (this.ladders.length) group.add(buildLadders(this.ladders));
     if (this.tanks.length) group.add(buildTanks(this.tanks));
     if (this.lamps.length) group.add(buildStreetLamps(this.lamps));
     group.add(buildSigns(this.signs, this.rng));
@@ -383,6 +444,53 @@ export class RooftopKit {
 // ----------------------------------------------------------------------
 // Instanced / special meshes
 // ----------------------------------------------------------------------
+
+/** Ladders: two rails plus a see-through "rungs" strip, all merged into two meshes. */
+function buildLadders(ladders) {
+  const rails = [], rungs = [];
+  const RUNG = 0.4; // metres between rungs
+  for (const L of ladders) {
+    const h = L.y1 - L.y0 + 0.9; // rails stick up past the roof edge (grab handles)
+    const yaw = Math.atan2(L.nx, L.nz);
+    const mid = new THREE.Vector3(L.x + L.nx * 0.14, L.y0 + h / 2, L.z + L.nz * 0.14);
+    const rot = new THREE.Matrix4().makeRotationY(yaw);
+    for (const side of [-0.3, 0.3]) {
+      const g = new THREE.BoxGeometry(0.07, h, 0.07);
+      g.applyMatrix4(new THREE.Matrix4().makeTranslation(side, 0, 0));
+      g.applyMatrix4(rot);
+      g.translate(mid.x, mid.y, mid.z);
+      rails.push(g);
+    }
+    const r = new THREE.PlaneGeometry(0.6, h - 0.9);
+    const uv = r.attributes.uv;
+    for (let i = 0; i < uv.count; i++) uv.setY(i, uv.getY(i) * (h - 0.9) / RUNG);
+    r.applyMatrix4(rot);
+    r.translate(mid.x, L.y0 + (h - 0.9) / 2, mid.z);
+    rungs.push(r);
+  }
+  const g = new THREE.Group();
+  const railMesh = new THREE.Mesh(mergeGeometries(rails, false),
+    new THREE.MeshLambertMaterial({ color: 0xd0b050, emissive: 0x3a2c08 }));
+  const rungMesh = new THREE.Mesh(mergeGeometries(rungs, false),
+    new THREE.MeshLambertMaterial({ map: rungTexture(), color: 0xd0b050, emissive: 0x3a2c08, alphaTest: 0.5, side: THREE.DoubleSide }));
+  railMesh.castShadow = true;
+  g.add(railMesh, rungMesh);
+  return g;
+}
+
+let _rungTex = null;
+function rungTexture() {
+  if (_rungTex) return _rungTex;
+  const c = document.createElement('canvas');
+  c.width = 32; c.height = 32;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 13, 32, 6); // one rung per tile
+  _rungTex = new THREE.CanvasTexture(c);
+  _rungTex.wrapS = _rungTex.wrapT = THREE.RepeatWrapping;
+  _rungTex.colorSpace = THREE.SRGBColorSpace;
+  return _rungTex;
+}
 
 function buildTanks(tanksPos) {
   const g = new THREE.Group();

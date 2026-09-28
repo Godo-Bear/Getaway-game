@@ -144,10 +144,10 @@ export function buildChapter2Docks() {
   ];
 
   return {
-    group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, zipLines: kit.zipLines,
+    group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, zipLines: kit.zipLines,
     checkpoints, clues, guides, fugitivePath, policeCars,
     goalPos: new THREE.Vector3(31, 6, -147),
-    fallTitle: 'Ground units spotted you',
+    fallTitle: 'Into the harbour',
     officerSpawns: [],
   };
 }

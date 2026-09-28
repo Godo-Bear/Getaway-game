@@ -26,7 +26,7 @@ export class Minimap {
     g.fillStyle = '#3a3e4a'; // roads (everything not covered is road)
     g.fillRect(0, 0, off.width, off.height);
     for (const s of city.minimapShapes) {
-      if (s.type === 'bridge') continue;
+      if (s.type === 'bridge' || s.type === 'garage') continue;
       g.fillStyle = s.type === 'park' ? '#1f4a2a' : '#12151d';
       g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
     }
@@ -34,6 +34,17 @@ export class Minimap {
       if (s.type !== 'bridge') continue;
       g.fillStyle = 'rgba(120,130,150,0.35)';
       g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
+    }
+    // Parking garages (hiding spots): blue with a white P
+    for (const s of city.minimapShapes) {
+      if (s.type !== 'garage') continue;
+      g.fillStyle = '#2a5ad8';
+      g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
+      g.fillStyle = '#ffffff';
+      g.font = 'bold 14px Arial, sans-serif';
+      g.textAlign = 'center';
+      g.textBaseline = 'middle';
+      g.fillText('P', (s.x0 + s.x1) / 2 - min, (s.z0 + s.z1) / 2 - min);
     }
     for (const a of city.alleys) {
       g.fillStyle = '#2c3038';
