@@ -10,6 +10,7 @@ const DEFAULTS = {
   settings: {
     mouseSensitivity: 1.0,
     invertY: false,
+    firstPerson: false, // on-foot camera view
     graphics: 'high', // 'low' | 'medium' | 'high'
     masterVolume: 0.8,
     musicVolume: 0.6,

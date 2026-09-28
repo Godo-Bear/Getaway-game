@@ -51,11 +51,11 @@ export const CONTROLS = {
     <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb<br>
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it.<br>
-    <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
     <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb<br>
-    <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd> pause`,
+    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
     <kbd>Space</kbd> handbrake (drift) &nbsp; <kbd>Shift</kbd> nitro<br>
@@ -73,6 +73,7 @@ export function controlsHtml() {
       <kbd>Shift</kbd><span>Sprint</span>
       <kbd>Space</kbd><span>Jump. Near a ledge: climb it (up to 2.7 m)</span>
       <kbd>Run into it</kbd><span>Vault over low obstacles like AC units</span>
+      <kbd>V</kbd><span>Switch between first-person and third-person view</span>
       <kbd>R</kbd><span>Go back to the last safe spot</span>
     </div>
     <p class="sub">Driving</p>

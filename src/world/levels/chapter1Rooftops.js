@@ -87,11 +87,15 @@ export function buildChapter1Rooftops() {
   kit.ac(33, 21, -61.3);                        // AC top 22.1 -> hut roof (+1.7)
   kit.ac(25, 21, -54);
 
-  // --- Fire escape up the south wall of B5 (landings over the alley)
-  kit.fireEscapeZ(-70, 1, [
-    [23, 27, 21.0],       // jump across the alley from B4 onto this one
-    [26.8, 30.8, 23.2],   // each landing overlaps the last a little so you can reach it
-    [30.6, 34.6, 25.4],   // then face the wall and climb onto the roof (26 m)
+  // --- Fire escape up the south wall of B5: a metal staircase over the alley.
+  // Short 1.8 m hop from B4 onto the bottom landing, then just run up the
+  // steps (each 0.4 m, walked up automatically) and step onto the roof.
+  kit.fireEscapeStairsZ(-70, 2.2, 22.5, 21.0, [
+    { landing: 4.0 },            // bottom landing (you land here from B4)
+    { steps: 7 },                // up to 23.8
+    { landing: 2.0 },
+    { steps: 6 },                // up to 26.2
+    { landing: 2.2 },            // top: the roof edge is right beside you
   ]);
 
   // --- B5: checkpoint 3. Hiding spots, and the billboard secret.

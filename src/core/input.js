@@ -16,6 +16,7 @@ export const BINDINGS = {
   sprint: ['ShiftLeft', 'ShiftRight'],
   crouch: ['KeyC', 'ControlLeft'],
   respawn: ['KeyR'],
+  view: ['KeyV'],           // on foot: first / third person
   horn: ['KeyQ'],          // driving: honk so traffic moves aside
   camera: ['KeyC', 'KeyV'], // driving: change camera
   pause: ['KeyP', 'Escape'],

@@ -200,6 +200,35 @@ export class RooftopKit {
     }
   }
 
+  /**
+   * Fire-escape staircase running along +X against a wall at z = wallZ,
+   * sticking out `depth` metres toward +Z (over an alley).
+   * parts: [{ landing: length } | { steps: count }] in order, starting at x0, height y0.
+   * Steps are 0.4 m high and 0.6 m deep, low enough to walk up without jumping.
+   */
+  fireEscapeStairsZ(wallZ, depth, x0, y0, parts) {
+    const z0 = wallZ, z1 = wallZ + depth;
+    const look = { side: 'plain', top: 'metal', color: 0x2a2c31, uvScale: [1, 1] };
+    const rail = { side: 'plain', top: 'plain', color: 0x1d1f23 };
+    const RISE = 0.4, RUN = 0.6, base = y0 - 0.15;
+    let x = x0, y = y0;
+    for (const part of parts) {
+      if (part.landing) {
+        this.solid(x, base, z0, x + part.landing, y, z1, look, 'platform');
+        this.batch.addBox({ x, y: y + 0.95, z: z1 - 0.08 }, { x: x + part.landing, y: y + 1.0, z: z1 - 0.02 }, rail);
+        x += part.landing;
+      } else {
+        for (let i = 0; i < part.steps; i++) {
+          y += RISE;
+          this.solid(x, base, z0, x + RUN, y, z1, look, 'platform');
+          this.batch.addBox({ x, y: y + 0.95, z: z1 - 0.08 }, { x: x + RUN, y: y + 1.0, z: z1 - 0.02 }, rail);
+          x += RUN;
+        }
+      }
+    }
+    return { x, y };
+  }
+
   /** Billboard with a walkable catwalk in front (a high, hard-to-reach spot). */
   billboard(x, y, z, width, text, color, facing = 1) {
     // Catwalk (collider) and the board itself (collider, too tall to climb)

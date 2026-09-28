@@ -2,9 +2,12 @@ import * as THREE from 'three';
 import { PlayState } from './playState.js';
 import { PlayerController } from '../player/playerController.js';
 import { PlayerModel } from '../player/playerModel.js';
+import { FirstPersonArms } from '../player/firstPersonArms.js';
+import { save } from '../core/save.js';
 import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
 import { NightLighting } from '../world/lighting.js';
 import { CONTROLS } from '../ui/menus.js';
+import { damp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
 import { RooftopRunMode } from './modes/rooftopRunMode.js';
 import { ChapterRooftopsMode } from './modes/chapterRooftopsMode.js';
@@ -60,11 +63,30 @@ export class OnFootState extends PlayState {
     const s = game.settings;
     this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
     this.cam.invertY = s.invertY;
+    // First-person arms hang off the camera, so the camera joins the scene.
+    this.scene.add(this.camera);
+    this.arms = new FirstPersonArms(this.camera);
+    this.setFirstPerson(!!s.firstPerson);
 
     game.hud.show(this.mode.hudSections);
     game.hud.showControls(game.input.pointerLockFailed ? CONTROLS.onFootNoLock : CONTROLS.onFoot);
     this.firstStart = true;
     this.restart();
+  }
+
+  /** Switch view: first person hides the body and shows the arms. */
+  setFirstPerson(on) {
+    this.cam.setFirstPerson(on);
+    this.model.root.visible = !on;
+    this.arms.setVisible(on);
+  }
+
+  toggleView() {
+    const on = !this.cam.firstPerson;
+    this.setFirstPerson(on);
+    this.game.settings.firstPerson = on;
+    save.write();
+    this.game.hud.toast(on ? 'First person' : 'Third person', 'Press V to switch view.', 'var(--cyan)');
   }
 
   /** Reset the run (also used by "Try again"). */
@@ -116,6 +138,7 @@ export class OnFootState extends PlayState {
     this.cam.getForward(this._fwd);
     this.cam.getRight(this._right);
 
+    if (input.wasPressed('view')) this.toggleView();
     if (input.wasPressed('respawn')) {
       if (this.mode.onRespawnKey) this.mode.onRespawnKey();
       else this.respawnToSafety('Back to safety.');
@@ -150,7 +173,12 @@ export class OnFootState extends PlayState {
     }
 
     this.model.update(frozen ? 0 : dt, p);
+    // Head bob in first person: follows the running cycle of the (hidden) body.
+    const running = p.state === 'ground' && p.horizontalSpeed > 0.5 && !frozen;
+    const bobTarget = running ? Math.abs(Math.sin(this.model.runPhase)) * 0.06 * Math.min(1, p.horizontalSpeed / 8) - 0.03 : 0;
+    this.cam.bob = damp(this.cam.bob, bobTarget, 20, dt);
     this.cam.update(dt, p.pos, p.horizontalSpeed);
+    this.arms.update(frozen ? 0 : dt, p, this.model.runPhase);
     this.lighting.follow(p.pos);
 
     if (this.game.showDebug) {
