@@ -5,6 +5,7 @@ import { CHAPTERS } from '../story/chapters.js';
 import { SUSPECTS } from '../story/crew.js';
 import { getChapterRun, totalTime, chapterRating } from '../story/chapterRun.js';
 import { startPart, knownClues, buyClue } from '../story/chapterFlow.js';
+import { diff } from '../core/difficulty.js';
 import { save } from '../core/save.js';
 import { earn, owns } from '../gadgets/gadgets.js';
 import { formatTime, makeRng } from '../core/utils.js';
@@ -303,9 +304,7 @@ export class DeductionState {
     const firstSolve = !p.solved[chapter.id];
     p.solved[chapter.id] = true;
     p.chapterUnlocked = Math.max(p.chapterUnlocked || 1, chapter.number + 1);
-    p.ratings = p.ratings || {};
-    const prev = p.ratings[chapter.id];
-    if (!prev || RATING_ORDER.indexOf(rating) < RATING_ORDER.indexOf(prev)) p.ratings[chapter.id] = rating;
+    save.submitRating(chapter.id, rating); // kept per difficulty
     let newColour = false;
     if (rating === 'gold') {
       p.carColours = p.carColours || [];
@@ -327,10 +326,10 @@ export class DeductionState {
       <p class="sub kicker">Case closed</p>
       <h2 class="verdict-good">${verdict.title}</h2>
       <p>${verdict.text}</p>
-      <span class="rank ${rating}">CHAPTER RATING: ${rating.toUpperCase()}</span>
+      <span class="rank ${rating}">CHAPTER RATING: ${rating.toUpperCase()} · ${diff().name.toUpperCase()}</span>
       <div class="stat-grid">
         <div><span>Chapter time</span><b>${complete ? formatTime(time) : '-'}</b></div>
-        <div><span>Best time</span><b>${p.bestTimes[`${chapter.id}.total`] != null ? formatTime(p.bestTimes[`${chapter.id}.total`]) : '-'}</b></div>
+        <div><span>Best time (${diff().name})</span><b>${save.bestTime(`${chapter.id}.total`) != null ? formatTime(save.bestTime(`${chapter.id}.total`)) : '-'}</b></div>
         <div><span>Clues found</span><b>${found}/${total}</b></div>
         <div><span>Caught / wrong guesses</span><b>${run.caught} / ${this.wrong}</b></div>
         <div><span>Cash earned</span><b style="color:var(--safe)">+$${cash}</b></div>
@@ -340,7 +339,7 @@ export class DeductionState {
       <p class="sub" style="margin-top:8px">How the clues fit</p>
       ${clueHtml}
       <p style="margin-top:14px">${chapter.resultOutro}</p>
-      <p class="sub">Gold: the whole chapter in under 5:00, at least ${total - 1} clues, never caught, right first time.</p>`,
+      <p class="sub">Gold: the whole chapter in under ${formatTime(chapter.rating?.gold ?? 300).replace(/\.0$/, '')}, at least ${total - 1} clues (not bought), never caught, right first time. Each difficulty keeps its own rating.</p>`,
     [
       chapter.nextChapter
         ? { label: `Continue: ${CHAPTERS[chapter.nextChapter].title}`, primary: true, onClick: () => startPart(this.game, chapter.nextChapter, 0, { fresh: true }) }
@@ -356,8 +355,7 @@ export class DeductionState {
 
   /** After the last chapter: the ending and credits. */
   _finale() {
-    const ratings = save.data.progress.ratings || {};
-    const rows = Object.values(CHAPTERS).map((c) => `<div><span>${c.title}</span><b>${(ratings[c.id] || '-').toUpperCase()}</b></div>`).join('');
+    const rows = Object.values(CHAPTERS).map((c) => `<div><span>${c.title} (${diff().name})</span><b>${(save.rating(c.id) || '-').toUpperCase()}</b></div>`).join('');
     showCard(`
       <p class="sub kicker">The End</p>
       <h2>GETAWAY</h2>

@@ -198,7 +198,7 @@ export class RooftopRunMode {
       <p class="sub">The helicopter pinned you down and the ground units closed in.</p>
       <div class="stat-grid">
         <div><span>Score</span><b>${score.toLocaleString('en-US')}</b></div>
-        <div><span>Best</span><b>${save.data.best.rooftopRun.toLocaleString('en-US')}</b></div>
+        <div><span>Best (${diff().name})</span><b>${save.bestScore('rooftopRun').toLocaleString('en-US')}</b></div>
         <div><span>Time survived</span><b>${formatTime(s.time)}</b></div>
         <div><span>Wanted level</span><b>${this.level}</b></div>
         <div><span>Cash for the Shop</span><b style="color:var(--safe)">+$${this.cashEarned + earn(s.game, score / 10, '', { quiet: true })}</b></div>

@@ -437,3 +437,6 @@ body.touch-mode #hud-gadget { top: auto; left: auto; right: calc(92px + env(safe
 }
 .diff-tabs { margin: 2px 0 0; }
 .diff-desc { margin: 6px 0 2px !important; min-height: 1.3em; }
+.tag.rank-none { opacity: 0.6; }
+.tag.cur { box-shadow: 0 0 0 1.5px currentColor; }
+.tag.gold.cur, .tag.silver.cur, .tag.bronze.cur { box-shadow: 0 0 0 2px #fff; }

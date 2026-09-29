@@ -138,7 +138,7 @@ export class StreetChaseMode {
       <p class="sub">They boxed you in. Next time keep moving, and use nitro to break away.</p>
       <div class="stat-grid">
         <div><span>Score</span><b>${score.toLocaleString('en-US')}</b></div>
-        <div><span>Best</span><b>${save.data.best.streetChase.toLocaleString('en-US')}</b></div>
+        <div><span>Best (${diff().name})</span><b>${save.bestScore('streetChase').toLocaleString('en-US')}</b></div>
         <div><span>Time survived</span><b>${formatTime(s.time)}</b></div>
         <div><span>Heat reached</span><b>${this.heat}</b></div>
         <div><span>Times evaded</span><b>${this.evades}</b></div>

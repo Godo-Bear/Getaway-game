@@ -125,20 +125,51 @@ export const save = {
       this.write();
     }
   },
-  /** Record a time; returns true if it's a new best (lower is better). */
+  // ------------------------------------------------------------------
+  // Stats are kept separately for each difficulty: best times, chapter
+  // ratings and survival high scores. Normal uses the plain key (so saves
+  // from before difficulties existed count as Normal); Easy and Hard add
+  // "@easy" / "@hard". Story progress (solved, unlocked) is shared.
+  // ------------------------------------------------------------------
+  statKey(key, difficulty = data.settings.difficulty || 'normal') {
+    return difficulty === 'normal' ? key : `${key}@${difficulty}`;
+  },
+  /** Best time for e.g. 'chapter1.total' on a difficulty (default: the current one), or null. */
+  bestTime(key, difficulty) {
+    return data.progress.bestTimes[this.statKey(key, difficulty)] ?? null;
+  },
+  /** Chapter rating ('gold' | 'silver' | 'bronze') on a difficulty, or null. */
+  rating(chapterId, difficulty) {
+    return data.progress.ratings?.[this.statKey(chapterId, difficulty)] ?? null;
+  },
+  /** Keep a chapter rating on the current difficulty if it's better than the old one. */
+  submitRating(chapterId, rating) {
+    const order = ['gold', 'silver', 'bronze'];
+    const key = this.statKey(chapterId);
+    data.progress.ratings ||= {};
+    const prev = data.progress.ratings[key];
+    if (!prev || order.indexOf(rating) < order.indexOf(prev)) data.progress.ratings[key] = rating;
+  },
+  /** High score for 'rooftopRun' / 'streetChase' on a difficulty (default: the current one). */
+  bestScore(mode, difficulty) {
+    return data.best[this.statKey(mode, difficulty)] || 0;
+  },
+  /** Record a time on the current difficulty; returns true if it's a new best (lower is better). */
   submitTime(key, seconds) {
-    const old = data.progress.bestTimes[key];
+    const k = this.statKey(key);
+    const old = data.progress.bestTimes[k];
     if (old == null || seconds < old) {
-      data.progress.bestTimes[key] = seconds;
+      data.progress.bestTimes[k] = seconds;
       this.write();
       return true;
     }
     return false;
   },
-  /** Record a score; returns true if it's a new best. */
+  /** Record a score on the current difficulty; returns true if it's a new best. */
   submitBest(mode, score) {
-    if (score > (data.best[mode] || 0)) {
-      data.best[mode] = Math.floor(score);
+    const k = this.statKey(mode);
+    if (score > (data.best[k] || 0)) {
+      data.best[k] = Math.floor(score);
       this.write();
       return true;
     }

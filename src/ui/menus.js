@@ -15,7 +15,7 @@ import { cloud } from '../core/cloud.js';
 import { admin } from '../core/admin.js';
 import { showAdminPanel } from './adminPanel.js';
 import { difficultyPickerHtml, bindDifficultyPicker } from './difficultyPicker.js';
-import { diff } from '../core/difficulty.js';
+import { diff, DIFFICULTY_LIST } from '../core/difficulty.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -170,7 +170,7 @@ export function showTitle(actions) {
   const solved = Object.keys(save.data.progress.solved || {}).length;
   const runBest = Object.values(best.speedrun || {});
   const back = () => showTitle(actions);
-  const fmtScore = (n) => (n ? `Best ${n.toLocaleString('en-US')}` : 'No score yet');
+  const fmtScore = (n) => (n ? `Best ${n.toLocaleString('en-US')} (${diff().name})` : `No ${diff().name} score yet`);
   showCard(`
     <div class="logo">GET<span>AWAY</span></div>
     <p class="tagline">A heist gone wrong. Someone on your crew talked. Get out, lose the cops, and find the rat.</p>
@@ -181,8 +181,8 @@ export function showTitle(actions) {
       <span class="arrow">›</span>
     </button>
     <div class="tiles">
-      <button class="btn tile" data-go="rooftop">${ICONS.rooftop}<b>Rooftop Run</b><small>${fmtScore(best.rooftopRun)}</small></button>
-      <button class="btn tile" data-go="chase">${ICONS.chase}<b>Street Chase</b><small>${fmtScore(best.streetChase)}</small></button>
+      <button class="btn tile" data-go="rooftop">${ICONS.rooftop}<b>Rooftop Run</b><small>${fmtScore(save.bestScore('rooftopRun'))}</small></button>
+      <button class="btn tile" data-go="chase">${ICONS.chase}<b>Street Chase</b><small>${fmtScore(save.bestScore('streetChase'))}</small></button>
       <button class="btn tile" data-go="free">${ICONS.free}<b>Free Run</b><small>Rooftops + streets</small></button>
       <button class="btn tile" data-go="speedrun">${ICONS.speedrun}<b>Speedrun</b><small>${runBest.length ? `${runBest.length} best time${runBest.length > 1 ? 's' : ''}` : 'Race the story'}</small></button>
     </div>
@@ -241,13 +241,17 @@ export function showChapterSelect(actions) {
   const back = () => showChapterSelect(actions);
   const buttons = CHAPTER_LIST.map((c) => {
     const unlocked = c.number <= (p.chapterUnlocked || 1);
-    const rating = p.ratings?.[c.id];
-    const best = p.bestTimes?.[`${c.id}.total`];
+    const best = save.bestTime(`${c.id}.total`);
+    // A rank for each difficulty (the current one is outlined)
+    const ranks = DIFFICULTY_LIST.map((d) => {
+      const r = save.rating(c.id, d.id);
+      const cur = d.id === diff().id ? ' cur' : '';
+      return r ? `<em class="tag ${r}${cur}">${d.name}: ${r}</em>` : `<em class="tag rank-none${cur}">${d.name}: -</em>`;
+    }).join('');
     const tags = !unlocked ? '<em class="tag">Locked: solve the previous chapter</em>'
       : [p.solved?.[c.id] ? '<em class="tag ok">Solved ✓</em>' : '<em class="tag">Not solved yet</em>',
-        rating ? `<em class="tag ${rating}">${rating}</em>` : '',
-        best != null ? `<em class="tag">Best ${formatTime(best)}</em>` : '',
-        `<em class="tag">${c.parts.length} parts</em>`].join('');
+        ranks,
+        best != null ? `<em class="tag">Best ${formatTime(best)} (${diff().name})</em>` : ''].join('');
     return {
       label: `<span class="ch-num">${unlocked ? c.number : '🔒'}</span><span class="ch-main"><b>${c.short}</b><span class="tags">${tags}</span></span>`,
       cls: 'ch-row', primary: unlocked && c.id === nextChapter().id && !p.solved?.[c.id], disabled: !unlocked,
@@ -256,20 +260,21 @@ export function showChapterSelect(actions) {
   });
   buttons.push({ label: 'Back', onClick: () => showTitle(actions) });
   showCard(`<p class="sub kicker">Story</p><h2>Chapters</h2><p class="sub">Each chapter: pull off the job, lose the police, then work out who betrayed you.</p>
-    <p class="sub setting-head" style="margin-top:4px !important">Difficulty</p>${difficultyPickerHtml()}`, buttons, { list: true });
-  bindDifficultyPicker();
+    <p class="sub setting-head" style="margin-top:4px !important">Difficulty</p>${difficultyPickerHtml()}
+    <p class="sub fine">Each difficulty keeps its own ranks and best times.</p>`, buttons, { list: true });
+  bindDifficultyPicker(() => showChapterSelect(actions)); // redraw: ranks and times for that difficulty
 }
 
 function showChapterParts(chapterId, actions, back) {
   const chapter = CHAPTERS[chapterId];
   const found = new Set((save.data.progress.clues?.[chapterId] || []).filter((id) => id in chapter.clues));
   const total = Object.keys(chapter.clues).length;
-  const times = save.data.progress.bestTimes || {};
+  const partBest = (id) => save.bestTime(`${chapterId}.${id}`);
   const parts = chapter.parts.map((part, i) => ({
     label: `<span class="ch-num">${i + 1}</span><span class="ch-main"><b>${part.title}</b><span class="tags">` +
       `<em class="tag">${part.kind === 'drive' ? 'Driving' : 'On foot'}</em>` +
       `${i === 0 ? '<em class="tag">Full chapter</em>' : '<em class="tag">Practice from here</em>'}` +
-      `${times[`${chapterId}.${part.id}`] != null ? `<em class="tag">Best ${formatTime(times[`${chapterId}.${part.id}`])}</em>` : ''}</span></span>`,
+      `${partBest(part.id) != null ? `<em class="tag">Best ${formatTime(partBest(part.id))} (${diff().name})</em>` : ''}</span></span>`,
     cls: 'ch-row',
     primary: i === 0,
     onClick: () => actions.story(chapterId, i, false),
