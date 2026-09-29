@@ -15,6 +15,7 @@
 
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
+import { admin } from '../core/admin.js';
 
 // Shop categories, in the order the Shop shows them.
 export const CATEGORIES = [
@@ -23,6 +24,7 @@ export const CATEGORIES = [
   { id: 'damage', name: 'Damage', blurb: 'Knock the police out of the chase.' },
   { id: 'getaway', name: 'Getaways', blurb: 'Upgrades for the getaway car.' },
   { id: 'mole', name: 'Mole', blurb: 'Find the clues and catch the traitor.' },
+  { id: 'admin', name: 'Admin', blurb: 'Admin-only specials. Free, and only in the Shop while admin mode is on.', adminOnly: true },
 ];
 
 // kind: 'foot' / 'car' = press F to use (equip one of each), 'passive' = always on.
@@ -73,20 +75,35 @@ export const GADGETS = [
     desc: 'The Case Board marks which clues are red herrings (planted to fool you).' },
   { id: 'detector', cat: 'mole', kind: 'passive', name: 'Lie Detector', price: 1000, color: '#ffd27a', icon: '⚖',
     desc: 'At every deduction it clears one innocent suspect, so there are fewer to choose from.' },
+  // ---- Admin only (see src/core/admin.js)
+  { id: 'rocket', cat: 'admin', kind: 'passive', adminOnly: true, name: 'Rocket Boots', price: 0, color: '#ff4dd2', icon: '🚀',
+    desc: 'Jump again in mid-air as many times as you like: climb anything, cross any gap.' },
+  { id: 'cloak', cat: 'admin', kind: 'foot', adminOnly: true, name: 'Invisibility Cloak', price: 0, cooldown: 20, color: '#b48cff', icon: '◌',
+    desc: 'Turn invisible for 15 seconds: helicopters and officers can\'t see you at all.' },
+  { id: 'freeze', cat: 'admin', kind: 'car', adminOnly: true, name: 'Police Freeze', price: 0, cooldown: 20, color: '#8af4ff', icon: '❄',
+    desc: 'Every police car on the map freezes for 10 seconds and loses your trail.' },
+  { id: 'teleport', cat: 'admin', kind: 'car', adminOnly: true, name: 'Teleporter', price: 0, cooldown: 5, color: '#ffe04d', icon: '⌖',
+    desc: 'Beam the car straight to your map waypoint (M), or to the current goal if you haven\'t set one.' },
 ];
 
 export const gadget = (id) => GADGETS.find((g) => g.id === id);
 
+/** Admin-only gadgets only work while admin mode is on. */
+const usable = (g) => g && (!g.adminOnly || admin.on);
+
 const shop = () => save.data.shop;
 
 export function cash() { return shop().cash; }
-export function owns(id) { return shop().owned.includes(id); }
-export function equipped(kind) { return shop().equipped[kind] ? gadget(shop().equipped[kind]) : null; }
+export function owns(id) { return shop().owned.includes(id) && usable(gadget(id)); }
+export function equipped(kind) {
+  const g = shop().equipped[kind] ? gadget(shop().equipped[kind]) : null;
+  return usable(g) ? g : null;
+}
 
 /** Buy a gadget (and equip it straight away if its slot is free). Returns false if you can't afford it. */
 export function buy(id) {
   const g = gadget(id);
-  if (!g || owns(id) || shop().cash < g.price) return false;
+  if (!usable(g) || owns(id) || shop().cash < g.price) return false;
   shop().cash -= g.price;
   shop().owned.push(id);
   if (g.kind !== 'passive' && !shop().equipped[g.kind]) shop().equipped[g.kind] = id;

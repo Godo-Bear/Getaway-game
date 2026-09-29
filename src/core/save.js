@@ -36,6 +36,11 @@ const DEFAULTS = {
     ratings: {},     // chapterId -> best rating ('gold' | 'silver' | 'bronze')
     carColours: [],  // unlocked by gold ratings
   },
+  // Admin mode (src/core/admin.js): unlocked with a code in Settings
+  admin: {
+    unlocked: false,
+    noCooldowns: false, god: false, infiniteNitro: false, superSpeed: false,
+  },
   // The gadget shop (src/gadgets/gadgets.js)
   shop: {
     cash: 500,       // spend it in the Shop; earned by playing

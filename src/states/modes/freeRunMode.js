@@ -6,6 +6,7 @@ import { playerCarColour } from '../../vehicles/carColours.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
+import { admin } from '../../core/admin.js';
 import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
 
 // Free Run, on foot: roam the rooftops. One half of a Free Run session
@@ -176,6 +177,7 @@ export class FreeRunMode {
           freeEarn(s.game, 20, 'Kept out of sight!', 'The helicopter can\'t find you.');
           this.outOfLight = 0;
         }
+        if (this.spotted >= 1 && admin.flag('god')) this.spotted = 0; // admin god mode
         if (this.spotted >= 1) {
           audio.sfx('caught');
           this.spotted = 0;

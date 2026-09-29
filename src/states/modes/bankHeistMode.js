@@ -7,6 +7,7 @@ import { getChapterRun } from '../../story/chapterRun.js';
 import { finishPart } from '../../story/chapterFlow.js';
 import { earn } from '../../gadgets/gadgets.js';
 import { formatTime, clamp } from '../../core/utils.js';
+import { admin } from '../../core/admin.js';
 import { audio } from '../../core/audio.js';
 
 // Chapter 1, Part 1: the heist inside the Harbor Trust bank (on foot).
@@ -119,6 +120,7 @@ export class BankHeistMode {
   }
 
   _caught(title, msg) {
+    if (admin.flag('god')) { this.spotted = 0; this.alarmT = Math.max(this.alarmT, 10); return; } // admin god mode
     this.run.caught++;
     audio.sfx('caught');
     if (this.alarm) this.alarmT = ALARM_TIME;
@@ -304,6 +306,11 @@ export class BankHeistMode {
     audio.sfx('sting');
     const v = SUSPECTS.vince;
     this.state.game.hud.toast('ALARM!', `${v.name}, on the radio: "Cops! Forget the van. Take the stairs to the roof, your car is on the Pier Street garage roof." Run!`, 'var(--red)', 7);
+  }
+
+  /** Admin: finish the heist right now. */
+  adminSkip() {
+    if (!this.done) this._toRoof();
   }
 
   _toRoof() {

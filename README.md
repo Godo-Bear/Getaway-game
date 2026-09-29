@@ -71,6 +71,36 @@ It's off until you connect a free Firebase project (until then everything is sav
 
 This repo is already connected to the `getaway-game-50249` project.
 
+## Admin panel
+
+**Settings > Admin**: type the admin code to unlock it on that device (it's remembered, and synced with your account). The title screen then shows an **Admin** button too. Code: `src/core/admin.js`, `src/ui/adminPanel.js`.
+
+* **Your cash**: set it to any amount, or add $1,000 / $10,000 / $100,000.
+* **Cheats**: no gadget recharge, god mode (never caught, spotted out or busted), infinite nitro, super speed. With any cheat on, Speedrun times aren't saved.
+* **Admin gadgets** (free, in the Shop's Admin tab, and only while admin mode is on): Rocket Boots (jump again in mid-air, any number of times), Invisibility Cloak (15 s invisible), Police Freeze (every cruiser stuck for 10 s), Teleporter (beam the car to your waypoint or goal).
+* **Unlock**: every gadget, every chapter, every car colour. **Reset my progress** (asks twice). **Lock admin mode**.
+* **Admin: skip this part** in the pause menu of any story part.
+* **Other players' cash**: sign in with your account, then **Load the player list** (email, cash, chapters solved) and set anyone's cash. Their game picks it up within a minute (or next time they open it).
+
+The code only unlocks the panel in the game on that device, and anyone who digs through the game's files could find it, so it only ever changes **your own** save. Changing other players' saves is checked by the server: the Firestore rules must list your account as an admin. Copy **Your account ID** from the admin panel and use these rules instead of the ones above (put your ID between the quotes; add more IDs, comma-separated, for more admins):
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.uid in ['PASTE-YOUR-ACCOUNT-ID-HERE'];
+    }
+    match /saves/{userId} {
+      allow read: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow delete: if request.auth != null && request.auth.uid == userId;
+      allow create, update: if request.auth != null && (request.auth.uid == userId || isAdmin())
+        && request.resource.data.json.size() < 500000;
+    }
+  }
+}
+```
+
 ## Modes
 
 * **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight: stay hidden a moment and the helicopters search further away.

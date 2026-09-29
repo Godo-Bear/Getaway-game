@@ -77,8 +77,12 @@ async function call(url, body, { form = false, token = null, method = 'POST' } =
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
     if (res.status === 404) return null;
-    const code = String(json.error?.message || json.error?.status || res.status);
-    throw new CloudError(MESSAGES[code.split(' ')[0].split(':')[0]] || `Something went wrong (${code}).`);
+    // Firebase Auth puts a code in `message`; Firestore puts it in `status`.
+    const err = json.error || {};
+    const key = [String(err.message || '').split(/[ :]/)[0], err.status].find((k) => k && MESSAGES[k]);
+    const e = new CloudError(key ? MESSAGES[key] : `Something went wrong (${err.message || err.status || res.status}).`);
+    e.code = key || err.status || res.status;
+    throw e;
   }
   return json;
 }
@@ -104,8 +108,26 @@ async function idToken() {
   return session.idToken;
 }
 
-const docUrl = () =>
-  `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/saves/${session.uid}`;
+const savesUrl = () => `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/(default)/documents/saves`;
+const docUrl = (uid = session.uid) => `${savesUrl()}/${uid}`;
+const grantListeners = [];
+
+/**
+ * An admin can set a player's cash: they write { cash, at } into the
+ * player's online save (the adminSet field). The player's game applies it
+ * once (remembering `at`), the next time it checks.
+ */
+function applyGrant(doc) {
+  const f = doc?.fields?.adminSet?.mapValue?.fields;
+  if (!f) return;
+  const at = Number(f.at?.integerValue) || 0;
+  const cash = Math.max(0, Number(f.cash?.integerValue) || 0);
+  if (at <= (save.data.adminGrantAt || 0)) return;
+  save.data.shop.cash = cash;
+  save.data.adminGrantAt = at;
+  save.write();
+  for (const fn of grantListeners) fn(cash);
+}
 
 export const cloud = {
   /** Is the online save set up (cloudConfig.js filled in)? */
@@ -116,6 +138,14 @@ export const cloud = {
   },
   get lastSynced() {
     return lastSynced;
+  },
+  /** Your account's id (the admin puts this in the Firestore rules). */
+  get uid() {
+    return ready && session ? session.uid : null;
+  },
+  /** Call fn(cash) when an admin has set this player's cash. */
+  onGrant(fn) {
+    grantListeners.push(fn);
   },
   /** Call fn() whenever the player signs in or out. */
   onChange(fn) {
@@ -157,10 +187,13 @@ export const cloud = {
     const { settings, ...progress } = save.data;
     dirty = false;
     try {
-      await call(docUrl(), {
+      // Only these fields: an admin's adminSet field is left alone.
+      const mask = ['json', 'savedAt', 'email'].map((f) => `updateMask.fieldPaths=${f}`).join('&');
+      await call(`${docUrl()}?${mask}`, {
         fields: {
           json: { stringValue: JSON.stringify(progress) },
           savedAt: { integerValue: String(save.data.savedAt || Date.now()) },
+          email: { stringValue: session.email || '' }, // so the admin can tell players apart
         },
       }, { token, method: 'PATCH' });
     } catch (e) {
@@ -169,6 +202,51 @@ export const cloud = {
     }
     verified = true;
     lastSynced = Date.now();
+  },
+
+  /** Has an admin set this player's cash? Apply it (once). */
+  async checkGrant() {
+    if (!this.user) return;
+    const doc = await call(docUrl(), null, { token: await idToken(), method: 'GET' });
+    applyGrant(doc);
+  },
+
+  // ---------------------------------------------------------------- admin only
+  // (the Firestore rules refuse these unless your account is an admin)
+
+  /** Every player's online save: [{ uid, email, cash, solved, savedAt }]. */
+  async listPlayers() {
+    const token = await idToken();
+    const out = [];
+    let page = '';
+    for (let i = 0; i < 20; i++) {
+      const r = await call(`${savesUrl()}?pageSize=200${page ? `&pageToken=${encodeURIComponent(page)}` : ''}`, null, { token, method: 'GET' });
+      for (const d of r?.documents || []) {
+        let data = {};
+        try { data = JSON.parse(d.fields?.json?.stringValue || '{}'); } catch { /* skip bad saves */ }
+        out.push({
+          uid: d.name.split('/').pop(),
+          email: d.fields?.email?.stringValue || '(no email yet)',
+          cash: data.shop?.cash ?? 0,
+          solved: Object.keys(data.progress?.solved || {}).length,
+          savedAt: Number(d.fields?.savedAt?.integerValue) || 0,
+        });
+      }
+      page = r?.nextPageToken;
+      if (!page) break;
+    }
+    return out.sort((a, b) => b.savedAt - a.savedAt);
+  },
+
+  /** Set another player's cash (their game picks it up within a minute). */
+  async setPlayerCash(uid, amount) {
+    const token = await idToken();
+    await call(`${docUrl(uid)}?updateMask.fieldPaths=adminSet`, {
+      fields: { adminSet: { mapValue: { fields: {
+        cash: { integerValue: String(Math.max(0, Math.round(amount))) },
+        at: { integerValue: String(Date.now()) },
+      } } } },
+    }, { token, method: 'PATCH' });
   },
 
   /** Replace this device's progress with the online copy. */
@@ -194,6 +272,8 @@ if (ready) {
   });
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });
   addEventListener('pagehide', flush);
+  // Check for cash an admin gave you, once a minute while signed in.
+  setInterval(() => { if (cloud.user && verified) cloud.checkGrant().catch(() => {}); }, 60_000);
 }
 
 /**
@@ -214,6 +294,7 @@ export async function syncOnStart(onLoaded) {
     } else {
       lastSynced = Date.now();
     }
+    await cloud.checkGrant();
   } catch {
     // offline or signed out elsewhere - play on, it'll sync on the next save
   }

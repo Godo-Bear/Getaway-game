@@ -105,6 +105,7 @@ export class PlayerController {
     this.jumpScale = 1;     // Spring Boots: higher jumps
     this.wallRunScale = 1;  // Gecko Gloves: longer wall-runs
     this.canGlide = false;  // Glider Wing: hold jump in the air to glide
+    this.canRocket = false; // Rocket Boots (admin): jump again in mid-air, any number of times
     this.gliding = false;
     this.zipLines = [];     // set by the level: [{ a: Vector3, b: Vector3 }] (a = high end)
     this.zip = null;        // { line, t, speed } while riding a zip line
@@ -256,6 +257,14 @@ export class PlayerController {
     if (this.jumpHeld && !ctl.jumpHeld) {
       if (this.vel.y > 0) this.vel.y *= T.jumpCutFactor;
       this.jumpHeld = false;
+    }
+
+    // --- Rocket Boots (admin gadget): jump again in mid-air, as often as you like
+    if (this.canRocket && ctl.jumpPressed && !this.grounded && this.state === 'air' && this.coyoteTimer <= 0 && this.stateTime > 0.08) {
+      this.vel.y = Math.max(this.vel.y, T.jumpSpeed * this.jumpScale);
+      this.jumpHeld = true;
+      this.jumpBufferTimer = 0;
+      this.events.push({ type: 'jump' });
     }
 
     // --- Glider Wing (gadget): press jump again in mid-air, and hold it -----

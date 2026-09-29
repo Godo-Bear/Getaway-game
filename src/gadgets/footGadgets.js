@@ -18,6 +18,7 @@ const SMOKE_TIME = 6, SMOKE_RADIUS = 5;
 const DECOY_TIME = 8;
 const GRAPPLE_RANGE = 24, GRAPPLE_MAX_RISE = 18; // enough to get from the street onto most roofs
 const FLASH_BLIND = 5, FLASH_RADIUS = 15;
+const CLOAK_TIME = 15;
 
 const _v = new THREE.Vector3(), _dir = new THREE.Vector3();
 
@@ -32,6 +33,7 @@ export class FootGadgets {
   }
 
   get concealed() {
+    if (this.cloak > 0) return true; // Invisibility Cloak (admin)
     const s = this.smoke;
     return !!s && s.t < SMOKE_TIME && this.state.player.pos.distanceTo(s.pos) < SMOKE_RADIUS;
   }
@@ -45,7 +47,8 @@ export class FootGadgets {
     if (this.state.mode.ghost) return; // no police to fool in ghost mode
     if (!this.slot.ready) { this.slot.explainNotReady(); return; }
     const id = this.slot.gadget.id;
-    const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash() : this._grapple();
+    const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash()
+      : id === 'cloak' ? this._cloak() : this._grapple();
     if (ok) this.slot.used();
   }
 
@@ -113,6 +116,26 @@ export class FootGadgets {
     if (!this.decoy) return;
     this.state.scene.remove(this.decoy.model.root);
     this.decoy = null;
+  }
+
+  // ---------------------------------------------------------------- Invisibility Cloak (admin)
+  _cloak() {
+    this.cloak = CLOAK_TIME;
+    this._setSeeThrough(true);
+    audio.sfx('whoosh', { vol: 0.8 });
+    this.state.game.hud.toast('Invisible!', `Nobody can see you for ${CLOAK_TIME} seconds.`, '#b48cff', 3);
+    return true;
+  }
+
+  /** Make the player's body see-through (or solid again). */
+  _setSeeThrough(on) {
+    const root = this.state.model?.root;
+    root?.traverse((o) => {
+      if (!o.isMesh || !o.material) return;
+      o.material.transparent = on;
+      o.material.opacity = on ? 0.22 : 1;
+      o.material.needsUpdate = true;
+    });
   }
 
   // ---------------------------------------------------------------- Flashbang
@@ -188,6 +211,13 @@ export class FootGadgets {
   // ---------------------------------------------------------------- Per frame
   update(dt) {
     this.slot.update(dt);
+    if (this.cloak > 0) {
+      this.cloak -= dt;
+      if (this.cloak <= 0) {
+        this._setSeeThrough(false);
+        this.state.game.hud.toast('Visible again', '', 'var(--muted)', 1.5);
+      }
+    }
     if (this.burst) {
       const b = this.burst;
       b.t += dt;
@@ -231,6 +261,8 @@ export class FootGadgets {
 
   /** Clear any active effects (on restart / respawn). */
   reset() {
+    if (this.cloak > 0) this._setSeeThrough(false);
+    this.cloak = 0;
     this._clearSmoke();
     this._clearDecoy();
     this._clearCable();

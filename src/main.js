@@ -13,7 +13,7 @@ import { startPart } from './story/chapterFlow.js';
 import { startSpeedrun } from './story/speedrun.js';
 import { PostFx } from './world/postFx.js';
 import { AutoQuality } from './core/autoQuality.js';
-import { syncOnStart } from './core/cloud.js';
+import { syncOnStart, cloud } from './core/cloud.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -131,6 +131,11 @@ function start(renderer) {
   // Signed in? Fetch the online save (in case you played on another device)
   // and redraw the title screen if it changed.
   syncOnStart(() => { if (game.sm.currentName === 'title') game.sm.change('title'); });
+  // An admin set your cash: say so (and refresh the title screen's cash).
+  cloud.onGrant((cash) => {
+    game.hud.toast('Cash updated', `An admin set your cash to $${cash.toLocaleString('en-US')}.`, 'var(--safe)', 5);
+    if (game.sm.currentName === 'title' && document.getElementById('overlay').classList.contains('title')) game.sm.change('title');
+  });
 
   // ---------------- Game loop ----------------
   let last = performance.now();

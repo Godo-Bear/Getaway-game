@@ -1,4 +1,5 @@
 import { equipped } from './gadgets.js';
+import { admin } from '../core/admin.js';
 
 // The equipped gadget for one "slot" (on foot or in the car): which gadget
 // it is, its recharge timer, and the little HUD badge that shows it
@@ -27,7 +28,7 @@ export class GadgetSlot {
 
   /** Start the recharge (call after a successful use). */
   used() {
-    this.cooldown = this.gadget.cooldown;
+    this.cooldown = admin.flag('noCooldowns') ? 0 : this.gadget.cooldown;
   }
 
   update(dt) {

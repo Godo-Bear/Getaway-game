@@ -356,6 +356,11 @@ export class ChapterDriveMode {
     finishPart(this.state, this);
   }
 
+  /** Admin: finish this part right now. */
+  adminSkip() {
+    if (!this.done) this._complete();
+  }
+
   teardown() {
     this.fugitive?.dispose();
     this.fugitive = null;

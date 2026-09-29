@@ -35,6 +35,8 @@ export class CarGadgets {
     else if (id === 'emp') this._emp();
     else if (id === 'spikes') this._spikes();
     else if (id === 'screen') this._screen();
+    else if (id === 'freeze') this._freeze();
+    else if (id === 'teleport') { if (!this._teleport()) return; }
     else this._jammer();
     this.slot.used();
   }
@@ -96,6 +98,41 @@ export class CarGadgets {
     this.state.police.smoked = SCREEN_TIME;
     audio.sfx('whoosh', { vol: 1 });
     this.state.game.hud.toast('Smoke screen!', `Cops behind you can't see through it for ${SCREEN_TIME} seconds. Break away!`, '#9aa2ae', 3);
+  }
+
+  // ---------------------------------------------------------------- Admin: Police Freeze
+  _freeze() {
+    const s = this.state, police = s.police;
+    for (const u of police.units) {
+      u.stunned = 10;
+      u.emp = true; // lights off while frozen
+      u.spinDir = 0;
+      this._spark(u.car.pos);
+    }
+    police.jammed = 10;
+    if (police.everSeen) { police.searching = true; police.timeSinceSeen = 0; }
+    this._wave(s.player.pos, 0x8af4ff, 120);
+    audio.sfx('thunder', { vol: 0.4 });
+    s.game.hud.toast('Police frozen!', 'Every cruiser is stuck for 10 seconds.', '#8af4ff', 3);
+  }
+
+  // ---------------------------------------------------------------- Admin: Teleporter
+  _teleport() {
+    const s = this.state;
+    const target = s.waypoint || (s.beacon?.group.visible ? s.beacon.pos : null);
+    if (!target) {
+      s.game.hud.toast('Nowhere to go', 'Set a waypoint on the big map (M) first.', 'var(--muted)', 2);
+      return false;
+    }
+    const n = s.city.graph.nearestNode(target.x, target.z);
+    const dx = target.x - n.x, dz = target.z - n.z;
+    s.player.place(n.x, n.z, Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? Math.PI / 2 : -Math.PI / 2) : (dz > 0 ? 0 : Math.PI));
+    s.player.vel.set(0, 0, 0);
+    s.camPos = null;
+    this._wave(s.player.pos, 0xffe04d, 20);
+    audio.sfx('whoosh', { vol: 1 });
+    s.game.hud.toast('Teleported!', '', '#ffe04d', 1.5);
+    return true;
   }
 
   // ---------------------------------------------------------------- EMP

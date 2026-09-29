@@ -13,6 +13,7 @@ import { save } from '../core/save.js';
 import { earn } from '../gadgets/gadgets.js';
 import { showCard } from '../ui/menus.js';
 import { audio } from '../core/audio.js';
+import { admin } from '../core/admin.js';
 
 /** Every part of a chapter, as route steps. */
 const chapterSteps = (c) => c.parts.map((_, i) => ({ chapterId: c.id, part: i }));
@@ -74,7 +75,9 @@ function finishSpeedrun(state) {
   const { game } = state;
   const sr = game.speedrun;
   const old = bestRun(sr.routeId);
-  const isBest = old == null || sr.t < old;
+  // Admin cheats (or skipped parts) don't set records
+  const counts = !sr.adminUsed && !admin.cheating;
+  const isBest = counts && (old == null || sr.t < old);
   if (isBest) {
     save.data.best.speedrun ||= {};
     save.data.best.speedrun[sr.routeId] = sr.t;
@@ -94,7 +97,7 @@ function finishSpeedrun(state) {
     <p class="sub kicker">Speedrun complete · ${sr.name}</p>
     <div class="run-total">${formatRun(sr.t)}</div>
     <div class="splits">${rows}<span>Times caught</span><b>${sr.caught}</b><span>Cash earned</span><b style="color:var(--safe)">+$${cash}</b></div>
-    <p class="sub">${isBest ? (old == null ? 'Your first recorded time. Now beat it.' : `New personal best! Your old best was ${formatRun(old)}.`) : `Your best is ${formatRun(old)}.`}</p>`,
+    <p class="sub">${!counts ? 'Admin cheats were on, so this time isn\'t saved.' : isBest ? (old == null ? 'Your first recorded time. Now beat it.' : `New personal best! Your old best was ${formatRun(old)}.`) : `Your best is ${formatRun(old)}.`}</p>`,
   [
     { label: 'Run it again', primary: true, onClick: () => startSpeedrun(game, routeId) },
     { label: 'Quit to title', onClick: () => game.goTitle() },

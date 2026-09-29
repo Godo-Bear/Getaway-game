@@ -15,6 +15,7 @@ import { BigMap } from '../ui/bigMap.js';
 import { save } from '../core/save.js';
 import { NitroPickups } from '../vehicles/nitroPickups.js';
 import { owns } from '../gadgets/gadgets.js';
+import { admin } from '../core/admin.js';
 import { CarGadgets } from '../gadgets/carGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
@@ -254,6 +255,10 @@ export class DrivingState extends PlayState {
     const all = [p, ...this.police.cars, ...this.traffic.cars, ...(this.mode.extraCars?.() ?? [])];
     this.traffic.update(dt, p, this.camera, all, this.police.units);
 
+    // --- Admin: super speed and infinite nitro
+    if (!(this.flatTyres > 0)) p.speedFactor = admin.flag('superSpeed') ? 1.35 : 1;
+    if (admin.flag('infiniteNitro')) this.nitro = 1;
+
     // --- Physics
     for (const car of all) car.step(dt, ground);
     for (const car of all) {
@@ -443,6 +448,7 @@ export class DrivingState extends PlayState {
   /** Busted meter: fills when a cop is close and you're (nearly) stopped. */
   _updateBusted(dt) {
     const p = this.player;
+    if (admin.flag('god')) { this.busted = 0; this.game.hud.setMeter(0, ''); return; } // admin god mode
     let close = 0;
     for (const u of this.police.units) {
       if (Math.hypot(u.car.pos.x - p.pos.x, u.car.pos.z - p.pos.z) < BUST_RADIUS) close++;

@@ -4,6 +4,7 @@ import { makeGlowMaterial } from '../../world/materials.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { save } from '../../core/save.js';
 import { earn } from '../../gadgets/gadgets.js';
+import { admin } from '../../core/admin.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
@@ -178,7 +179,10 @@ export class RooftopRunMode {
       `<span>Earned <b style="color:var(--safe)">$${this.cashEarned}</b></span>` +
       (this.hidden ? '<span><b>Hidden</b> (no points)</span>' : ''));
 
-    if (this.spotted >= 1) this._caught();
+    if (this.spotted >= 1) {
+      if (admin.flag('god')) this.spotted = 0; // admin god mode
+      else this._caught();
+    }
   }
 
   _caught() {

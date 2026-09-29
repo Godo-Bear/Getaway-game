@@ -5,6 +5,7 @@
 import { showCard } from './menus.js';
 import { GADGETS, CATEGORIES, cash, owns, equipped, buy, equip } from '../gadgets/gadgets.js';
 import { audio } from '../core/audio.js';
+import { admin } from '../core/admin.js';
 
 const USE = {
   foot: 'On foot · press F',
@@ -16,9 +17,11 @@ let lastTab = 'utility';
 
 export function showShop(onBack) {
   const render = (tab = lastTab) => {
+    const cats = CATEGORIES.filter((c) => !c.adminOnly || admin.on);
+    if (!cats.some((c) => c.id === tab)) tab = cats[0].id;
     lastTab = tab;
-    const cat = CATEGORIES.find((c) => c.id === tab);
-    const tabs = CATEGORIES.map((c) => {
+    const cat = cats.find((c) => c.id === tab);
+    const tabs = cats.map((c) => {
       const n = GADGETS.filter((g) => g.cat === c.id).length;
       const have = GADGETS.filter((g) => g.cat === c.id && owns(g.id)).length;
       return `<button class="tab${c.id === tab ? ' on' : ''}" data-tab="${c.id}">${c.name}<small>${have}/${n}</small></button>`;
@@ -28,7 +31,7 @@ export function showShop(onBack) {
       const isOn = equipped(g.kind)?.id === g.id;
       const afford = cash() >= g.price;
       const action = !have
-        ? `<button class="chip buy" data-buy="${g.id}" ${afford ? '' : 'disabled'}>Buy · $${g.price.toLocaleString('en-US')}</button>`
+        ? `<button class="chip buy" data-buy="${g.id}" ${afford ? '' : 'disabled'}>${g.price ? `Buy · $${g.price.toLocaleString('en-US')}` : 'Take it (free)'}</button>`
         : g.kind === 'passive' ? '<span class="owned">Owned ✓</span>'
           : isOn ? '<span class="owned">Equipped ✓</span>'
             : `<button class="chip" data-equip="${g.id}">Equip</button>`;

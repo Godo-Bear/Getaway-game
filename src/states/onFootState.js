@@ -10,6 +10,7 @@ import { NightLighting, lightingForQuality } from '../world/lighting.js';
 import { Weather, pickWeather } from '../world/weather.js';
 import { FootGadgets } from '../gadgets/footGadgets.js';
 import { owns } from '../gadgets/gadgets.js';
+import { admin } from '../core/admin.js';
 import { CONTROLS } from '../ui/menus.js';
 import { damp, clamp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
@@ -144,6 +145,9 @@ export class OnFootState extends PlayState {
   readInput(dt) {
     const input = this.game.input;
     const c = this.ctl;
+    // Admin: super speed and Rocket Boots (can change mid-game from the pause menu)
+    this.player.speedScale = admin.flag('superSpeed') ? 1.6 : 1;
+    this.player.canRocket = owns('rocket');
     const mouse = input.consumeMouse();
     this.cam.applyMouse(mouse.x, mouse.y);
     this.cam.applyTurn(input.axis('turnLeft', 'turnRight'), dt); // arrows / Q E

@@ -11,6 +11,8 @@ import { showShop } from './shop.js';
 import { cash } from '../gadgets/gadgets.js';
 import { showAccount } from './account.js';
 import { cloud } from '../core/cloud.js';
+import { admin } from '../core/admin.js';
+import { showAdminPanel } from './adminPanel.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -186,6 +188,7 @@ export function showTitle(actions) {
       <button class="pill" data-go="account">${cloud.user ? '<span class="dot"></span>' : ''}Account</button>
       <button class="pill" data-go="settings">Settings</button>
       <button class="pill" data-go="controls">Controls</button>
+      ${admin.on ? '<button class="pill pill-admin" data-go="admin">Admin</button>' : ''}
     </div>`, [], { title: true });
   const go = {
     story: () => showChapterSelect(actions),
@@ -197,6 +200,7 @@ export function showTitle(actions) {
     account: () => showAccount(back),
     settings: () => actions.settings(back),
     controls: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]),
+    admin: () => showAdminPanel(back),
   };
   for (const el of card.querySelectorAll('[data-go]')) {
     el.addEventListener('click', (e) => { e.stopPropagation(); go[el.dataset.go](); });

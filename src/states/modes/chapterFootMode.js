@@ -11,6 +11,7 @@ import { getChapterRun } from '../../story/chapterRun.js';
 import { finishPart } from '../../story/chapterFlow.js';
 import { save } from '../../core/save.js';
 import { earn, owns } from '../../gadgets/gadgets.js';
+import { admin } from '../../core/admin.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
@@ -245,6 +246,7 @@ export class ChapterFootMode {
   }
 
   _caught(message) {
+    if (admin.flag('god')) { this.spotted = 0; return; } // admin god mode
     this.caughtHere++;
     this.run.caught++;
     audio.sfx('caught');
@@ -453,6 +455,11 @@ export class ChapterFootMode {
     this.done = true;
     audio.sfx('win');
     finishPart(this.state, this);
+  }
+
+  /** Admin: finish this part right now. */
+  adminSkip() {
+    if (!this.done) this._complete();
   }
 
   teardown() {

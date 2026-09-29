@@ -5,6 +5,7 @@ import { CHAPTERS } from '../story/chapters.js';
 import { showSettings } from '../ui/settings.js';
 import { audio } from '../core/audio.js';
 import { startSpeedrun, formatRun } from '../story/speedrun.js';
+import { admin } from '../core/admin.js';
 
 // Shared behaviour for every "playing" mode (on foot, driving):
 //   - pause menu (P / Esc, or automatically when the mouse lock is lost)
@@ -89,6 +90,10 @@ export class PlayState {
         onClick: () => { this.resume(); this.toggleGhost(); },
       }] : []),
       ...(this.mode?.pauseButtons?.() ?? []),
+      ...(admin.on && this.mode?.adminSkip ? [{
+        label: 'Admin: skip this part', sub: 'Finish it right now',
+        onClick: () => { this.resume(); if (this.game.speedrun) this.game.speedrun.adminUsed = true; this.mode.adminSkip(); },
+      }] : []),
       ...(this.respawnLabel ? [{ label: this.respawnLabel, onClick: () => { this.resume(); this.respawnKey(); } }] : []),
       ...(this.game.speedrun ? [{ label: 'Restart the speedrun', sub: 'Back to the start, timer at zero', onClick: () => startSpeedrun(this.game, this.game.speedrun.routeId) }] : []),
       { label: this.game.speedrun ? 'Restart this part' : 'Restart', sub: this.game.speedrun ? 'The timer keeps running' : undefined, onClick: () => { hideCard(); this.paused = false; this.restart(); this._afterResume(); } },

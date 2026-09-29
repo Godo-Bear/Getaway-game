@@ -4,6 +4,7 @@
 import { showCard } from './menus.js';
 import { save } from '../core/save.js';
 import { CAR_COLOURS, isColourUnlocked } from '../vehicles/carColours.js';
+import { adminSettingsHtml, bindAdminSettings, showAdminPanel } from './adminPanel.js';
 
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 
@@ -48,10 +49,13 @@ export function showSettings(game, onBack) {
     <p class="sub" style="font-size:14px">Story: storms where the story has them. Rain: rain in every mode. Off: always clear. Applies when the next level loads.</p>
     <p class="sub setting-head">Getaway car</p>
     <div class="swatches">${colours}</div>
-    <p class="sub" id="set-colour-name" style="font-size:14px"></p>`,
+    <p class="sub" id="set-colour-name" style="font-size:14px"></p>
+    ${adminSettingsHtml()}`,
   [{ label: 'Done', primary: true, onClick: onBack }]);
 
   const apply = () => { save.write(); game.applySettings(); };
+  const again = () => showSettings(game, onBack);
+  bindAdminSettings(again, () => showAdminPanel(() => { game.applySettings(); again(); }));
   const bindSlider = (id, key, fmt) => {
     const el = document.getElementById(id), out = document.getElementById(`${id}-out`);
     el.addEventListener('input', () => { s[key] = Number(el.value); out.textContent = fmt(s[key]); apply(); });
