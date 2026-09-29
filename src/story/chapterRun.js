@@ -8,6 +8,7 @@ export function newChapterRun(chapterId) {
     parts: {},          // partId -> seconds taken
     caught: 0,          // times caught or busted (all parts)
     clues: new Set(),   // clue ids found this run
+    bought: new Set(),  // ...of which bought on the Case Board (don't count for the rating)
   };
 }
 
@@ -30,7 +31,7 @@ export function totalTime(run) {
 export function chapterRating(run, chapter) {
   const totalClues = Object.keys(chapter.clues).length;
   const t = totalTime(run);
-  const clues = run.clues.size;
+  const clues = run.clues.size - (run.bought?.size || 0); // bought clues don't count
   const r = chapter.rating || { gold: 300, silver: 480 };
   if (t < r.gold && clues >= totalClues - 1 && run.caught === 0) return 'gold';
   if (t < r.silver && clues >= Math.ceil(totalClues / 2) && run.caught <= 2) return 'silver';

@@ -4,7 +4,7 @@ import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
 import { SUSPECTS } from '../story/crew.js';
 import { getChapterRun, totalTime, chapterRating } from '../story/chapterRun.js';
-import { startPart, knownClues } from '../story/chapterFlow.js';
+import { startPart, knownClues, buyClue } from '../story/chapterFlow.js';
 import { save } from '../core/save.js';
 import { earn, owns } from '../gadgets/gadgets.js';
 import { formatTime, makeRng } from '../core/utils.js';
@@ -202,6 +202,29 @@ export class DeductionState {
   // ------------------------------------------------------------------
   // UI flow
   // ------------------------------------------------------------------
+  /** The Case Board, where missing clues can be bought ($100). The corkboard is rebuilt afterwards. */
+  _caseBoard() {
+    showCaseBoard(this.chapter, this.evidence, () => {
+      if (this._boughtClue) { this._boughtClue = false; this._rebuildBoard(); }
+      this._askWho();
+    }, 'clues', true, {
+      onBuy: (id) => {
+        if (!buyClue(this.game, this.chapter.id, id)) return false;
+        this._boughtClue = true;
+        return true;
+      },
+    });
+  }
+
+  /** Rebuild the 3D corkboard (e.g. after buying a clue, so its card is pinned up). */
+  _rebuildBoard() {
+    this.scene?.traverse((o) => {
+      o.geometry?.dispose();
+      if (o.material?.map) o.material.map.dispose();
+    });
+    this._buildScene();
+  }
+
   _clueCount() {
     const ids = Object.keys(this.chapter.clues);
     return { found: ids.filter((id) => this.evidence.has(id)).length, total: ids.length };
@@ -223,7 +246,7 @@ export class DeductionState {
         }).join('')}
       </div>`,
     [
-      { label: 'Case Board', onClick: () => showCaseBoard(this.chapter, this.evidence, () => this._askWho(), 'clues', true) },
+      { label: 'Case Board', onClick: () => this._caseBoard() },
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ], { side: true });
     document.querySelectorAll('[data-accuse]').forEach((b) => {
@@ -253,7 +276,7 @@ export class DeductionState {
       Each wrong accusation lowers your chapter rating.</p>`,
     [
       { label: 'Accuse someone else', primary: true, onClick: () => this._askWho() },
-      { label: 'Case Board', onClick: () => showCaseBoard(this.chapter, this.evidence, () => this._askWho(), 'clues', true) },
+      { label: 'Case Board', onClick: () => this._caseBoard() },
       ...(missed ? [{ label: 'Replay the chapter', onClick: () => this._replay() }] : []),
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
     ], { side: true });

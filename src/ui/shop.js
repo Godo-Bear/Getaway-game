@@ -17,7 +17,7 @@ let lastTab = 'utility';
 
 export function showShop(onBack) {
   const render = (tab = lastTab) => {
-    const cats = CATEGORIES.filter((c) => !c.adminOnly || admin.on);
+    const cats = CATEGORIES.filter((c) => !c.adminOnly || admin.adminGadgets);
     if (!cats.some((c) => c.id === tab)) tab = cats[0].id;
     lastTab = tab;
     const cat = cats.find((c) => c.id === tab);

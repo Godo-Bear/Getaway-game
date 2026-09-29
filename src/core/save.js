@@ -41,6 +41,8 @@ const DEFAULTS = {
     unlocked: false,
     noCooldowns: false, god: false, infiniteNitro: false, superSpeed: false,
   },
+  // Abilities an admin gave this player online (same names as the admin cheats)
+  perks: {},
   // The gadget shop (src/gadgets/gadgets.js)
   shop: {
     cash: 500,       // spend it in the Shop; earned by playing

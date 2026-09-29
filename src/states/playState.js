@@ -2,6 +2,7 @@ import { showCard, hideCard, controlsHtml } from '../ui/menus.js';
 import { playStoryCards } from '../ui/storyCards.js';
 import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
+import { buyClue } from '../story/chapterFlow.js';
 import { showSettings } from '../ui/settings.js';
 import { audio } from '../core/audio.js';
 import { startSpeedrun, formatRun } from '../story/speedrun.js';
@@ -83,7 +84,7 @@ export class PlayState {
     const ghostOn = !!this.mode?.ghost;
     showCard(`<p class="sub kicker">${this.game.speedrun ? `Speedrun · ${formatRun(this.game.speedrun.t)}` : 'Game paused'}</p><h2>Paused</h2>`, [
       { label: 'Resume', primary: true, onClick: resume },
-      ...(chapter ? [{ label: 'Case Board', onClick: () => showCaseBoard(chapter, run.clues, back) }] : []),
+      ...(chapter ? [{ label: 'Case Board', onClick: () => showCaseBoard(chapter, run.clues, back, 'clues', false, this._buyOpts()) }] : []),
       ...(this.canGhost ? [{
         label: ghostOn ? 'Ghost mode: turn OFF' : 'Ghost mode: turn ON',
         sub: ghostOn ? 'The police come back and you return to where you turned it on' : 'Remove the police and roam freely. Nothing counts while it\'s on',
@@ -123,12 +124,18 @@ export class PlayState {
     return !!this.mode?.chapter;
   }
 
+  /** Case Board option: buy a clue you missed (not during a speedrun). */
+  _buyOpts() {
+    const run = this.game.chapterRun;
+    return this.game.speedrun ? {} : { onBuy: (id) => buyClue(this.game, run.chapterId, id) };
+  }
+
   /** Pause and jump straight to the Case Board (Tab key). */
   openCaseBoard() {
     const run = this.game.chapterRun;
     if (!this.isStory || !run || this.over || this.inCard || this.paused) return;
     this.pause();
-    showCaseBoard(CHAPTERS[run.chapterId], run.clues, () => { this.paused = false; this.pause(); });
+    showCaseBoard(CHAPTERS[run.chapterId], run.clues, () => { this.paused = false; this.pause(); }, 'clues', false, this._buyOpts());
   }
 
   /** Play a multi-page story scene (skippable), freezing the game meanwhile. */

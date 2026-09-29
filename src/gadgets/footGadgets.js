@@ -3,6 +3,7 @@ import { GadgetSlot } from './gadgetSlot.js';
 import { getGlowTexture } from '../world/materials.js';
 import { PlayerModel } from '../player/playerModel.js';
 import { audio } from '../core/audio.js';
+import { admin } from '../core/admin.js';
 
 // On-foot gadgets (press F):
 //   Smoke Bomb  - a cloud at your feet; inside it the police can't see you
@@ -17,6 +18,7 @@ import { audio } from '../core/audio.js';
 const SMOKE_TIME = 6, SMOKE_RADIUS = 5;
 const DECOY_TIME = 8;
 const GRAPPLE_RANGE = 24, GRAPPLE_MAX_RISE = 18; // enough to get from the street onto most roofs
+const FAR = 600; // "infinite range" ability (admin): as far as you can see
 const FLASH_BLIND = 5, FLASH_RADIUS = 15;
 const CLOAK_TIME = 15;
 
@@ -35,7 +37,7 @@ export class FootGadgets {
   get concealed() {
     if (this.cloak > 0) return true; // Invisibility Cloak (admin)
     const s = this.smoke;
-    return !!s && s.t < SMOKE_TIME && this.state.player.pos.distanceTo(s.pos) < SMOKE_RADIUS;
+    return !!s && s.t < SMOKE_TIME && (admin.flag('infiniteRange') || this.state.player.pos.distanceTo(s.pos) < SMOKE_RADIUS);
   }
 
   /** The decoy, shaped like the player object the police AI expects. */
@@ -152,7 +154,7 @@ export class FootGadgets {
     }
     for (const u of mode.officers?.units || []) {
       if (u.waitTimer > 0) continue;
-      if (u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = FLASH_BLIND; stunned++; }
+      if (admin.flag('infiniteRange') || u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = FLASH_BLIND; stunned++; }
     }
     // A white burst at your feet
     const burst = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xfff6c8, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -175,17 +177,19 @@ export class FootGadgets {
     // Aim a little upwards: players usually look at the wall, not the roof edge.
     _dir.y = Math.max(_dir.y, -0.15) + 0.12;
     _dir.normalize();
-    const hit = s.world.raycast(from, _dir, GRAPPLE_RANGE);
-    if (!(hit < GRAPPLE_RANGE)) {
-      s.game.hud.toast('Nothing to grab', 'Aim the camera at a building within 24 m.', 'var(--muted)', 2);
+    const far = admin.flag('infiniteRange');
+    const range = far ? FAR : GRAPPLE_RANGE, maxRise = far ? FAR : GRAPPLE_MAX_RISE;
+    const hit = s.world.raycast(from, _dir, range);
+    if (!(hit < range)) {
+      s.game.hud.toast('Nothing to grab', far ? 'Aim the crosshair at a building.' : 'Aim the camera at a building within 24 m.', 'var(--muted)', 2);
       return false;
     }
     // The roof just past where the cable hit
     const hx = from.x + _dir.x * (hit + 0.9), hz = from.z + _dir.z * (hit + 0.9);
-    const top = s.world.groundHeight(hx, hz, pc.pos.y + GRAPPLE_MAX_RISE + 0.5);
+    const top = s.world.groundHeight(hx, hz, pc.pos.y + maxRise + 0.5);
     const rise = top - pc.pos.y;
     const clear = s.world.query(hx - 0.3, top + 0.05, hz - 0.3, hx + 0.3, top + 1.8, hz + 0.3, []).length === 0;
-    if (rise > GRAPPLE_MAX_RISE || rise < -4 || !clear || top < 1) {
+    if (rise > maxRise || rise < (far ? -60 : -4) || !clear || top < 1) {
       s.game.hud.toast('Can\'t reach that', 'Aim at a building up to 18 m higher, with room on the roof.', 'var(--muted)', 2);
       return false;
     }

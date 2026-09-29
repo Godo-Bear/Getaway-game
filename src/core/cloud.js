@@ -113,20 +113,41 @@ const docUrl = (uid = session.uid) => `${savesUrl()}/${uid}`;
 const grantListeners = [];
 
 /**
- * An admin can set a player's cash: they write { cash, at } into the
- * player's online save (the adminSet field). The player's game applies it
- * once (remembering `at`), the next time it checks.
+ * An admin can change a player's online save:
+ *   adminSet   { cash, at }   - set their cash
+ *   adminPerks { perks, at }  - give them abilities (god mode...), or take them away
+ * The player's game applies each change once (remembering `at`), the next
+ * time it checks. Listeners get ('cash', amount) or ('perks', perks).
  */
 function applyGrant(doc) {
   const f = doc?.fields?.adminSet?.mapValue?.fields;
-  if (!f) return;
-  const at = Number(f.at?.integerValue) || 0;
-  const cash = Math.max(0, Number(f.cash?.integerValue) || 0);
-  if (at <= (save.data.adminGrantAt || 0)) return;
-  save.data.shop.cash = cash;
-  save.data.adminGrantAt = at;
-  save.write();
-  for (const fn of grantListeners) fn(cash);
+  if (f) {
+    const at = Number(f.at?.integerValue) || 0;
+    const cash = Math.max(0, Number(f.cash?.integerValue) || 0);
+    if (at > (save.data.adminGrantAt || 0)) {
+      save.data.shop.cash = cash;
+      save.data.adminGrantAt = at;
+      save.write();
+      for (const fn of grantListeners) fn('cash', cash);
+    }
+  }
+  const pf = doc?.fields?.adminPerks?.mapValue?.fields;
+  if (pf) {
+    const at = Number(pf.at?.integerValue) || 0;
+    if (at > (save.data.perksAt || 0)) {
+      save.data.perks = readPerks(pf.perks);
+      save.data.perksAt = at;
+      save.write();
+      for (const fn of grantListeners) fn('perks', save.data.perks);
+    }
+  }
+}
+
+/** Firestore map of booleans -> { god: true, ... } (only the true ones). */
+function readPerks(v) {
+  const out = {};
+  for (const [k, x] of Object.entries(v?.mapValue?.fields || {})) if (x.booleanValue) out[k] = true;
+  return out;
 }
 
 export const cloud = {
@@ -143,7 +164,7 @@ export const cloud = {
   get uid() {
     return ready && session ? session.uid : null;
   },
-  /** Call fn(cash) when an admin has set this player's cash. */
+  /** Call fn(kind, value) when an admin changes this player's cash ('cash') or abilities ('perks'). */
   onGrant(fn) {
     grantListeners.push(fn);
   },
@@ -224,12 +245,17 @@ export const cloud = {
       for (const d of r?.documents || []) {
         let data = {};
         try { data = JSON.parse(d.fields?.json?.stringValue || '{}'); } catch { /* skip bad saves */ }
+        // Abilities: what the admin last set (if any), else what the player has
+        const setPerks = d.fields?.adminPerks?.mapValue?.fields?.perks;
         out.push({
           uid: d.name.split('/').pop(),
           email: d.fields?.email?.stringValue || '(no email yet)',
           cash: data.shop?.cash ?? 0,
           solved: Object.keys(data.progress?.solved || {}).length,
           savedAt: Number(d.fields?.savedAt?.integerValue) || 0,
+          equipped: data.shop?.equipped || {},
+          owned: data.shop?.owned || [],
+          perks: setPerks ? readPerks(setPerks) : (data.perks || {}),
         });
       }
       page = r?.nextPageToken;
@@ -244,6 +270,19 @@ export const cloud = {
     await call(`${docUrl(uid)}?updateMask.fieldPaths=adminSet`, {
       fields: { adminSet: { mapValue: { fields: {
         cash: { integerValue: String(Math.max(0, Math.round(amount))) },
+        at: { integerValue: String(Date.now()) },
+      } } } },
+    }, { token, method: 'PATCH' });
+  },
+
+  /** Give a player abilities (or take them away): perks = { god: true, ... } */
+  async setPlayerPerks(uid, perks) {
+    const token = await idToken();
+    const fields = {};
+    for (const [k, v] of Object.entries(perks)) if (v) fields[k] = { booleanValue: true };
+    await call(`${docUrl(uid)}?updateMask.fieldPaths=adminPerks`, {
+      fields: { adminPerks: { mapValue: { fields: {
+        perks: { mapValue: { fields } },
         at: { integerValue: String(Date.now()) },
       } } } },
     }, { token, method: 'PATCH' });

@@ -816,7 +816,8 @@ export class PlayerController {
   /** Start a grapple pull to `target` (feet position on a roof). */
   grapple(target) {
     const d = this.pos.distanceTo(target);
-    this.grappleMove = { from: this.pos.clone(), to: target.clone(), t: 0, duration: 0.35 + d * 0.03 };
+    // (long pulls - infinite range - are capped in time and arc higher over the rooftops)
+    this.grappleMove = { from: this.pos.clone(), to: target.clone(), t: 0, duration: Math.min(2.4, 0.35 + d * 0.03), arc: Math.max(1.5, d * 0.12) };
     this.vel.set(0, 0, 0);
     this.grounded = false;
     this.ladder = null;
@@ -837,7 +838,7 @@ export class PlayerController {
     // Straight line, lifted a little in the middle so you arc over the roof edge.
     this.pos.set(
       g.from.x + (g.to.x - g.from.x) * e,
-      g.from.y + (g.to.y - g.from.y) * e + Math.sin(Math.PI * k) * 1.5,
+      g.from.y + (g.to.y - g.from.y) * e + Math.sin(Math.PI * k) * g.arc,
       g.from.z + (g.to.z - g.from.z) * e,
     );
     if (k >= 1) {

@@ -14,6 +14,7 @@ import { startSpeedrun } from './story/speedrun.js';
 import { PostFx } from './world/postFx.js';
 import { AutoQuality } from './core/autoQuality.js';
 import { syncOnStart, cloud } from './core/cloud.js';
+import { ABILITIES } from './core/admin.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -132,8 +133,13 @@ function start(renderer) {
   // and redraw the title screen if it changed.
   syncOnStart(() => { if (game.sm.currentName === 'title') game.sm.change('title'); });
   // An admin set your cash: say so (and refresh the title screen's cash).
-  cloud.onGrant((cash) => {
-    game.hud.toast('Cash updated', `An admin set your cash to $${cash.toLocaleString('en-US')}.`, 'var(--safe)', 5);
+  cloud.onGrant((kind, value) => {
+    if (kind === 'cash') game.hud.toast('Cash updated', `An admin set your cash to $${value.toLocaleString('en-US')}.`, 'var(--safe)', 5);
+    else {
+      const names = ABILITIES.filter((a) => value[a.id]).map((a) => a.name);
+      game.hud.toast(names.length ? 'An admin gave you abilities' : 'Abilities removed', names.length ? names.join(', ') : 'An admin took your special abilities away.', '#ff9be8', 6);
+      game.applySettings();
+    }
     if (game.sm.currentName === 'title' && document.getElementById('overlay').classList.contains('title')) game.sm.change('title');
   });
 

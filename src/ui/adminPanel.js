@@ -1,15 +1,16 @@
 // Admin panel (Settings -> Admin, after entering the admin code).
 //
-//  - your cash, cheats (no gadget recharge, god mode, infinite nitro,
-//    super speed), unlock everything, reset your progress
-//  - other players' cash (online accounts): only works for admin accounts
-//    listed in the Firestore rules, see README.md
+//  - your cash, your abilities (no gadget recharge, god mode, infinite nitro,
+//    super speed, infinite range), unlock everything, reset your progress
+//  - other players (online accounts): see their cash, chapters and equipped
+//    gadgets, set their cash, and share abilities with them. Only works for
+//    admin accounts listed in the Firestore rules, see README.md
 
 import { showCard } from './menus.js';
-import { admin } from '../core/admin.js';
+import { admin, ABILITIES } from '../core/admin.js';
 import { save } from '../core/save.js';
 import { cloud } from '../core/cloud.js';
-import { GADGETS } from '../gadgets/gadgets.js';
+import { GADGETS, gadget } from '../gadgets/gadgets.js';
 import { CHAPTER_LIST } from '../story/chapters.js';
 import { CAR_COLOURS } from '../vehicles/carColours.js';
 import { audio } from '../core/audio.js';
@@ -17,15 +18,12 @@ import { audio } from '../core/audio.js';
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const money = (n) => `$${Math.round(n).toLocaleString('en-US')}`;
 
-const CHEATS = [
-  ['noCooldowns', 'No gadget recharge', 'Use your gadgets as often as you like'],
-  ['god', 'God mode', 'Never caught, spotted out or busted'],
-  ['infiniteNitro', 'Infinite nitro', 'The nitro tank never empties'],
-  ['superSpeed', 'Super speed', 'Run and drive much faster'],
-];
+/** Your own cheats (admins always have the admin gadgets). */
+const OWN = ABILITIES.filter((a) => a.id !== 'adminGadgets');
 
 let players = null;   // last loaded player list
-let note = '';        // message line at the bottom of the players section
+let note = '';        // message line under the players section
+let allPerks = {};    // the "every player" abilities row
 
 /** Settings section: code entry, or the button that opens the panel. */
 export function adminSettingsHtml() {
@@ -62,26 +60,58 @@ function guardKeys(el) {
   el.addEventListener('keyup', (e) => e.stopPropagation());
 }
 
+/** Small chips showing a player's equipped gadgets. */
+function equippedHtml(p) {
+  const chip = (id, where) => {
+    const g = id && gadget(id);
+    return g ? `<span class="adm-gadget" style="--gc:${g.color}">${g.icon} ${esc(g.name)} <small>${where}</small></span>`
+      : `<span class="adm-gadget none">nothing <small>${where}</small></span>`;
+  };
+  const owned = p.owned.filter((id) => gadget(id)).length;
+  return `<div class="adm-equip">${chip(p.equipped.foot, 'on foot')}${chip(p.equipped.car, 'in the car')}<span class="adm-owned">owns ${owned} gadget${owned === 1 ? '' : 's'}</span></div>`;
+}
+
+/** Ability checkboxes for a player (or for everyone, with key 'all'). */
+function perksHtml(key, perks) {
+  return `<div class="adm-perks">${ABILITIES.map((a) => `
+    <label title="${esc(a.desc)}"><input type="checkbox" data-perk="${a.id}" data-perk-for="${key}" ${perks[a.id] ? 'checked' : ''}>${a.name}</label>`).join('')}</div>`;
+}
+
 export function showAdminPanel(onBack) {
   const shop = save.data.shop;
-  const cheats = CHEATS.map(([id, name, sub]) => `
-    <label class="setting check" for="adm-${id}"><span>${name}<small class="adm-sub">${sub}</small></span>
-      <input type="checkbox" id="adm-${id}" ${admin.flag(id) ? 'checked' : ''}></label>`).join('');
+  const cheats = OWN.map((a) => `
+    <label class="setting check" for="adm-${a.id}"><span>${a.name}<small class="adm-sub">${a.desc}</small></span>
+      <input type="checkbox" id="adm-${a.id}" ${save.data.admin[a.id] ? 'checked' : ''}></label>`).join('');
 
   let online;
   if (!cloud.ready) online = '<p class="sub fine">Online accounts aren\'t set up, so there are no other players to manage.</p>';
   else if (!cloud.user) online = '<p class="sub fine">Sign in with your admin account (Account, on the title screen) to manage other players.</p>';
   else {
-    const rows = players?.length ? players.map((p) => `
+    const others = players?.filter((p) => p.uid !== cloud.uid) || [];
+    const rows = players?.length ? players.map((p) => {
+      const me = p.uid === cloud.uid;
+      return `
       <div class="adm-player">
-        <div><b>${esc(p.email)}</b><small>${money(p.cash)} · ${p.solved} chapter${p.solved === 1 ? '' : 's'} solved${p.savedAt ? ` · played ${new Date(p.savedAt).toLocaleDateString()}` : ''}${p.uid === cloud.uid ? ' · you' : ''}</small></div>
-        <input type="number" min="0" step="100" value="${p.cash}" data-cash-for="${p.uid}">
-        <button class="chip" data-set-for="${p.uid}">Set</button>
-      </div>`).join('') : players ? '<p class="sub fine">No online saves yet.</p>' : '';
+        <div class="adm-who"><b>${esc(p.email)}</b><small>${money(p.cash)} · ${p.solved} chapter${p.solved === 1 ? '' : 's'} solved${p.savedAt ? ` · played ${new Date(p.savedAt).toLocaleDateString()}` : ''}${me ? ' · you' : ''}</small></div>
+        ${equippedHtml(p)}
+        <div class="adm-row">
+          <input type="number" min="0" step="100" value="${p.cash}" data-cash-for="${p.uid}" aria-label="Cash for ${esc(p.email)}">
+          <button class="chip" data-set-for="${p.uid}">Set cash</button>
+        </div>
+        ${me ? '<p class="sub fine">Your own abilities are the Abilities section above.</p>'
+          : `${perksHtml(p.uid, p.perks)}<button class="chip" data-perks-save="${p.uid}">Save abilities</button>`}
+      </div>`;
+    }).join('') : players ? '<p class="sub fine">No online saves yet.</p>' : '';
+    const all = others.length ? `
+      <div class="adm-player adm-all">
+        <div class="adm-who"><b>Every player (${others.length})</b><small>Give these abilities to everyone at once (replaces what they have)</small></div>
+        ${perksHtml('all', allPerks)}
+        <button class="chip" id="adm-perks-all">Give to everyone</button>
+      </div>` : '';
     online = `
       <p class="sub fine">Your account ID (the admin list in the Firestore rules needs this): <code class="adm-uid">${esc(cloud.uid)}</code> <button class="chip" id="adm-copy">Copy</button></p>
       <button class="chip" id="adm-load">${players ? 'Refresh the player list' : 'Load the player list'}</button>
-      <div class="adm-players">${rows}</div>`;
+      <div class="adm-players">${all}${rows}</div>`;
   }
 
   showCard(`
@@ -89,15 +119,15 @@ export function showAdminPanel(onBack) {
     <h2>Admin panel</h2>
     <p class="sub setting-head">Your cash</p>
     <div class="adm-row">
-      <input type="number" id="adm-cash" min="0" step="100" value="${shop.cash}">
+      <input type="number" id="adm-cash" min="0" step="100" value="${shop.cash}" aria-label="Your cash">
       <button class="chip" id="adm-cash-set">Set</button>
       <button class="chip" data-add="1000">+$1,000</button>
       <button class="chip" data-add="10000">+$10,000</button>
       <button class="chip" data-add="100000">+$100,000</button>
     </div>
-    <p class="sub setting-head">Cheats</p>
+    <p class="sub setting-head">Your abilities</p>
     ${cheats}
-    <p class="sub fine">With any cheat on, Speedrun times aren't saved. Admin-only gadgets (Rocket Boots, Invisibility Cloak, Police Freeze, Teleporter) are free in the Shop's Admin tab. In a story part, the pause menu has "Admin: skip this part".</p>
+    <p class="sub fine">With any ability on, Speedrun times aren't saved. Admin-only gadgets (Rocket Boots, Invisibility Cloak, Police Freeze, Teleporter) are free in the Shop's Admin tab. In a story part, the pause menu has "Admin: skip this part".</p>
     <p class="sub setting-head">Unlock</p>
     <div class="adm-row">
       <button class="chip" id="adm-gadgets">Every gadget</button>
@@ -114,11 +144,18 @@ export function showAdminPanel(onBack) {
     </div>`,
   [{ label: 'Done', primary: true, onClick: () => { note = ''; onBack(); } }]);
 
-  const again = () => showAdminPanel(onBack);
+  const again = () => {
+    const card = document.getElementById('card');
+    const top = card.scrollTop;
+    showAdminPanel(onBack);
+    card.scrollTop = top; // stay where you were in the (long) panel
+  };
   const $ = (id) => document.getElementById(id);
   const msg = (t) => { note = t; $('adm-msg').textContent = t; };
   const on = (el, fn) => el?.addEventListener('click', (e) => { e.stopPropagation(); fn(e); });
-  for (const el of document.querySelectorAll('#card input')) guardKeys(el);
+  const denied = (err) => (err.code === 'PERMISSION_DENIED'
+    ? 'Not allowed: your account isn\'t in the admin list in the Firestore rules yet (see README.md, "Admin panel").' : err.message);
+  for (const el of document.querySelectorAll('#card input[type=number], #card input[type=password]')) guardKeys(el);
 
   // --- your cash
   const setCash = (n) => { shop.cash = Math.max(0, Math.round(n) || 0); save.write(); audio.sfx('cash', { vol: 0.5 }); note = `Your cash is now ${money(shop.cash)}.`; again(); };
@@ -126,8 +163,8 @@ export function showAdminPanel(onBack) {
   $('adm-cash').addEventListener('keydown', (e) => { if (e.key === 'Enter') setCash(Number($('adm-cash').value)); });
   for (const b of document.querySelectorAll('[data-add]')) on(b, () => setCash(shop.cash + Number(b.dataset.add)));
 
-  // --- cheats
-  for (const [id] of CHEATS) $(`adm-${id}`).addEventListener('change', (e) => admin.set(id, e.target.checked));
+  // --- your abilities
+  for (const a of OWN) $(`adm-${a.id}`).addEventListener('change', (e) => admin.set(a.id, e.target.checked));
 
   // --- unlocks
   on($('adm-gadgets'), () => {
@@ -156,7 +193,7 @@ export function showAdminPanel(onBack) {
   on($('adm-load'), async () => {
     msg('Loading players...');
     try { players = await cloud.listPlayers(); note = `${players.length} player${players.length === 1 ? '' : 's'} with an online save.`; again(); }
-    catch (err) { msg(err.code === 'PERMISSION_DENIED' ? 'Not allowed: your account isn\'t in the admin list in the Firestore rules yet (see README.md, "Admin panel").' : err.message); }
+    catch (err) { msg(denied(err)); }
   });
   for (const b of document.querySelectorAll('[data-set-for]')) {
     on(b, async () => {
@@ -170,14 +207,45 @@ export function showAdminPanel(onBack) {
         p.cash = Math.max(0, Math.round(amount));
         note = `${p.email} now has ${money(p.cash)} (their game picks it up within a minute).`;
         again();
-      } catch (err) { msg(err.code === 'PERMISSION_DENIED' ? 'Not allowed: your account isn\'t in the admin list in the Firestore rules yet.' : err.message); }
+      } catch (err) { msg(denied(err)); }
     });
   }
+  const readPerks = (key) => {
+    const perks = {};
+    for (const el of document.querySelectorAll(`[data-perk-for="${key}"]`)) if (el.checked) perks[el.dataset.perk] = true;
+    return perks;
+  };
+  const perkNames = (perks) => ABILITIES.filter((a) => perks[a.id]).map((a) => a.name).join(', ') || 'no abilities';
+  for (const b of document.querySelectorAll('[data-perks-save]')) {
+    on(b, async () => {
+      const uid = b.dataset.perksSave, p = players.find((x) => x.uid === uid), perks = readPerks(uid);
+      msg('Saving...');
+      try {
+        await cloud.setPlayerPerks(uid, perks);
+        p.perks = perks;
+        note = `${p.email} now has: ${perkNames(perks)} (within a minute).`;
+        again();
+      } catch (err) { msg(denied(err)); }
+    });
+  }
+  for (const el of document.querySelectorAll('[data-perk-for="all"]')) {
+    el.addEventListener('change', () => { allPerks = readPerks('all'); });
+  }
+  on($('adm-perks-all'), async () => {
+    const perks = readPerks('all');
+    const others = players.filter((p) => p.uid !== cloud.uid);
+    msg(`Saving for ${others.length} players...`);
+    try {
+      for (const p of others) { await cloud.setPlayerPerks(p.uid, perks); p.perks = { ...perks }; }
+      note = `Everyone now has: ${perkNames(perks)} (within a minute).`;
+      again();
+    } catch (err) { msg(denied(err)); }
+  });
 
   // --- careful
   on($('adm-reset'), (e) => {
     const b = e.currentTarget;
-    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Really reset? Click again'; return; }
+    if (b.dataset.sure !== '1') { b.dataset.sure = '1'; b.textContent = 'Really reset? Tap again'; return; }
     save.replaceAll({ admin: save.data.admin });
     save.write();
     note = 'Your progress has been reset.';

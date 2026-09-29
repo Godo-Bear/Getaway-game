@@ -6,6 +6,7 @@
 import { save } from '../core/save.js';
 import { CHAPTER_LIST, CHAPTERS } from '../story/chapters.js';
 import { showCaseBoard } from './caseBoard.js';
+import { buyClue } from '../story/chapterFlow.js';
 import { formatTime } from '../core/utils.js';
 import { showShop } from './shop.js';
 import { cash } from '../gadgets/gadgets.js';
@@ -273,7 +274,8 @@ function showChapterParts(chapterId, actions, back) {
     <p class="sub fine">A chapter rating needs a full run from Part 1. Want to look around without the police? Press G (or use the pause menu) for ghost mode: nothing counts while it's on.</p>`, [
     ...parts,
     { label: `Case Board <small>Every clue you have found: ${found.size} of ${total}</small>`,
-      onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back)) },
+      onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back), 'clues', false,
+        { onBuy: (id) => buyClue(actions.game, chapterId, id) }) },
     { label: 'Back', onClick: back },
   ], { list: true });
 }

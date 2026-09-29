@@ -1,8 +1,12 @@
 // Admin mode: unlocked with a code in Settings.
 //
 // On this device it gives you cheats for your own save: set your cash, no
-// gadget recharge, god mode, infinite nitro, super speed, admin-only
-// gadgets, unlock everything, skip story parts.
+// gadget recharge, god mode, infinite nitro, super speed, infinite range,
+// admin-only gadgets, unlock everything, skip story parts.
+//
+// Admins can also SHARE abilities with other players (online accounts):
+// those land in the player's save as `perks` and work for them without the
+// code (see cloud.js setPlayerPerks).
 //
 // Changing OTHER players' cash is different: that happens on the server,
 // and the Firestore rules only allow the admin account(s) listed there (see
@@ -15,8 +19,18 @@ import { save } from './save.js';
 // sitting in the game's code as plain text.
 const CODE_HASH = '9c925e1c9a939a528cedbc7bfa554bb837d5230ce8d34f8abfb34a0e17ce6fb7';
 
-/** Cheats that make a speedrun time not count. */
-const CHEATS = ['noCooldowns', 'god', 'infiniteNitro', 'superSpeed'];
+/**
+ * Abilities: the admin's cheats, which can also be given to other players.
+ * (Any of them on = speedrun times aren't saved.)
+ */
+export const ABILITIES = [
+  { id: 'noCooldowns', name: 'No gadget recharge', desc: 'Use gadgets as often as you like' },
+  { id: 'god', name: 'God mode', desc: 'Never caught, spotted out or busted' },
+  { id: 'infiniteNitro', name: 'Infinite nitro', desc: 'The nitro tank never empties' },
+  { id: 'superSpeed', name: 'Super speed', desc: 'Run and drive much faster' },
+  { id: 'infiniteRange', name: 'Infinite range', desc: 'Grapple onto any building you can see; EMP and Flashbang hit every cop; smoke hides you anywhere' },
+  { id: 'adminGadgets', name: 'Admin gadgets', desc: 'Rocket Boots, Invisibility Cloak, Police Freeze and Teleporter in the Shop' },
+];
 
 const normalise = (s) => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
 
@@ -31,9 +45,19 @@ export const admin = {
     return !!save.data.admin?.unlocked;
   },
 
-  /** Is this admin option switched on? (always false for non-admins) */
+  /** Is this ability on? (the admin switched it on, or an admin gave it to this player) */
   flag(name) {
-    return this.on && !!save.data.admin[name];
+    return (this.on && !!save.data.admin[name]) || !!save.data.perks?.[name];
+  },
+
+  /** Abilities an admin has given this player: { god: true, ... } */
+  get perks() {
+    return save.data.perks || {};
+  },
+
+  /** Can this player use the admin-only gadgets? */
+  get adminGadgets() {
+    return this.on || !!save.data.perks?.adminGadgets;
   },
 
   set(name, value) {
@@ -43,7 +67,7 @@ export const admin = {
 
   /** Any cheat on right now? (speedrun times aren't saved then) */
   get cheating() {
-    return this.on && CHEATS.some((c) => save.data.admin[c]);
+    return ABILITIES.some((a) => a.id !== 'adminGadgets' && this.flag(a.id));
   },
 
   /** Try a code. Resolves true if it was right. */

@@ -11,10 +11,15 @@
 
 import { showCard } from './menus.js';
 import { SUSPECTS } from '../story/crew.js';
-import { owns } from '../gadgets/gadgets.js';
+import { owns, cash } from '../gadgets/gadgets.js';
+import { CLUE_PRICE } from '../story/chapterFlow.js';
+import { audio } from '../core/audio.js';
 
-function clueRow(info, found, forensics) {
-  if (!found) return '<div class="clue missed"><strong>Not found yet</strong><span>Look for tall amber light beams along the route.</span></div>';
+function clueRow(id, info, found, forensics, canBuy) {
+  if (!found) {
+    return `<div class="clue missed"><strong>Not found yet</strong><span>Look for tall amber light beams along the route${canBuy ? ', or buy it' : ''}.</span>
+      ${canBuy ? `<div><button class="chip buy-clue" data-buy-clue="${id}" ${cash() < CLUE_PRICE ? 'disabled' : ''}>Buy this clue · $${CLUE_PRICE}</button></div>` : ''}</div>`;
+  }
   const who = SUSPECTS[info.pointsTo];
   return `<div class="clue" style="--cc:${who.color}"><strong>${info.name}</strong><span>${info.text}</span>
     <div><em class="points">Points at ${who.name}</em>${forensics && info.redHerring ? '<em class="herring-tag">Forensics: planted (red herring)</em>' : ''}</div></div>`;
@@ -25,14 +30,16 @@ function clueRow(info, found, forensics) {
  * @param {Set<string>} found - ids of clues found
  * @param {Function} onBack
  * @param {'clues'|'suspects'} tab
+ * @param {boolean} side - docked on the right (the deduction)
+ * @param {{onBuy?:(id:string)=>boolean}} opts - onBuy: buy a missing clue ($100); true if bought
  */
-export function showCaseBoard(chapter, found, onBack, tab = 'clues', side = false) {
+export function showCaseBoard(chapter, found, onBack, tab = 'clues', side = false, opts = {}) {
   const ids = Object.keys(chapter.clues);
   const count = ids.filter((id) => found.has(id)).length;
   const forensics = owns('evidence');
   let body;
   if (tab === 'clues') {
-    body = ids.map((id) => clueRow(chapter.clues[id], found.has(id), forensics)).join('');
+    body = ids.map((id) => clueRow(id, chapter.clues[id], found.has(id), forensics, !!opts.onBuy)).join('');
   } else {
     body = Object.entries(SUSPECTS).map(([sid, s]) => {
       const against = ids.filter((id) => found.has(id) && chapter.clues[id].pointsTo === sid)
@@ -54,14 +61,27 @@ export function showCaseBoard(chapter, found, onBack, tab = 'clues', side = fals
       <button class="tab${tab === 'suspects' ? ' on' : ''}" data-tab="suspects">Suspects</button>
     </div>
     ${body}
-    <p class="sub fine">${forensics ? 'Your Forensics Kit marks planted clues.' : 'Careful: some clues are red herrings, planted to frame someone innocent.'}</p>`,
+    <p class="sub fine">${forensics ? 'Your Forensics Kit marks planted clues.' : 'Careful: some clues are red herrings, planted to frame someone innocent.'}
+      ${opts.onBuy && count < ids.length ? ` Missed one? Buy it for $${CLUE_PRICE} (you have $${cash().toLocaleString('en-US')}). Bought clues help the deduction but don't count for your rating.` : ''}</p>`,
   [
     { label: 'Back', primary: true, onClick: onBack },
   ], { side });
   for (const el of document.querySelectorAll('#card [data-tab]')) {
     el.addEventListener('click', (e) => {
       e.stopPropagation();
-      if (el.dataset.tab !== tab) showCaseBoard(chapter, found, onBack, el.dataset.tab, side);
+      if (el.dataset.tab !== tab) showCaseBoard(chapter, found, onBack, el.dataset.tab, side, opts);
+    });
+  }
+  for (const el of document.querySelectorAll('#card [data-buy-clue]')) {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = el.dataset.buyClue;
+      if (!opts.onBuy(id)) return;
+      found.add(id);
+      audio.sfx('clue');
+      const card = document.getElementById('card'), top = card.scrollTop;
+      showCaseBoard(chapter, found, onBack, tab, side, opts);
+      card.scrollTop = top;
     });
   }
 }

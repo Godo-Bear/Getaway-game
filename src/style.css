@@ -390,20 +390,48 @@ body.touch-mode #hud-speed { font-size: 44px; }
 
 /* ---------- Admin panel ---------- */
 .adm-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0 8px; }
-.adm-row input, .adm-player input { font: inherit; font-size: 15px; width: 150px; padding: 6px 10px; border-radius: 6px; border: 2px solid rgba(255, 255, 255, 0.25);
+.adm-row input:not([type=checkbox]) { font: inherit; font-size: 15px; width: 150px; padding: 6px 10px; border-radius: 6px; border: 2px solid rgba(255, 255, 255, 0.25);
   background: rgba(0, 0, 0, 0.35); color: var(--ink); user-select: text; -webkit-user-select: text; touch-action: manipulation; }
-.adm-row input:focus, .adm-player input:focus { outline: none; border-color: var(--amber); }
+.adm-row input:not([type=checkbox]):focus { outline: none; border-color: var(--amber); }
 .adm-row .chip { text-transform: none; }
 .adm-sub { display: block; font-size: 12px; color: var(--muted); }
 .adm-uid { font-size: 12px; background: rgba(255, 255, 255, 0.07); padding: 2px 6px; border-radius: 4px; user-select: all; -webkit-user-select: all; word-break: break-all; }
 .adm-players { display: grid; gap: 6px; margin-top: 8px; }
-.adm-player { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); }
-.adm-player b { font-size: 14px; word-break: break-all; }
-.adm-player small { display: block; font-size: 12px; color: var(--muted); }
-.adm-player input { width: 100%; }
-.adm-player .chip { text-transform: none; }
+.adm-player { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.06); }
+.adm-player.adm-all { border-color: rgba(255, 77, 210, 0.45); background: rgba(255, 77, 210, 0.06); }
+.adm-player .adm-row { margin: 0; }
+.adm-player .chip { text-transform: none; justify-self: start; }
+.adm-who b { font-size: 15px; word-break: break-all; }
+.adm-who small { display: block; font-size: 12px; color: var(--muted); }
+.adm-equip { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.adm-gadget { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--gc) 55%, transparent); background: color-mix(in srgb, var(--gc) 12%, transparent); }
+.adm-gadget small { color: var(--muted); font-weight: 500; }
+.adm-gadget.none { --gc: #666; color: var(--muted); }
+.adm-owned { font-size: 12px; color: var(--muted); }
+.adm-perks { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; }
+.adm-perks label { display: inline-flex; gap: 5px; align-items: center; cursor: pointer; padding: 3px 0; }
+.adm-perks input { width: 18px; height: 18px; accent-color: #ff4dd2; }
 .adm-msg { color: var(--amber) !important; min-height: 1.2em; }
 .adm-danger { border-color: var(--red) !important; color: var(--red); }
 .pill-admin { border-color: #ff4dd2; color: #ff9be8; }
 .adm-open { border-color: #ff4dd2; }
 #adm-load, #adm-copy, #adm-open { text-transform: none; }
+
+/* ---------- Touch layout fixes ---------- */
+/* The gadget badge sits just left of the Gadget button (not on top of it) */
+body.touch-mode #hud-gadget { top: auto; left: auto; right: calc(92px + env(safe-area-inset-right, 0px)); bottom: calc(196px + env(safe-area-inset-bottom, 0px));
+  transform: scale(0.8); transform-origin: right bottom; }
+@media (max-height: 520px) {
+  body.touch-mode #hud-gadget { right: calc(72px + env(safe-area-inset-right, 0px)); bottom: calc(156px + env(safe-area-inset-bottom, 0px)); }
+}
+/* Phones held upright: pause button in the corner, minimap just below it */
+@media (max-width: 600px) {
+  #touch .t-pause { right: calc(12px + env(safe-area-inset-right, 0px)); top: calc(12px + env(safe-area-inset-top, 0px)); }
+  body.touch-mode #hud-map-wrap { top: calc(66px + env(safe-area-inset-top, 0px)); }
+  #hud-run { left: auto; right: calc(14px + env(safe-area-inset-right, 0px)); top: calc(64px + env(safe-area-inset-top, 0px)); transform: none; text-align: right; }
+  #hud-run b { font-size: 26px; }
+  #hud-run span { display: none; }
+  #hud-tl { max-width: 60vw; }
+  /* the speedometer moves above the joystick (the bottom middle has buttons) */
+  body.touch-mode #hud-speedo { left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(184px + env(safe-area-inset-bottom, 0px)); transform: none; text-align: left; width: 130px; }
+}

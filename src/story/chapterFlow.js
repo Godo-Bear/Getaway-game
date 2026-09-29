@@ -10,7 +10,7 @@ import { CHAPTERS } from './chapters.js';
 import { getChapterRun, newChapterRun } from './chapterRun.js';
 import { formatTime } from '../core/utils.js';
 import { save } from '../core/save.js';
-import { earn } from '../gadgets/gadgets.js';
+import { earn, spend } from '../gadgets/gadgets.js';
 import { speedrunPartDone } from './speedrun.js';
 
 /**
@@ -77,4 +77,23 @@ export function knownClues(game, chapterId) {
   // Only clues that still exist (old saves may list clues a chapter no longer has).
   const valid = CHAPTERS[chapterId]?.clues || {};
   return new Set([...run, ...(save.data.progress.clues?.[chapterId] || [])].filter((id) => id in valid));
+}
+
+/** Price of a clue you missed, on the Case Board. */
+export const CLUE_PRICE = 100;
+
+/**
+ * Buy a clue you missed. It counts for the deduction (and is kept in your
+ * save like a found clue), but not for the chapter rating.
+ * Returns false if you can't afford it.
+ */
+export function buyClue(game, chapterId, clueId) {
+  if (!spend(CLUE_PRICE)) return false;
+  save.addClue(chapterId, clueId);
+  const run = game?.chapterRun;
+  if (run?.chapterId === chapterId && !run.clues.has(clueId)) {
+    run.clues.add(clueId);
+    (run.bought ||= new Set()).add(clueId);
+  }
+  return true;
 }

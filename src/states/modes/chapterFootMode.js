@@ -304,6 +304,7 @@ export class ChapterFootMode {
     // --- Clues
     for (const c of this.clueObjs) {
       if (!c.group.visible) continue;
+      if (this.run.clues.has(c.id)) { c.group.visible = false; continue; } // bought on the Case Board
       c.gem.rotation.y += dt * 1.8;
       c.gem.position.y = 1.2 + Math.sin(t * 2.4 + c.pos.x) * 0.15;
       // (Clue Magnet gadget: grab clues from much further away)

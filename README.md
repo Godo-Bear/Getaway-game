@@ -76,11 +76,11 @@ This repo is already connected to the `getaway-game-50249` project.
 **Settings > Admin**: type the admin code to unlock it on that device (it's remembered, and synced with your account). The title screen then shows an **Admin** button too. Code: `src/core/admin.js`, `src/ui/adminPanel.js`.
 
 * **Your cash**: set it to any amount, or add $1,000 / $10,000 / $100,000.
-* **Cheats**: no gadget recharge, god mode (never caught, spotted out or busted), infinite nitro, super speed. With any cheat on, Speedrun times aren't saved.
+* **Abilities**: no gadget recharge, god mode (never caught, spotted out or busted), infinite nitro, super speed, infinite range (the Grapple Gun reaches any building you can see, EMP and Flashbang hit every cop, smoke hides you anywhere). With any ability on, Speedrun times aren't saved.
 * **Admin gadgets** (free, in the Shop's Admin tab, and only while admin mode is on): Rocket Boots (jump again in mid-air, any number of times), Invisibility Cloak (15 s invisible), Police Freeze (every cruiser stuck for 10 s), Teleporter (beam the car to your waypoint or goal).
 * **Unlock**: every gadget, every chapter, every car colour. **Reset my progress** (asks twice). **Lock admin mode**.
 * **Admin: skip this part** in the pause menu of any story part.
-* **Other players' cash**: sign in with your account, then **Load the player list** (email, cash, chapters solved) and set anyone's cash. Their game picks it up within a minute (or next time they open it).
+* **Other players**: sign in with your account, then **Load the player list**: each player's email, cash, chapters solved and equipped gadgets. Set anyone's cash, and **share abilities** with them (tick them and Save abilities; untick to take them away), or give the same abilities to every player at once. Shared abilities work for them without the code, including the admin gadgets. Their game picks changes up within a minute (or next time they open it).
 
 The code only unlocks the panel in the game on that device, and anyone who digs through the game's files could find it, so it only ever changes **your own** save. Changing other players' saves is checked by the server: the Firestore rules must list your account as an admin. Copy **Your account ID** from the admin panel and use these rules instead of the ones above (put your ID between the quotes; add more IDs, comma-separated, for more admins):
 
@@ -130,7 +130,7 @@ service cloud.firestore {
   * Mole: Clue Scanner, Clue Magnet (pick up clues from further away), Forensics Kit (Case Board marks red herrings), Lie Detector.
 * **Crosshair**: on foot (aim the Grapple Gun with it). SPRINT shows under it while sprint is on.
 * **Moves**: Shift switches sprint on (and off again); sprint + C to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
-* **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen.
+* **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen and at the deduction. Missed a clue? Buy it there for $100: it counts for the deduction (and is kept), but not for your chapter rating.
 
 ## Project layout
 

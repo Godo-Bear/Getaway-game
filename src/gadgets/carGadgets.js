@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GadgetSlot } from './gadgetSlot.js';
 import { makeGlowMaterial, getGlowTexture } from '../world/materials.js';
 import { audio } from '../core/audio.js';
+import { admin } from '../core/admin.js';
 
 // Car gadgets (press F while driving):
 //   Oil Slick     - an oil patch behind you; police cars that hit it spin out
@@ -140,7 +141,7 @@ export class CarGadgets {
     const s = this.state, p = s.player;
     let hit = 0;
     for (const u of s.police.units) {
-      if (Math.hypot(u.car.pos.x - p.pos.x, u.car.pos.z - p.pos.z) < EMP_RADIUS) {
+      if (admin.flag('infiniteRange') || Math.hypot(u.car.pos.x - p.pos.x, u.car.pos.z - p.pos.z) < EMP_RADIUS) {
         u.stunned = EMP_TIME;
         u.emp = true;
         u.spinDir = 0;
@@ -148,7 +149,7 @@ export class CarGadgets {
         this._spark(u.car.pos);
       }
     }
-    this._wave(p.pos, 0x3d9bff, EMP_RADIUS);
+    this._wave(p.pos, 0x3d9bff, admin.flag('infiniteRange') ? 150 : EMP_RADIUS);
     s.game.post?.lightning(0.35);
     audio.sfx('thunder', { vol: 0.5 });
     s.game.hud.toast('EMP!', hit ? `${hit} police car${hit > 1 ? 's' : ''} knocked out for ${EMP_TIME} seconds. Go!` : 'No police cars were close enough.', '#3d9bff', 3);

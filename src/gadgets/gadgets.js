@@ -24,7 +24,7 @@ export const CATEGORIES = [
   { id: 'damage', name: 'Damage', blurb: 'Knock the police out of the chase.' },
   { id: 'getaway', name: 'Getaways', blurb: 'Upgrades for the getaway car.' },
   { id: 'mole', name: 'Mole', blurb: 'Find the clues and catch the traitor.' },
-  { id: 'admin', name: 'Admin', blurb: 'Admin-only specials. Free, and only in the Shop while admin mode is on.', adminOnly: true },
+  { id: 'admin', name: 'Admin', blurb: 'Admin-only specials. Free, and only in the Shop for admins (or players an admin shared them with).', adminOnly: true },
 ];
 
 // kind: 'foot' / 'car' = press F to use (equip one of each), 'passive' = always on.
@@ -88,12 +88,20 @@ export const GADGETS = [
 
 export const gadget = (id) => GADGETS.find((g) => g.id === id);
 
-/** Admin-only gadgets only work while admin mode is on. */
-const usable = (g) => g && (!g.adminOnly || admin.on);
+/** Admin-only gadgets only work in admin mode (or if an admin shared them). */
+const usable = (g) => g && (!g.adminOnly || admin.adminGadgets);
 
 const shop = () => save.data.shop;
 
 export function cash() { return shop().cash; }
+
+/** Spend cash. Returns false (and spends nothing) if you can't afford it. */
+export function spend(amount) {
+  if (shop().cash < amount) return false;
+  shop().cash -= amount;
+  save.write();
+  return true;
+}
 export function owns(id) { return shop().owned.includes(id) && usable(gadget(id)); }
 export function equipped(kind) {
   const g = shop().equipped[kind] ? gadget(shop().equipped[kind]) : null;
