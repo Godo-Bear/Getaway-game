@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { showCard, hideCard } from '../ui/menus.js';
 import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
-import { SUSPECTS } from '../story/crew.js';
+import { SUSPECTS, suspectsOf } from '../story/crew.js';
 import { getChapterRun, totalTime, chapterRating } from '../story/chapterRun.js';
 import { startPart, knownClues, buyClue } from '../story/chapterFlow.js';
 import { diff } from '../core/difficulty.js';
@@ -22,7 +22,6 @@ import { audio } from '../core/audio.js';
 //  - Wrong answer: explains why not, and lets you accuse again (costs rating)
 //    or replay the chapter to find the clues you missed.
 
-const SUSPECT_ORDER = ['vince', 'marla', 'dex', 'hale'];
 const RATING_ORDER = ['gold', 'silver', 'bronze'];
 
 function canvasTex(w, h, draw) {
@@ -42,6 +41,7 @@ export class DeductionState {
 
   enter({ chapterId = 'chapter1' } = {}) {
     this.chapter = CHAPTERS[chapterId];
+    this.order = suspectsOf(this.chapter); // who's on the board this chapter
     this.run = getChapterRun(this.game, chapterId);
     // Evidence = clues found this run plus anything found before (e.g. in a clue hunt).
     this.evidence = knownClues(this.game, chapterId);
@@ -52,7 +52,7 @@ export class DeductionState {
     if (owns('detector')) {
       const traitor = this.chapter.traitor;
       const herring = Object.values(this.chapter.clues).find((c) => c.redHerring && c.pointsTo !== traitor);
-      this.cleared = herring?.pointsTo || SUSPECT_ORDER.find((id) => id !== traitor);
+      this.cleared = herring?.pointsTo || this.order.find((id) => id !== traitor);
     }
     this.time = 0;
     this.game.hud.hideAll();
@@ -105,7 +105,7 @@ export class DeductionState {
 
     // Suspect "photos" across the top
     this.photos = {};
-    SUSPECT_ORDER.forEach((id, i) => {
+    this.order.forEach((id, i) => {
       const s = SUSPECTS[id];
       const tex = canvasTex(256, 320, (g, w, h) => {
         g.fillStyle = '#f2ede2';
@@ -143,7 +143,7 @@ export class DeductionState {
         g.fillStyle = '#2a2a2a';
         g.font = 'bold 36px "Barlow Semi Condensed", Arial, sans-serif';
         g.textAlign = 'center';
-        g.fillText(info.name, w / 2, 70);
+        g.fillText(info.name, w / 2, 70, w - 36); // (squeezed to fit if it's long)
         g.font = '22px "Barlow Semi Condensed", Arial, sans-serif';
         g.fillStyle = '#6a5f4a';
         g.fillText('EVIDENCE', w / 2, 120);
@@ -159,7 +159,7 @@ export class DeductionState {
       scene.add(card);
       this._pin(x, y + 0.3, 0xdd2222);
       // String from the clue up to the suspect photo it points at
-      const target = SUSPECT_ORDER.indexOf(info.pointsTo);
+      const target = this.order.indexOf(info.pointsTo);
       const tx = -2.4 + target * 1.6;
       const geo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(x, y + 0.3, 0.1), new THREE.Vector3(tx, 1.95, 0.1),
@@ -239,7 +239,7 @@ export class DeductionState {
       <h2>${this.chapter.deduction.question}</h2>
       <p class="sub">You have ${found} of ${total} clues. Check the Case Board if you need to: some clues point at the wrong person on purpose.</p>
       <div class="accuse-grid">
-        ${SUSPECT_ORDER.map((id) => {
+        ${this.order.map((id) => {
           const s = SUSPECTS[id];
           const clear = id === this.cleared;
           return `<button class="btn${clear ? ' cleared' : ''}" data-accuse="${id}" ${clear ? 'disabled' : ''}><span class="badge" style="background:${s.color}">${s.name[0]}</span>
@@ -356,10 +356,11 @@ export class DeductionState {
   /** After the last chapter: the ending and credits. */
   _finale() {
     const rows = Object.values(CHAPTERS).map((c) => `<div><span>${c.title} (${diff().name})</span><b>${(save.rating(c.id) || '-').toUpperCase()}</b></div>`).join('');
+    const f = this.chapter.finale || { title: 'GETAWAY', text: '' };
     showCard(`
       <p class="sub kicker">The End</p>
-      <h2>GETAWAY</h2>
-      <p>Vince is doing time for the back door. Dex is testifying against everyone. Marla is in handcuffs on a wet runway, and Det. Hale is going away for a very long time: his own ledger, his lawyer\'s phone and box 42 made sure of that. The storm is clearing. You walk away in the rain, free.</p>
+      <h2>${f.title}</h2>
+      <p>${f.text}</p>
       <div class="stat-grid">${rows}</div>
       <p class="sub">Thanks for playing. Gold ratings unlock new car colours in Settings, and ghost mode (G, or the pause menu) lets you explore any part without the police.</p>`,
     [{ label: 'Back to title', primary: true, onClick: () => this.game.goTitle() }], { side: true });

@@ -112,7 +112,7 @@ function start(renderer) {
 
   // URL options for testing:
   //   ?mode=chapter1..chapter4 [&part=N] [&ghost]  - a story part (N from 0)
-  //   ?mode=deduce1..deduce4 | rooftop | free | chase  - jump straight into a mode
+  //   ?mode=deduce1..deduce5 | rooftop | free | chase  - jump straight into a mode
   //   ?nolock                       - play without mouse lock (A/D turn, drag to look)
   const params = new URLSearchParams(location.search);
   if (params.has('nolock')) game.input.pointerLockFailed = game.input.lockDisabled = true;

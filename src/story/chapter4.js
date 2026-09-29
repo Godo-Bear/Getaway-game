@@ -21,8 +21,7 @@ export const CHAPTER4 = {
   title: 'Chapter 4: Last Flight',
   short: 'Last Flight',
   traitor: 'hale',
-  nextChapter: null,
-  finale: true,
+  nextChapter: 'chapter5',
   rating: { gold: 330, silver: 560 },
   deduction: { question: 'Who warned Marla you were coming?' },
 
@@ -132,5 +131,5 @@ export const CHAPTER4 = {
     },
   },
 
-  resultOutro: 'The jet taxis away empty. The bonds go back to the Harbor Trust, and the phone log goes to the prosecutors. By sunrise, Hale\'s lawyer is talking, and Hale\'s cell just got a lot smaller.',
+  resultOutro: 'The jet taxis away empty. The bonds go back to the Harbor Trust, and the phone log goes to the prosecutors. By sunrise, Hale\'s lawyer is talking, and Hale\'s cell just got a lot smaller. Vince is doing time, Dex is testifying, Marla is in handcuffs on a wet runway. You walk away in the rain, free... for now.',
 };

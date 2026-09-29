@@ -1,5 +1,6 @@
-// The crew (and the cop). Used by clue cards now, and by the Case Board
-// and deduction screen in Milestone 5.
+// Everyone who can be a suspect: the old crew (Chapters 1-4) and the new
+// crew you recruit in Chapter 5. Each chapter lists its own suspects
+// (chapter.suspects); older chapters use the old crew.
 
 export const SUSPECTS = {
   vince: {
@@ -26,4 +27,35 @@ export const SUSPECTS = {
     color: '#ff5a6a',
     bio: 'The detective hunting you. Seems to know a lot about how your crew works.',
   },
+  // ---- The new crew (Chapter 5)
+  nova: {
+    name: 'Nova',
+    role: 'The hacker',
+    color: '#39e6ff',
+    bio: 'Nineteen, fast and very good. Runs everything from a battered laptop covered in stickers. Nobody knows where she learned her tricks.',
+  },
+  mags: {
+    name: 'Mags',
+    role: 'The safecracker',
+    color: '#ff9a3d',
+    bio: 'Thirty years of opening things that aren\'t hers. Just out of prison, and says she has nothing left to lose.',
+  },
+  theo: {
+    name: 'Theo',
+    role: 'The inside man',
+    color: '#c77dff',
+    bio: 'A blackjack dealer at the Lucky Star casino. He hates the owner, Silas Crane, and knows every door in the building.',
+  },
+  ricky: {
+    name: 'Ricky',
+    role: 'The driver',
+    color: '#7dff8a',
+    bio: 'Talks too much, drives better than anyone in the city. Dex\'s cousin: Dex sent him your way.',
+  },
 };
+
+/** The old crew (and the detective): the suspects in Chapters 1-4. */
+export const OLD_CREW = ['vince', 'marla', 'dex', 'hale'];
+
+/** A chapter's suspects, in board order. */
+export const suspectsOf = (chapter) => chapter?.suspects || OLD_CREW;

@@ -17,6 +17,7 @@ import { FreeRunMode } from './modes/freeRunMode.js';
 import { RooftopRunMode } from './modes/rooftopRunMode.js';
 import { ChapterFootMode } from './modes/chapterFootMode.js';
 import { BankHeistMode } from './modes/bankHeistMode.js';
+import { CasinoHeistMode } from './modes/casinoHeistMode.js';
 
 // On-foot game state: everything the on-foot modes have in common.
 //   - the player (physics + animated model) and the third-person camera
@@ -39,7 +40,7 @@ import { BankHeistMode } from './modes/bankHeistMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {
@@ -177,6 +178,12 @@ export class OnFootState extends PlayState {
     c.crouch = input.isDown('crouch');
     this.cam.getForward(this._fwd);
     this.cam.getRight(this._right);
+    // A mini-game (hacking, a safe) is on: stand still, Jump is for the mini-game.
+    if (this.mode.inputLocked) {
+      c.moveX = c.moveZ = 0;
+      c.jumpPressed = c.jumpHeld = false;
+      c.crouch = false;
+    }
 
     if (input.wasPressed('view')) this.toggleView();
     if (input.wasPressed('respawn')) this.respawnKey();

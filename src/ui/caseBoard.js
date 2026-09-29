@@ -10,7 +10,7 @@
 // With the Forensics Kit gadget, red herrings are marked.
 
 import { showCard } from './menus.js';
-import { SUSPECTS } from '../story/crew.js';
+import { SUSPECTS, suspectsOf } from '../story/crew.js';
 import { owns, cash } from '../gadgets/gadgets.js';
 import { CLUE_PRICE } from '../story/chapterFlow.js';
 import { audio } from '../core/audio.js';
@@ -41,7 +41,8 @@ export function showCaseBoard(chapter, found, onBack, tab = 'clues', side = fals
   if (tab === 'clues') {
     body = ids.map((id) => clueRow(id, chapter.clues[id], found.has(id), forensics, !!opts.onBuy)).join('');
   } else {
-    body = Object.entries(SUSPECTS).map(([sid, s]) => {
+    body = suspectsOf(chapter).map((sid) => {
+      const s = SUSPECTS[sid];
       const against = ids.filter((id) => found.has(id) && chapter.clues[id].pointsTo === sid)
         .map((id) => chapter.clues[id].name);
       return `<div class="suspect">

@@ -5,6 +5,8 @@ import { updateSirens } from '../../vehicles/carModel.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { OfficerSquad } from '../../ai/officer.js';
 import { FugitiveRunner } from '../../ai/fugitive.js';
+import { PlayerModel } from '../../player/playerModel.js';
+import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
 import { getChapterRun } from '../../story/chapterRun.js';
@@ -26,6 +28,9 @@ import { audio } from '../../core/audio.js';
 //   goal      - { type: 'reach' } get to the level's goal point (e.g. the car)
 //               { type: 'catch' } catch the fugitive
 //   requiredClue - a clue you must pick up before the goal counts
+//   meetings  - people to meet on the way (Chapter 5): walk up to them, talk,
+//               and maybe pass their test (a hacking or safe mini-game).
+//               goal.requireMeetings: meet everyone before the goal counts.
 //
 // GHOST MODE (G, the pause menu or the ghost button on touch screens):
 // the helicopter and officers vanish so you can roam freely. A marker points
@@ -64,7 +69,35 @@ export class ChapterFootMode {
     this._buildCheckpointMarkers();
     this._buildClues();
     this._buildGuides();
+    this._buildPeople();
     return level;
+  }
+
+  /** People standing around to meet (the level says where, the part says what they say). */
+  _buildPeople() {
+    this.npcs = [];
+    const spots = this.level.meetingSpots;
+    if (!spots) return;
+    for (const [who, pos] of Object.entries(spots)) {
+      const col = parseInt(SUSPECTS[who].color.slice(1), 16);
+      const model = new PlayerModel({ hoodie: col, mask: 0xc4946f, trousers: 0x1a1e2a }, { bag: false });
+      const body = { pos: pos.clone(), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 40, 12, 1, true), makeGlowMaterial(col, 0.14));
+      beam.position.copy(pos).setY(pos.y + 20);
+      this.level.group.add(model.root, beam);
+      const def = this.part.meetings?.find((m) => m.who === who) || null;
+      this.npcs.push({ id: who, model, body, beam, pos, def, talked: false });
+    }
+  }
+
+  /** Stand still while a mini-game is on. */
+  get inputLocked() {
+    return !!this.mini;
+  }
+
+  /** The goal is down on the street (Ricky's car): point at it, not at a ladder. */
+  get streetMarker() {
+    return !!this.level && this.level.goalPos.y < 1.5 && !this._nextMeeting();
   }
 
   /** Called once the player exists: give it this level's zip lines. */
@@ -147,6 +180,10 @@ export class ChapterFootMode {
     this.done = false;
     this.warnTimer = 0;
     for (const c of this.clueObjs) c.group.visible = !this.run.clues.has(c.id);
+    this.met = new Set();
+    this.meetBlocked = null;
+    this._closeMini();
+    for (const n of this.npcs) { n.talked = false; n.beam.visible = !!n.def; }
 
     this._spawnPolice();
     this.heliAnnounced = false;
@@ -250,6 +287,7 @@ export class ChapterFootMode {
 
   _caught(message) {
     if (admin.flag('god')) { this.spotted = 0; return; } // admin god mode
+    this._closeMini();
     this.caughtHere++;
     this.run.caught++;
     audio.sfx('caught');
@@ -350,6 +388,9 @@ export class ChapterFootMode {
       if (r === 'caught') this._caught('An officer tackled you. Back to the last checkpoint.');
     }
 
+    // --- People to meet (and their mini-game tests)
+    if (this.npcs.length) this._updateMeetings(dt);
+
     // --- Fugitive
     if (this.fugitive) {
       this.fugitive.update(dt, p.pos, this.ghost);
@@ -376,7 +417,13 @@ export class ChapterFootMode {
       const g = this.level.goalPos;
       if (Math.hypot(p.pos.x - g.x, p.pos.z - g.z) < CAR_RADIUS && Math.abs(p.pos.y - g.y) < 2.5) {
         if (this.ghost) this._ghostNotice('Turn ghost mode off to finish this part.');
-        else if (part.requiredClue && !this.run.clues.has(part.requiredClue)) {
+        else if (part.goal.requireMeetings && this._nextMeeting()) {
+          this.warnTimer -= dt;
+          if (this.warnTimer <= 0) {
+            this.warnTimer = 4;
+            hud.toast('Not yet!', `You still need to meet ${SUSPECTS[this._nextMeeting().id].name}.`, 'var(--amber)');
+          }
+        } else if (part.requiredClue && !this.run.clues.has(part.requiredClue)) {
           this.warnTimer -= dt;
           if (this.warnTimer <= 0) {
             this.warnTimer = 4;
@@ -419,6 +466,11 @@ export class ChapterFootMode {
       hud.setMarker(near.pos.clone().setY(near.pos.y + 1.5), s.camera, 'Clue', 'var(--amber)', nd);
       return;
     }
+    const meet = !this.ghost && this._nextMeeting();
+    if (meet) {
+      hud.setMarker(meet.pos.clone().setY(meet.pos.y + 2.4), s.camera, `Meet ${SUSPECTS[meet.id].name}`, SUSPECTS[meet.id].color, p.distanceTo(meet.pos));
+      return;
+    }
     if (this.fugitive && !this.ghost) {
       const f = this.fugitive.pos;
       hud.setMarker(f.clone().setY(f.y + 2.2), s.camera, this.part.fugitive.name, SUSPECTS[this.part.fugitive.who].color, p.distanceTo(f));
@@ -456,6 +508,59 @@ export class ChapterFootMode {
     this.state.game.hud.toast(`Clue: ${info.name}  (+$${cash})`, info.text, 'var(--amber)', 7);
   }
 
+  // ------------------------------------------------------------------
+  // Meetings
+  // ------------------------------------------------------------------
+  /** The next person you still have to meet (in order), or null. */
+  _nextMeeting() {
+    return this.npcs.find((n) => n.def && !this.met.has(n.id)) || null;
+  }
+
+  _updateMeetings(dt) {
+    const s = this.state, p = s.player.pos, input = s.game.input;
+    for (const n of this.npcs) {
+      // Face you when you're close; idle otherwise
+      if (Math.hypot(p.x - n.pos.x, p.z - n.pos.z) < 12) n.body.facing = Math.atan2(p.x - n.pos.x, p.z - n.pos.z);
+      n.model.update(dt, n.body);
+    }
+    if (this.mini) {
+      if (input.wasPressed('crouch')) { this.meetBlocked = this.miniFor; this._closeMini(); return; }
+      const r = this.mini.update(dt, input.wasPressed('jump'));
+      if (r === 'done') { const n = this.miniFor; this._closeMini(); this._metDone(n); }
+      return;
+    }
+    const next = this._nextMeeting();
+    if (!next || this.ghost) return;
+    const d = Math.hypot(p.x - next.pos.x, p.z - next.pos.z), near = d < 2.6 && Math.abs(p.y - next.pos.y) < 2;
+    if (this.meetBlocked === next) { if (d > 4) this.meetBlocked = null; return; }
+    if (!near) return;
+    if (next.talked || s.game.speedrun) { this._afterTalk(next); return; }
+    next.talked = true;
+    s.showStoryCards(next.def.pages, next.def.task ? 'Show me' : 'Welcome aboard', () => this._afterTalk(next));
+  }
+
+  _afterTalk(n) {
+    n.talked = true;
+    if (n.def.task) {
+      this.miniFor = n;
+      this.mini = new MiniGame({ type: n.def.task, title: n.def.taskTitle, hint: 'Jump (Space / A / tap) when it lines up · C to step away' });
+    } else this._metDone(n);
+  }
+
+  _metDone(n) {
+    this.met.add(n.id);
+    n.beam.visible = false;
+    const cp = this.level.meetingCheckpoint?.[n.id];
+    if (cp != null && cp > this.cp) this.cp = cp;
+    audio.sfx('checkpoint');
+    this.state.game.hud.toast(`${SUSPECTS[n.id].name} is in`, n.def.joinText || '', SUSPECTS[n.id].color, 5);
+  }
+
+  _closeMini() {
+    this.mini?.close();
+    this.mini = null;
+  }
+
   _complete() {
     this.done = true;
     audio.sfx('win');
@@ -468,6 +573,7 @@ export class ChapterFootMode {
   }
 
   teardown() {
+    this._closeMini();
     this.heli?.dispose();
     this.officers?.dispose();
     this.fugitive?.dispose();
