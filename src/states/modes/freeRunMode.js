@@ -140,7 +140,7 @@ export class FreeRunMode {
       if (!b.group.visible) continue;
       b.bag.rotation.y += dt * 2;
       b.ring.rotation.z += dt;
-      if (p.pos.distanceTo(b.pos) < 1.7) {
+      if (p.pos.distanceTo(b.pos) < 2.2) { // running past it picks it up
         freeEarn(s.game, BAG_CASH * (this.police ? 2 : 1), 'Cash bag!');
         this._placeBag(b);
       }

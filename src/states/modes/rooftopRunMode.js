@@ -161,7 +161,7 @@ export class RooftopRunMode {
       pk.bills.rotation.y = pk.bag.rotation.y;
       pk.ring.rotation.z += dt;
       const d = p.pos.distanceTo(pk.pos);
-      if (d < 1.6) {
+      if (d < 2.2) { // (generous: running past it picks it up)
         const bonus = 250 * this.level;
         this.score += bonus;
         this.cashCollected++;

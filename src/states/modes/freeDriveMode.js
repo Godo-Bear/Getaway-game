@@ -6,13 +6,13 @@ import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './f
 // session (FreeRunMode is the rooftops).
 //
 //  - Cash drops (green beam) and near misses earn cash; so do long drifts
-//  - Park in a garage (blue P on the minimap) and stop to head up to the
-//    rooftops
+//  - Slow down in a garage (blue P on the minimap) to park and head up to
+//    the rooftops
 //  - Police (optional, pause menu): two patrol cars. Busted = back on the
 //    road somewhere else; it never ends the run. Losing them pays.
 
 const DROP_CASH = 40;
-const PARK_TIME = 1.2; // seconds stopped in a garage before you get out
+const PARK_SPEED = 5; // m/s: slow down inside a garage and you park straight away
 
 export class FreeDriveMode {
   constructor(state) {
@@ -38,13 +38,12 @@ export class FreeDriveMode {
     const s = this.state, g = s.city.graph;
     const n = g.node(Math.floor(g.n / 2), Math.floor(g.n / 2));
     s.placePlayer(n.x, n.z - 20, 0);
-    this.parkT = 0;
     this.driftT = 0;
     this._placeDrop();
     const hud = s.game.hud;
     hud.setPhase(`Free Run · the streets${this.police ? ' · police on' : ''}`);
     hud.setObjective('Cruise the city');
-    hud.toast('Free Run: the streets', 'Drive through cash drops (green beam), drift and near-miss for more. Stop in a garage (blue P) to head up to the rooftops.', 'var(--amber)', 6);
+    hud.toast('Free Run: the streets', 'Drive through cash drops (green beam), drift and near-miss for more. Slow down in a garage (blue P) to head up to the rooftops.', 'var(--amber)', 6);
   }
 
   pauseButtons() {
@@ -98,18 +97,11 @@ export class FreeDriveMode {
       if (this.driftT > 2.5) { this.driftT = 0; freeEarn(s.game, 10, 'Drift!', ''); }
     } else this.driftT = Math.max(0, this.driftT - dt * 2);
 
-    // Park in a garage and stop: head up to the rooftops
-    if (s.inGarage && p.speed < 1.5) {
-      this.parkT += dt;
-      hud.setMeter(this.parkT / PARK_TIME, 'Parking... heading up to the rooftops', 'var(--cyan)');
-      if (this.parkT >= PARK_TIME) { switchFreeRoam(s, 'foot'); return; }
-    } else if (this.parkT > 0) {
-      this.parkT = 0;
-      hud.setMeter(0, '');
-    }
+    // Slow down in a garage: park and head up to the rooftops (no waiting)
+    if (s.inGarage && p.speed < PARK_SPEED) { switchFreeRoam(s, 'foot'); return; }
     if (s.inGarage && !this._garageTip) {
       this._garageTip = true;
-      hud.toast('Garage', 'Stop here to park and head up to the rooftops.', 'var(--blue)', 3);
+      hud.toast('Garage', 'Slow down in here to park and head up to the rooftops.', 'var(--blue)', 3);
     }
     if (!s.inGarage) this._garageTip = false;
 

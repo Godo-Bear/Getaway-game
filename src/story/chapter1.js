@@ -45,7 +45,7 @@ export const CHAPTER1 = {
       kicker: 'How to play',
       title: 'The heist',
       lines: [
-        'Follow the marker. To do something (switch off the cameras, read the note, type the code, grab the cash), stand in its glowing ring for a moment.',
+        'Follow the marker. To do something (switch off the cameras, grab the vault code, type it in, bag the cash), just run over its glowing ring.',
         'A camera that sees you for about a second raises the alarm early and sends you back to the door.',
       ],
     },

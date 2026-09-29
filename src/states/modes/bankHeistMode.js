@@ -19,11 +19,12 @@ import { audio } from '../../core/audio.js';
 //   4. Grab the four pallets of cash               - the last one trips the alarm
 //   5. Get to the roof stairs before the police storm in (75 seconds)
 //
-// To do something, stand in its glowing ring for a moment (no extra key,
-// so it works the same with a keyboard, a gamepad or a touch screen).
+// To do something, just walk or run over its glowing ring: it happens
+// straight away (no extra key and no waiting, so it works the same with a
+// keyboard, a gamepad or a touch screen).
 
 const ALARM_TIME = 75;
-const USE_RADIUS = 1.6;
+const USE_RADIUS = 2.0; // generous, so running past a ring still counts
 
 export class BankHeistMode {
   constructor(state, params) {
@@ -70,8 +71,6 @@ export class BankHeistMode {
     this.alarm = false;
     this.alarmT = ALARM_TIME;
     this.spotted = 0;
-    this.using = null;
-    this.useT = 0;
     this.cash = 0;
     this.camTime = 0;
     for (const c of L.cashPiles) { c.taken = false; c.group.visible = true; }
@@ -116,7 +115,6 @@ export class BankHeistMode {
     s.placePlayer(pos, this.alarm ? Math.PI / 2 : 0);
     s.flash(title, msg, color);
     this.spotted = 0;
-    this.using = null;
   }
 
   _caught(title, msg) {
@@ -167,18 +165,9 @@ export class BankHeistMode {
     // --- Vault door swings open
     if (this.vaultOpen && this.doorAngle < 1.65) this._setVaultDoor(Math.min(1.65, this.doorAngle + dt * 0.8));
 
-    // --- Things to do: stand in a ring for a moment
-    const task = this._taskHere(p);
-    if (task && task === this.using) {
-      this.useT += dt;
-      const k = this.useT / task.time;
-      if (!this.alarm || task.id === 'cash') hud.setMeter(k, task.label, 'var(--cyan)');
-      if (k >= 1) { this.using = null; task.done(); }
-    } else {
-      this.using = task;
-      this.useT = 0;
-      if (!task && (this.camsOff || this.alarm)) hud.setMeter(0, '');
-    }
+    // --- Things to do: walk over a ring and it happens straight away
+    const act = this._actionHere(p);
+    if (act) { act(); if (this.done) return; }
 
     // --- Alarm: flashing red lights and a countdown
     if (this.alarm) {
@@ -230,42 +219,34 @@ export class BankHeistMode {
     return null;
   }
 
-  /** What can be done where the player is standing? */
-  _taskHere(p) {
+  /** What happens where the player is standing? (a function to call, or null) */
+  _actionHere(p) {
     const near = (v, r = USE_RADIUS) => Math.hypot(p.x - v.x, p.z - v.z) < r;
     const S = this.level.spots;
-    if (!this.camsOff && near(S.cameras)) return this._task('cameras', 1.2, 'Switching off the cameras...', () => this._camerasOff());
-    if (!this.hasCode && near(S.note)) return this._task('note', 0.5, 'Reading the note...', () => this._gotCode());
+    if (!this.camsOff && near(S.cameras)) return () => this._camerasOff();
+    if (!this.hasCode && near(S.note)) return () => this._gotCode();
     if (!this.vaultOpen && near(S.keypad)) {
       if (!this.hasCode) {
         if (!this._lockedMsg) { this._lockedMsg = true; this.state.game.hud.toast('Locked', 'You need the vault code. Try the manager\'s office.', 'var(--muted)'); audio.sfx('locked'); }
         return null;
       }
-      return this._task('keypad', 1.2, 'Entering the code: 0417...', () => this._openVault());
+      return () => this._openVault();
     }
     this._lockedMsg = this._lockedMsg && near(S.keypad, USE_RADIUS + 1);
     if (this.vaultOpen) {
       for (const c of this.level.cashPiles) {
-        if (!c.taken && near(c.pos, 1.8)) return this._task('cash', 0.6, 'Bagging the cash...', () => this._grab(c), c);
+        if (!c.taken && near(c.pos, 2.2)) return () => this._grab(c);
       }
     }
-    if (this.alarm && near(S.roof)) return this._task('roof', 0.25, 'Up the stairs!', () => this._toRoof());
+    if (this.alarm && near(S.roof)) return () => this._toRoof();
     return null;
-  }
-
-  /** Tasks are cached per id so "standing in the same ring" keeps counting. */
-  _task(id, time, label, done, key = id) {
-    this._tasks ||= new Map();
-    let t = this._tasks.get(key);
-    if (!t) this._tasks.set(key, (t = { id, time, label, done }));
-    t.done = done;
-    return t;
   }
 
   _camerasOff() {
     const L = this.level;
     this.camsOff = true;
     this.spotted = 0;
+    this.state.game.hud.setMeter(0, '');
     L.panel.material.emissive.setHex(0x30ff70);
     for (const c of L.cams) c.lens.material.color.setHex(0x222222);
     audio.sfx('checkpoint');
