@@ -101,7 +101,9 @@ export function generateRooftopCity({ seed = 1, blocks = 6 } = {}) {
   const spawn = findClearRoofSpot(kit.world, spawnB, rng) ||
     new THREE.Vector3((spawnB.minX + spawnB.maxX) / 2, spawnB.h + 0.05, (spawnB.minZ + spawnB.maxZ) / 2);
 
-  return { group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent };
+  // Street centre lines (for parking the Free Run car at street level)
+  const blockCenters = Array.from({ length: blocks }, (_, i) => blockCenter(i));
+  return { group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH };
 }
 
 function splitSpan(rng, start, length, parts) {

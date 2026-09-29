@@ -15,7 +15,7 @@ export class Hud {
       speedo: $('hud-speedo'), speed: $('hud-speed'), nitro: $('hud-nitro'),
       meter: $('hud-meter'), meterLabel: $('hud-meter-label'), meterFill: $('hud-meter-fill'),
       controls: $('hud-controls'), debug: $('hud-debug'), marker: $('hud-marker'), waypoint: $('hud-waypoint'),
-      toast: $('toast'), fade: $('fade'),
+      toast: $('toast'), fade: $('fade'), cross: $('hud-cross'), run: $('hud-run'),
     };
     this._cache = new Map();
     this._toastTimer = 0;
@@ -30,10 +30,10 @@ export class Hud {
     else el.textContent = value;
   }
 
-  /** Show only the listed HUD sections: 'tl', 'score', 'map', 'speedo', 'meter', 'controls' */
+  /** Show only the listed HUD sections: 'tl', 'score', 'map', 'speedo', 'meter', 'controls', 'marker', 'cross' */
   show(sections) {
     const all = { tl: this.el.tl, score: this.el.score, map: this.el.mapWrap, speedo: this.el.speedo,
-      meter: this.el.meter, controls: this.el.controls, marker: this.el.marker };
+      meter: this.el.meter, controls: this.el.controls, marker: this.el.marker, cross: this.el.cross };
     for (const [k, el] of Object.entries(all)) el.hidden = !sections.includes(k);
     if (!sections.includes('marker')) this.el.marker.style.display = 'none';
     this.el.waypoint.style.display = 'none'; // shown again by a driving state that has one
@@ -41,6 +41,7 @@ export class Hud {
 
   hideAll() {
     this.show([]);
+    this.setRun(null);
     this.setDebug('');
     this.el.toast.classList.remove('show');
     this._toastTimer = 0;
@@ -54,6 +55,22 @@ export class Hud {
     this._set(this.el.scoreLabel, 'scoreLabel', labelHtml, true);
   }
   setDebug(text) { this._set(this.el.debug, 'debug', text); }
+
+  /** Speedrun timer (top centre); null hides it. */
+  setRun(time, label = '') {
+    const on = time != null;
+    if (this.el.run.hidden === on) this.el.run.hidden = !on;
+    if (!on) return;
+    this._set(this.el.run.querySelector('b'), 'runT', time);
+    this._set(this.el.run.querySelector('span'), 'runL', `Speedrun · ${label}`);
+  }
+
+  /** Crosshair: shows SPRINT under it while sprint is switched on. */
+  setSprint(on) {
+    if (this._cache.get('sprint') === on) return;
+    this._cache.set('sprint', on);
+    this.el.cross.classList.toggle('sprint', on);
+  }
 
   setSpeedo(kmh, nitro) {
     this._set(this.el.speed, 'speed', String(Math.round(kmh)));

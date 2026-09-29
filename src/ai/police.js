@@ -138,9 +138,12 @@ export class PoliceForce {
     const inGarage = this.city.isInGarage?.(player.pos.x, player.pos.z);
     // Signal Jammer gadget: nobody can call you in while it runs.
     this.jammed = Math.max(0, (this.jammed || 0) - dt);
+    // Smoke Screen gadget: only cops right on your bumper can see through it.
+    this.smoked = Math.max(0, (this.smoked || 0) - dt);
     for (const u of this.units) {
+      const d = Math.hypot(u.car.pos.x - player.pos.x, u.car.pos.z - player.pos.z);
       u.seesPlayer = !(u.stunned > 0) && this.jammed <= 0 && this.canSee(u.car.pos, player.pos) &&
-        (!inGarage || Math.hypot(u.car.pos.x - player.pos.x, u.car.pos.z - player.pos.z) < GARAGE_SIGHT);
+        (!inGarage || d < GARAGE_SIGHT) && (this.smoked <= 0 || d < 12);
       if (u.seesPlayer) this.anySees = true;
     }
     if (this.anySees) {
@@ -164,6 +167,12 @@ export class PoliceForce {
     for (const u of this.units) {
       const car = u.car;
       car.speedFactor = heat.speedFactor;
+      // Spike Drop gadget: burst tyres, crawling along for a while.
+      if (u.flat > 0) {
+        u.flat -= dt;
+        car.speedFactor *= 0.4;
+        car.gripFactor = u.flat > 0 ? 0.55 : 1;
+      }
       // Knocked out by a gadget (EMP: engine dead; oil: spinning out).
       if (u.stunned > 0) {
         u.stunned -= dt;

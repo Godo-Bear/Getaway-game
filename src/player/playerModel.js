@@ -151,6 +151,35 @@ export class PlayerModel {
     this._apply(pc);
   }
 
+  /** A delta-wing hang glider, attached above the shoulders (hidden until used). */
+  _buildWing() {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0.9);      // nose (forward)
+    shape.lineTo(1.7, -0.55);  // right tip
+    shape.lineTo(0, -0.3);     // tail notch
+    shape.lineTo(-1.7, -0.55); // left tip
+    shape.closePath();
+    const geo = new THREE.ShapeGeometry(shape);
+    geo.rotateX(-Math.PI / 2); // lie flat, nose towards +Z (the way the model faces)
+    geo.scale(1, 1, -1);
+    const sail = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color: 0xff8a3d, emissive: 0x5a2208, roughness: 0.6, side: THREE.DoubleSide }));
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(3.3, 0.03, 0.06), new THREE.MeshBasicMaterial({ color: 0xffd27a, toneMapped: false }));
+    stripe.position.set(0, 0.02, -0.35);
+    const spar = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 1.3), new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: 0.7 }));
+    spar.position.set(0, -0.01, 0.2);
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.04, 0.04), spar.material);
+    bar.position.set(0, -0.55, 0.15);
+    const strutL = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.6, 0.03), spar.material);
+    strutL.position.set(-0.42, -0.27, 0.15);
+    const strutR = strutL.clone();
+    strutR.position.x = 0.42;
+    this.wing = new THREE.Group();
+    this.wing.add(sail, stripe, spar, bar, strutL, strutR);
+    this.wing.position.set(0, 2.3, 0.15);
+    this.wing.visible = false;
+    this.root.add(this.wing); // on the root, so it stays level while the body leans
+  }
+
   _targetPose(dt, pc, speed) {
     const t = {
       hipL: 0, hipR: 0, kneeL: 0.05, kneeR: 0.05,
@@ -256,6 +285,18 @@ export class PlayerModel {
         break;
       }
       case 'air': {
+        if (pc.gliding) {
+          // Glider Wing: hanging under the wing, both hands on the bar, legs trailing.
+          t.shL = t.shR = -2.9;
+          t.elL = t.elR = -0.1;
+          t.shLz = -0.35; t.shRz = 0.35;
+          t.hipL = t.hipR = 0.25;
+          t.kneeL = t.kneeR = 0.35;
+          t.lean = 0.95;
+          t.headPitch = -0.6;
+          t.bagSwing = 0.4;
+          break;
+        }
         const rising = pc.vel.y > 0;
         // Tuck on the way up, legs reach for the ground on the way down.
         t.hipL = rising ? -1.1 : -0.5;
@@ -328,6 +369,15 @@ export class PlayerModel {
     this.hips.position.y = 0.4 + p.bob;
     this.bag.rotation.x = p.bagSwing;
     this.tumble.rotation.z = p.sideLean;
+
+    // Glider Wing (gadget): unfolds above your shoulders while gliding.
+    if (pc.gliding && !this.wing) this._buildWing();
+    if (this.wing) {
+      const open = pc.gliding ? 1 : 0;
+      this.wingOpen = damp(this.wingOpen || 0, open, 10, 1 / 60);
+      this.wing.visible = this.wingOpen > 0.03;
+      this.wing.scale.set(this.wingOpen, 1, 0.4 + this.wingOpen * 0.6);
+    }
 
     // Roll: one full forward somersault over the roll duration.
     if (pc.state === 'roll') {

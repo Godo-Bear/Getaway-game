@@ -50,6 +50,7 @@ export class RooftopRunMode {
     this.level = 1;
     this.spotted = 0;
     this.cashCollected = 0;
+    this.cashEarned = 0;
     this.hidden = false;
     for (const h of this.helis) h.dispose();
     this.helis = [];
@@ -163,7 +164,8 @@ export class RooftopRunMode {
         const bonus = 250 * this.level;
         this.score += bonus;
         this.cashCollected++;
-        const shopCash = earn(s.game, 50, '', { quiet: true });
+        const shopCash = earn(s.game, 100 + 20 * this.level, '', { quiet: true });
+        this.cashEarned += shopCash;
         hud.toast(`+${bonus} points, +$${shopCash}!`, 'Cash for the Shop.', 'var(--safe)');
         audio.sfx('cash');
         this._placePickup();
@@ -173,6 +175,7 @@ export class RooftopRunMode {
 
     hud.setScore(this.score, `WANTED <span class="heat">${'★'.repeat(this.level)}${'☆'.repeat(MAX_LEVEL - this.level)}</span>`);
     hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span><span>Cash bags <b>${this.cashCollected}</b></span>` +
+      `<span>Earned <b style="color:var(--safe)">$${this.cashEarned}</b></span>` +
       (this.hidden ? '<span><b>Hidden</b> (no points)</span>' : ''));
 
     if (this.spotted >= 1) this._caught();
@@ -192,7 +195,7 @@ export class RooftopRunMode {
         <div><span>Best</span><b>${save.data.best.rooftopRun.toLocaleString('en-US')}</b></div>
         <div><span>Time survived</span><b>${formatTime(s.time)}</b></div>
         <div><span>Wanted level</span><b>${this.level}</b></div>
-        <div><span>Cash for the Shop</span><b style="color:var(--safe)">+$${earn(s.game, score / 25, '', { quiet: true })}</b></div>
+        <div><span>Cash for the Shop</span><b style="color:var(--safe)">+$${this.cashEarned + earn(s.game, score / 10, '', { quiet: true })}</b></div>
       </div>
       ${isBest ? '<p class="new-best">New best score!</p>' : ''}`);
   }

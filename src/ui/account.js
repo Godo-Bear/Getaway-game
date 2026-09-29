@@ -8,13 +8,6 @@ import { save } from '../core/save.js';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-/** One line for the title-screen button. */
-export function accountSub() {
-  if (!cloud.ready) return 'Online saves are not set up yet';
-  return cloud.user ? `Signed in as ${esc(cloud.user.email)} · progress saved online`
-    : 'Sign in or sign up so you never lose your progress';
-}
-
 export function showAccount(onBack) {
   if (!cloud.ready) {
     showCard(`<h2>Account</h2>

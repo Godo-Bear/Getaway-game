@@ -9,7 +9,8 @@ import { showCaseBoard } from './caseBoard.js';
 import { formatTime } from '../core/utils.js';
 import { showShop } from './shop.js';
 import { cash } from '../gadgets/gadgets.js';
-import { showAccount, accountSub } from './account.js';
+import { showAccount } from './account.js';
+import { cloud } from '../core/cloud.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -18,16 +19,16 @@ const card = document.getElementById('card');
  * Show a card.
  * @param {string} html - content
  * @param {{label:string, sub?:string, primary?:boolean, disabled?:boolean, onClick:Function}[]} buttons
- * @param {{title?:boolean, list?:boolean, side?:boolean}} opts - title = big left-aligned title-screen style,
- *        side = docked on the right so the 3D scene stays visible
+ * @param {{title?:boolean, list?:boolean, grid?:boolean, side?:boolean}} opts - title = big left-aligned title-screen style,
+ *        list = one button per row, grid = two columns, side = docked on the right so the 3D scene stays visible
  */
-export function showCard(html, buttons = [], { title = false, list = false, side = false } = {}) {
+export function showCard(html, buttons = [], { title = false, list = false, grid = false, side = false } = {}) {
   card.innerHTML = html;
   const row = document.createElement('div');
-  row.className = list ? 'menu-list' : 'btns';
+  row.className = grid ? 'menu-grid' : list ? 'menu-list' : 'btns';
   for (const b of buttons) {
     const el = document.createElement('button');
-    el.className = `btn${b.primary ? ' primary' : ''}`;
+    el.className = `btn${b.primary ? ' primary' : ''}${b.cls ? ` ${b.cls}` : ''}`;
     el.innerHTML = b.label + (b.sub ? `<small>${b.sub}</small>` : '');
     el.disabled = !!b.disabled;
     el.addEventListener('click', (e) => {
@@ -56,14 +57,14 @@ export function isCardOpen() {
 export const CONTROLS = {
   onFoot: `
     <kbd>Mouse</kbd> look around &nbsp; <kbd>W A S D</kbd> move<br>
-    <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
+    <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
     Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
     <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
-    <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb<br>
+    <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb<br>
     <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
@@ -81,7 +82,7 @@ export function controlsHtml() {
     <div class="controls-grid">
       <kbd>Mouse</kbd><span>Look around (click the game to lock the mouse)</span>
       <kbd>W A S D</kbd><span>Move</span>
-      <kbd>Shift</kbd><span>Sprint</span>
+      <kbd>Shift</kbd><span>Sprint: tap once to keep sprinting, tap again to stop (switch to hold-to-sprint in Settings)</span>
       <kbd>Space</kbd><span>Jump. Near a ledge: climb it (up to 2.7 m)</span>
       <kbd>Run into it</kbd><span>Vault over low obstacles like AC units</span>
       <kbd>C</kbd><span>Slide while sprinting (under pipes); crouch when slow</span>
@@ -90,6 +91,7 @@ export function controlsHtml() {
       <kbd>V</kbd><span>Switch between first-person and third-person view</span>
       <kbd>Walk into a ladder</kbd><span>Every building has a yellow ladder: hold W to climb back up from the street</span>
       <kbd>Hiding spots</kbd><span>Stand in a stairwell hut or under a water tower (green floor) to hide from the helicopter and officers</span>
+      <kbd>Space in mid-air</kbd><span>With the Glider Wing gadget: press again and hold to glide</span>
       <kbd>R</kbd><span>Go back to the last safe spot</span>
     </div>
     <p class="sub">Driving</p>
@@ -139,24 +141,91 @@ export function controlsHtml() {
     </div>`;
 }
 
-/** Title screen. `actions` = { rooftopRun, freeRun, streetChase } callbacks. */
+const ICONS = {
+  rooftop: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 21V12h5v9M8 21V7h7v14M15 21v-9h6v9M2 21h20"/><path d="M17 3l-3 5M11.5 3.5 14 8" stroke-linecap="round"/></svg>',
+  chase: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3 16v-3l2.2-5h13.6L21 13v3z"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/><path d="M6 12h12"/></svg>',
+  free: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15.5 8.5 13.5 13.5 8.5 15.5 10.5 10.5z" stroke-linejoin="round"/></svg>',
+  speedrun: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="14" r="7.5"/><path d="M12 10v4.5l3 2M9.5 2.5h5M12 2.5v4M18.5 6.5l1.5-1.5"/></svg>',
+};
+
+/** The story chapter to carry on with: the first unlocked one not solved yet. */
+function nextChapter() {
+  const p = save.data.progress;
+  const unlocked = CHAPTER_LIST.filter((c) => c.number <= (p.chapterUnlocked || 1));
+  return unlocked.find((c) => !p.solved?.[c.id]) || unlocked[unlocked.length - 1];
+}
+
+/**
+ * Title screen. `actions` = { game, story, rooftopRun, streetChase, freeRun,
+ * speedrun, settings } callbacks.
+ */
 export function showTitle(actions) {
   const best = save.data.best;
-  showCard(
-    `<div class="logo">GET<span>AWAY</span></div>
-     <p class="sub">A heist gone wrong. Someone on your crew talked. Get out, lose the cops, and find the rat.</p>`,
+  const next = nextChapter();
+  const solved = Object.keys(save.data.progress.solved || {}).length;
+  const runBest = Object.values(best.speedrun || {});
+  const back = () => showTitle(actions);
+  const fmtScore = (n) => (n ? `Best ${n.toLocaleString('en-US')}` : 'No score yet');
+  showCard(`
+    <div class="logo">GET<span>AWAY</span></div>
+    <p class="tagline">A heist gone wrong. Someone on your crew talked. Get out, lose the cops, and find the rat.</p>
+    <button class="btn primary story-btn" data-go="story">
+      <span class="t-kick">Story · ${solved}/${CHAPTER_LIST.length} solved</span>
+      <b>${next.title.replace(/^Chapter (\d+): /, 'Chapter $1 · ')}</b>
+      <small>${solved === 0 ? 'Start here: the Harbor Trust job' : 'Carry on with the story'}</small>
+      <span class="arrow">›</span>
+    </button>
+    <div class="tiles">
+      <button class="btn tile" data-go="rooftop">${ICONS.rooftop}<b>Rooftop Run</b><small>${fmtScore(best.rooftopRun)}</small></button>
+      <button class="btn tile" data-go="chase">${ICONS.chase}<b>Street Chase</b><small>${fmtScore(best.streetChase)}</small></button>
+      <button class="btn tile" data-go="free">${ICONS.free}<b>Free Run</b><small>Rooftops + streets</small></button>
+      <button class="btn tile" data-go="speedrun">${ICONS.speedrun}<b>Speedrun</b><small>${runBest.length ? `${runBest.length} best time${runBest.length > 1 ? 's' : ''}` : 'Race the story'}</small></button>
+    </div>
+    <div class="pills">
+      <button class="pill" data-go="shop">Shop <b>$${cash().toLocaleString('en-US')}</b></button>
+      <button class="pill" data-go="account">${cloud.user ? '<span class="dot"></span>' : ''}Account</button>
+      <button class="pill" data-go="settings">Settings</button>
+      <button class="pill" data-go="controls">Controls</button>
+    </div>`, [], { title: true });
+  const go = {
+    story: () => showChapterSelect(actions),
+    rooftop: actions.rooftopRun,
+    chase: actions.streetChase,
+    free: () => showFreeRunMenu(actions, back),
+    speedrun: () => actions.speedrun(back),
+    shop: () => showShop(back),
+    account: () => showAccount(back),
+    settings: () => actions.settings(back),
+    controls: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]),
+  };
+  for (const el of card.querySelectorAll('[data-go]')) {
+    el.addEventListener('click', (e) => { e.stopPropagation(); go[el.dataset.go](); });
+  }
+  setTimeout(() => card.querySelector('.story-btn')?.focus({ preventScroll: true }), 30);
+}
+
+/** Free Run: pick where to start, and whether the police come too. */
+function showFreeRunMenu(actions, back) {
+  let police = false;
+  const render = () => {
+    showCard(`
+      <p class="sub kicker">Free Run</p>
+      <h2>Rooftops and streets</h2>
+      <p class="sub">Roam the rooftops on foot, then walk up to your car on the street and drive the city. Park in a garage to head back up. Grab cash bags and cash drops for the Shop.</p>
+      <div class="tabs" style="margin:6px 0 4px">
+        <button class="tab${police ? '' : ' on'}" data-pol="0">No police</button>
+        <button class="tab${police ? ' on' : ''}" data-pol="1">With police (double cash)</button>
+      </div>`,
     [
-      { label: 'Story', sub: 'Escape, drive, and find out who betrayed you', primary: true, onClick: () => showChapterSelect(actions) },
-      { label: 'Rooftop Run', sub: `Parkour survival: outrun the police helicopters. Best: ${best.rooftopRun.toLocaleString('en-US')}`, onClick: actions.rooftopRun },
-      { label: 'Street Chase', sub: `Driving survival: lose the cops, use nitro. Best: ${best.streetChase.toLocaleString('en-US')}`, onClick: actions.streetChase },
-      { label: 'Free Run', sub: 'Practise parkour on the rooftops, no helicopters', onClick: actions.freeRun },
-      { label: 'Gadget Shop', sub: `Smoke bombs, EMPs, grapple guns and more. Cash: $${cash().toLocaleString('en-US')}`, onClick: () => showShop(() => showTitle(actions)) },
-      { label: 'Account', sub: accountSub(), onClick: () => showAccount(() => showTitle(actions)) },
-      { label: 'Settings', sub: 'Volume, controls, graphics, car colour', onClick: () => actions.settings(() => showTitle(actions)) },
-      { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: () => showTitle(actions) }]) },
-    ],
-    { title: true, list: true },
-  );
+      { label: 'Start on the rooftops', primary: true, onClick: () => actions.freeRun({ police, inCar: false }) },
+      { label: 'Start in the car', onClick: () => actions.freeRun({ police, inCar: true }) },
+      { label: 'Back', onClick: back },
+    ]);
+    for (const el of card.querySelectorAll('[data-pol]')) {
+      el.addEventListener('click', (e) => { e.stopPropagation(); police = el.dataset.pol === '1'; render(); });
+    }
+  };
+  render();
 }
 
 /** Chapter select: pick a chapter (and part), see ratings, open the Case Board. */
@@ -167,31 +236,40 @@ export function showChapterSelect(actions) {
     const unlocked = c.number <= (p.chapterUnlocked || 1);
     const rating = p.ratings?.[c.id];
     const best = p.bestTimes?.[`${c.id}.total`];
-    const status = !unlocked ? 'Locked: solve the previous chapter'
-      : [p.solved?.[c.id] ? 'Solved' : 'Not solved yet', rating ? `rating ${rating}` : '', best != null ? `best ${formatTime(best)}` : ''].filter(Boolean).join(' · ');
-    return { label: c.title, sub: status, primary: unlocked && !p.solved?.[c.id], disabled: !unlocked,
-      onClick: () => showChapterParts(c.id, actions, back) };
+    const tags = !unlocked ? '<em class="tag">Locked: solve the previous chapter</em>'
+      : [p.solved?.[c.id] ? '<em class="tag ok">Solved ✓</em>' : '<em class="tag">Not solved yet</em>',
+        rating ? `<em class="tag ${rating}">${rating}</em>` : '',
+        best != null ? `<em class="tag">Best ${formatTime(best)}</em>` : '',
+        `<em class="tag">${c.parts.length} parts</em>`].join('');
+    return {
+      label: `<span class="ch-num">${unlocked ? c.number : '🔒'}</span><span class="ch-main"><b>${c.short}</b><span class="tags">${tags}</span></span>`,
+      cls: 'ch-row', primary: unlocked && c.id === nextChapter().id && !p.solved?.[c.id], disabled: !unlocked,
+      onClick: () => showChapterParts(c.id, actions, back),
+    };
   });
   buttons.push({ label: 'Back', onClick: () => showTitle(actions) });
-  showCard('<h2>Story</h2><p class="sub">Each chapter: escape, lose the police, then work out who betrayed you.</p>', buttons, { list: true });
+  showCard('<p class="sub kicker">Story</p><h2>Chapters</h2><p class="sub">Each chapter: pull off the job, lose the police, then work out who betrayed you.</p>', buttons, { list: true });
 }
 
 function showChapterParts(chapterId, actions, back) {
   const chapter = CHAPTERS[chapterId];
   const found = new Set((save.data.progress.clues?.[chapterId] || []).filter((id) => id in chapter.clues));
   const total = Object.keys(chapter.clues).length;
+  const times = save.data.progress.bestTimes || {};
   const parts = chapter.parts.map((part, i) => ({
-    label: `Part ${i + 1}: ${part.title}`,
-    sub: i === 0 ? 'Play the whole chapter from the start' : 'Start from this part (practice)',
+    label: `<span class="ch-num">${i + 1}</span><span class="ch-main"><b>${part.title}</b><span class="tags">` +
+      `<em class="tag">${part.kind === 'drive' ? 'Driving' : 'On foot'}</em>` +
+      `${i === 0 ? '<em class="tag">Full chapter</em>' : '<em class="tag">Practice from here</em>'}` +
+      `${times[`${chapterId}.${part.id}`] != null ? `<em class="tag">Best ${formatTime(times[`${chapterId}.${part.id}`])}</em>` : ''}</span></span>`,
+    cls: 'ch-row',
     primary: i === 0,
     onClick: () => actions.story(chapterId, i, false),
   }));
-  showCard(`<p class="sub kicker">${chapter.title}</p><h2>Choose where to start</h2>
-    <p class="sub">A chapter rating needs a full run from Part 1. Want to look around without the police? Turn on ghost mode in any part: press G, use the pause menu, or tap the Ghost button on a touch screen. Nothing counts while it's on.</p>`, [
+  showCard(`<p class="sub kicker">${chapter.title.replace(/:.*/, '')}</p><h2>${chapter.short}</h2>
+    <p class="sub fine">A chapter rating needs a full run from Part 1. Want to look around without the police? Press G (or use the pause menu) for ghost mode: nothing counts while it's on.</p>`, [
     ...parts,
-    { label: 'Case Board', sub: `Every clue you have ever found (${found.size}/${total})`,
+    { label: `Case Board <small>Every clue you have found: ${found.size} of ${total}</small>`,
       onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back)) },
     { label: 'Back', onClick: back },
   ], { list: true });
 }
-

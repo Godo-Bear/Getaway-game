@@ -135,6 +135,7 @@ export class ChapterFootMode {
     const s = this.state;
     const part = this.part;
     this.run = getChapterRun(s.game, this.chapter.id);
+    this.hasMagnet = owns('magnet');
     this.ghost = false;
     this.ghostSnap = null;
     this.ghostWarn = 0;
@@ -157,7 +158,7 @@ export class ChapterFootMode {
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${part.title}`);
     hud.setObjective(part.objective);
 
-    if (first) s.showStoryCards(part.intro, part.startLabel || 'Go', () => { if (this.startGhost) this.setGhost(true); });
+    if (first && !s.game.speedrun) s.showStoryCards(part.intro, part.startLabel || 'Go', () => { if (this.startGhost) this.setGhost(true); });
   }
 
   /** (Re)create the helicopter and officers this part uses. */
@@ -303,7 +304,9 @@ export class ChapterFootMode {
       if (!c.group.visible) continue;
       c.gem.rotation.y += dt * 1.8;
       c.gem.position.y = 1.2 + Math.sin(t * 2.4 + c.pos.x) * 0.15;
-      if (Math.hypot(p.pos.x - c.pos.x, p.pos.z - c.pos.z) < PICKUP_RADIUS && p.pos.y - c.pos.y > -1 && p.pos.y - c.pos.y < 2.5) {
+      // (Clue Magnet gadget: grab clues from much further away)
+      const magnet = this.hasMagnet, r = magnet ? PICKUP_RADIUS * 3 : PICKUP_RADIUS, dy = p.pos.y - c.pos.y;
+      if (Math.hypot(p.pos.x - c.pos.x, p.pos.z - c.pos.z) < r && dy > (magnet ? -4 : -1) && dy < (magnet ? 6 : 2.5)) {
         if (this.ghost) this._ghostNotice('Found it! Turn ghost mode off, then come back here to pick it up.');
         else this._pickUpClue(c);
       }

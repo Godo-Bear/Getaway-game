@@ -9,11 +9,13 @@ import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
 import { NightLighting, lightingForQuality } from '../world/lighting.js';
 import { Weather, pickWeather } from '../world/weather.js';
 import { FootGadgets } from '../gadgets/footGadgets.js';
+import { owns } from '../gadgets/gadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { damp, clamp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
 import { RooftopRunMode } from './modes/rooftopRunMode.js';
 import { ChapterFootMode } from './modes/chapterFootMode.js';
+import { BankHeistMode } from './modes/bankHeistMode.js';
 
 // On-foot game state: everything the on-foot modes have in common.
 //   - the player (physics + animated model) and the third-person camera
@@ -25,6 +27,7 @@ import { ChapterFootMode } from './modes/chapterFootMode.js';
 //   free     -> FreeRunMode         (explore, practise)
 //   survival -> RooftopRunMode      (endless helicopter chase, score)
 //   story    -> ChapterFootMode     (story level: checkpoints, clues, goals)
+//   heist    -> BankHeistMode       (Chapter 1's opening, inside the bank)
 //
 // A mode can implement:
 //   build()          -> { group, world, spawn }  the level to play in
@@ -35,7 +38,7 @@ import { ChapterFootMode } from './modes/chapterFootMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {
@@ -62,6 +65,10 @@ export class OnFootState extends PlayState {
 
     this.player = new PlayerController(this.world);
     this.player.ladders = this.level.ladders || [];
+    // Movement gadgets from the Shop (always on once bought)
+    this.player.canGlide = owns('glider');
+    this.player.jumpScale = owns('springs') ? 1.2 : 1;
+    this.player.wallRunScale = owns('grips') ? 2 : 1;
     this.model = new PlayerModel();
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
@@ -78,10 +85,16 @@ export class OnFootState extends PlayState {
     this.arms = new FirstPersonArms(this.camera);
     this.setFirstPerson(!!s.firstPerson);
 
-    game.hud.show(this.mode.hudSections);
+    this.sprintOn = false;
+    this._showHud();
     game.hud.showControls(game.input.pointerLockFailed ? CONTROLS.onFootNoLock : CONTROLS.onFoot);
     this.firstStart = true;
     this.restart();
+  }
+
+  _showHud() {
+    const cross = this.game.settings.crosshair !== false;
+    this.game.hud.show(cross ? [...this.mode.hudSections, 'cross'] : this.mode.hudSections);
   }
 
   /** Switch view: first person hides the body and shows the arms. */
@@ -146,7 +159,17 @@ export class OnFootState extends PlayState {
     }
     c.jumpPressed = input.wasPressed('jump');
     c.jumpHeld = input.isDown('jump');
-    c.sprint = input.isDown('sprint');
+    // Sprint: tap once to keep sprinting, tap again to stop (or hold it,
+    // if "Sprint stays on" is switched off in Settings).
+    if (this.game.settings.sprintToggle !== false) {
+      if (input.wasPressed('sprint')) this.sprintOn = !this.sprintOn;
+      c.sprint = this.sprintOn;
+    } else {
+      this.sprintOn = false;
+      c.sprint = input.isDown('sprint');
+    }
+    this.game.hud.setSprint(this.sprintOn);
+    this.game.touch?.setOn?.('b', this.sprintOn);
     c.crouch = input.isDown('crouch');
     this.cam.getForward(this._fwd);
     this.cam.getRight(this._right);
@@ -194,6 +217,7 @@ export class OnFootState extends PlayState {
       if (e.type === 'slide') audio.sfx('whoosh', { vol: 0.5 });
       if (e.type === 'wallrun' || e.type === 'walljump') audio.sfx('step', { vol: 1.3 });
       if (e.type === 'zip') audio.sfx('whoosh', { vol: 0.8 });
+      if (e.type === 'glide') audio.sfx('whoosh', { vol: 0.7 });
       if (e.type === 'zipEnd') audio.sfx('land', { vol: 0.5 });
       if (e.type === 'roll') {
         hud.toast('Roll!', '', 'var(--cyan)');
@@ -217,12 +241,6 @@ export class OnFootState extends PlayState {
     }
 
     this.model.update(frozen ? 0 : dt, p);
-    // Footsteps: one every half cycle of the running animation.
-    const stepIndex = Math.floor(this.model.runPhase / Math.PI);
-    if (stepIndex !== this._lastStep) {
-      this._lastStep = stepIndex;
-      if (!frozen && p.state === 'ground' && p.horizontalSpeed > 1.5) audio.sfx('step', { vol: Math.min(1, p.horizontalSpeed / 9) });
-    }
     // Head bob in first person: follows the running cycle of the (hidden) body.
     const running = p.state === 'ground' && p.horizontalSpeed > 0.5 && !frozen;
     const bobTarget = running ? Math.abs(Math.sin(this.model.runPhase)) * 0.06 * Math.min(1, p.horizontalSpeed / 8) - 0.03 : 0;
@@ -243,9 +261,9 @@ export class OnFootState extends PlayState {
   audioMix() {
     const p = this.player;
     const high = Math.min(1, Math.max(0, (p.pos.y - 8) / 16));
-    audio.windSpeed(p.horizontalSpeed);
+    audio.windSpeed(0);
     return {
-      wind: high * (0.05 + Math.min(0.1, p.horizontalSpeed * 0.01)),
+      wind: high * 0.03,
       city: 0.05 + (1 - high) * 0.08,
       music: 0.35,
       intensity: 0.25,
@@ -259,13 +277,14 @@ export class OnFootState extends PlayState {
     this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
     this.cam.invertY = s.invertY;
     if (!!s.firstPerson !== this.cam.firstPerson) this.setFirstPerson(!!s.firstPerson);
+    this._showHud();
   }
 
   /** Remember recent positions on solid roofs so a fall can send you back. */
   /** Down on the street? Point at the nearest ladder so you can climb back up. */
   _streetHelp(dt) {
     const p = this.player;
-    const onStreet = p.pos.y < 1.5 && (p.grounded || p.state === 'ladder');
+    const onStreet = !this.mode.indoors && p.pos.y < 1.5 && (p.grounded || p.state === 'ladder');
     if (!onStreet) {
       this._streetTipShown = false;
       if (this._streetMarker) { this._streetMarker = false; this.game.hud.setMarker(null); }
@@ -275,7 +294,7 @@ export class OnFootState extends PlayState {
       this._streetTipShown = true;
       this.game.hud.toast('Down on the street', 'Every building has a yellow ladder. Walk into it and hold forward to climb back up (or press R).', 'var(--cyan)', 5);
     }
-    if (p.state === 'ladder') return;
+    if (p.state === 'ladder' || this.mode.streetMarker) return;
     let best = null, bd = Infinity;
     for (const L of p.ladders) {
       const d = Math.hypot(L.x - p.pos.x, L.z - p.pos.z);

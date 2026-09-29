@@ -114,7 +114,7 @@ export class ChapterDriveMode {
     hud.setObjective(part.objective);
     this._updateStats();
 
-    if (first) s.showStoryCards(part.intro, part.startLabel || 'Drive', () => { if (this.startGhost) this.setGhost(true); });
+    if (first && !s.game.speedrun) s.showStoryCards(part.intro, part.startLabel || 'Drive', () => { if (this.startGhost) this.setGhost(true); });
     else hud.toast('Go!', part.objective, 'var(--amber)');
   }
 

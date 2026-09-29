@@ -4,6 +4,7 @@ import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
 import { showSettings } from '../ui/settings.js';
 import { audio } from '../core/audio.js';
+import { startSpeedrun, formatRun } from '../story/speedrun.js';
 
 // Shared behaviour for every "playing" mode (on foot, driving):
 //   - pause menu (P / Esc, or automatically when the mouse lock is lost)
@@ -79,7 +80,7 @@ export class PlayState {
     const run = this.game.chapterRun;
     const chapter = run && this.isStory ? CHAPTERS[run.chapterId] : null;
     const ghostOn = !!this.mode?.ghost;
-    showCard('<h2>Paused</h2>', [
+    showCard(`<p class="sub kicker">${this.game.speedrun ? `Speedrun · ${formatRun(this.game.speedrun.t)}` : 'Game paused'}</p><h2>Paused</h2>`, [
       { label: 'Resume', primary: true, onClick: resume },
       ...(chapter ? [{ label: 'Case Board', onClick: () => showCaseBoard(chapter, run.clues, back) }] : []),
       ...(this.canGhost ? [{
@@ -87,17 +88,19 @@ export class PlayState {
         sub: ghostOn ? 'The police come back and you return to where you turned it on' : 'Remove the police and roam freely. Nothing counts while it\'s on',
         onClick: () => { this.resume(); this.toggleGhost(); },
       }] : []),
+      ...(this.mode?.pauseButtons?.() ?? []),
       ...(this.respawnLabel ? [{ label: this.respawnLabel, onClick: () => { this.resume(); this.respawnKey(); } }] : []),
-      { label: 'Restart', onClick: () => { hideCard(); this.paused = false; this.restart(); this._afterResume(); } },
+      ...(this.game.speedrun ? [{ label: 'Restart the speedrun', sub: 'Back to the start, timer at zero', onClick: () => startSpeedrun(this.game, this.game.speedrun.routeId) }] : []),
+      { label: this.game.speedrun ? 'Restart this part' : 'Restart', sub: this.game.speedrun ? 'The timer keeps running' : undefined, onClick: () => { hideCard(); this.paused = false; this.restart(); this._afterResume(); } },
       { label: 'Settings', onClick: () => showSettings(this.game, back) },
       { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]) },
       { label: 'Quit to title', onClick: () => this.game.goTitle() },
-    ]);
+    ], { grid: true });
   }
 
   /** Can ghost mode be switched on here? (story parts only) */
   get canGhost() {
-    return this.isStory && !!this.mode?.setGhost;
+    return this.isStory && !!this.mode?.setGhost && !this.game.speedrun;
   }
 
   /** Ghost mode on/off (G, d-pad left, the pause menu, or the touch button). */
@@ -188,6 +191,12 @@ export class PlayState {
     this._updateClickPrompt(); // e.g. hides the prompt once a gamepad is used
 
     const frozen = this.paused || this.over || this.inCard || this.waitingForLock;
+    // Speedrun clock: only runs while you're actually playing.
+    const sr = this.game.speedrun;
+    if (sr) {
+      if (!frozen) sr.t += dt;
+      this.game.hud.setRun(formatRun(sr.t), sr.name);
+    }
     if (!frozen) {
       this.readInput(dt);
       // Fixed timestep: run physics in equal small steps so it behaves the

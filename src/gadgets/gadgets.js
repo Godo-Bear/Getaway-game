@@ -4,7 +4,8 @@
 // bags and cash drops, and a share of your survival scores) and spent in the
 // Shop on the title screen.
 //
-// Two kinds of gadget:
+// Five Shop categories (utility, movement, damage, getaways, mole), and two
+// kinds of gadget:
 //   active  - equip one for on foot and one for the car; press F (LB on a
 //             gamepad, the Gadget button on a phone) to use it, then it
 //             recharges for a while.
@@ -15,26 +16,63 @@
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 
+// Shop categories, in the order the Shop shows them.
+export const CATEGORIES = [
+  { id: 'utility', name: 'Utility', blurb: 'Hide, distract and slip away.' },
+  { id: 'movement', name: 'Movement', blurb: 'Get around the rooftops faster.' },
+  { id: 'damage', name: 'Damage', blurb: 'Knock the police out of the chase.' },
+  { id: 'getaway', name: 'Getaways', blurb: 'Upgrades for the getaway car.' },
+  { id: 'mole', name: 'Mole', blurb: 'Find the clues and catch the traitor.' },
+];
+
+// kind: 'foot' / 'car' = press F to use (equip one of each), 'passive' = always on.
+// cat: which Shop category it's listed under.
 export const GADGETS = [
-  // ---- On foot
-  { id: 'smoke', kind: 'foot', name: 'Smoke Bomb', price: 400, cooldown: 22, color: '#b8c0cc', icon: '☁',
+  // ---- Utility
+  { id: 'smoke', cat: 'utility', kind: 'foot', name: 'Smoke Bomb', price: 400, cooldown: 35, color: '#b8c0cc', icon: '☁',
     desc: 'Bursts into a thick cloud at your feet. For 6 seconds helicopters and officers can\'t see you, and the spotlight meter drains away.' },
-  { id: 'decoy', kind: 'foot', name: 'Holo-Decoy', price: 800, cooldown: 28, color: '#39e6ff', icon: '◈',
+  { id: 'decoy', cat: 'utility', kind: 'foot', name: 'Holo-Decoy', price: 800, cooldown: 45, color: '#39e6ff', icon: '◈',
     desc: 'Drops a glowing hologram of you. For 8 seconds the spotlights and officers chase it instead of you.' },
-  { id: 'grapple', kind: 'foot', name: 'Grapple Gun', price: 1200, cooldown: 7, color: '#ffb020', icon: '⤴',
-    desc: 'Aim at a building up to 24 m away and fire: a cable yanks you up onto its roof, even from the street (up to 18 m up).' },
-  // ---- In the car
-  { id: 'oil', kind: 'car', name: 'Oil Slick', price: 500, cooldown: 14, color: '#8a5cff', icon: '◐',
-    desc: 'Dumps a slick of oil behind the car. Police cars that hit it spin out of control.' },
-  { id: 'emp', kind: 'car', name: 'EMP Blast', price: 1400, cooldown: 30, color: '#3d9bff', icon: 'ϟ',
-    desc: 'A shockwave that knocks out every police car within 45 m for 5 seconds. Sirens die, engines stall.' },
-  { id: 'jammer', kind: 'car', name: 'Signal Jammer', price: 1600, cooldown: 45, color: '#ff3a6a', icon: '⌁',
+  { id: 'jammer', cat: 'utility', kind: 'car', name: 'Signal Jammer', price: 1600, cooldown: 70, color: '#ff3a6a', icon: '⌁',
     desc: 'Scrambles the police radio for 8 seconds: they lose your trail on the spot and start searching somewhere else.' },
-  // ---- Catch the mole (passive)
-  { id: 'scanner', kind: 'passive', name: 'Clue Scanner', price: 600, color: '#4dffa6', icon: '⌖',
-    desc: 'Always on. In story levels the marker points you to the nearest clue from anywhere on the map.' },
-  { id: 'detector', kind: 'passive', name: 'Lie Detector', price: 1000, color: '#ffd27a', icon: '⚖',
-    desc: 'Always on. At every deduction it clears one innocent suspect, so there are fewer to choose from.' },
+  { id: 'clip', cat: 'utility', kind: 'passive', name: 'Money Clip', price: 1500, color: '#4dffa6', icon: '$',
+    desc: 'You earn 25% more cash from everything.' },
+  // ---- Movement
+  { id: 'grapple', cat: 'movement', kind: 'foot', name: 'Grapple Gun', price: 1200, cooldown: 12, color: '#ffb020', icon: '⤴',
+    desc: 'Aim the crosshair at a building up to 24 m away and fire: a cable yanks you up onto its roof, even from the street (up to 18 m up).' },
+  { id: 'glider', cat: 'movement', kind: 'passive', name: 'Glider Wing', price: 1800, color: '#ff8a3d', icon: '◭',
+    desc: 'Press Jump again in mid-air and hold it to open a wing and glide: you fall slowly and keep your speed, so you can sail across wide gaps and down from tall roofs.' },
+  { id: 'springs', cat: 'movement', kind: 'passive', name: 'Spring Boots', price: 900, color: '#a6ff4d', icon: '⇞',
+    desc: 'Every jump goes about 40% higher.' },
+  { id: 'grips', cat: 'movement', kind: 'passive', name: 'Gecko Gloves', price: 700, color: '#5affd0', icon: '✋',
+    desc: 'Wall-runs last twice as long.' },
+  // ---- Damage
+  { id: 'flash', cat: 'damage', kind: 'foot', name: 'Flashbang', price: 1100, cooldown: 45, color: '#fff3a0', icon: '✸',
+    desc: 'A blinding flash. Helicopter crews lose you for 5 seconds (their spotlights wander off) and officers within 15 m are stunned for 5 seconds.' },
+  { id: 'oil', cat: 'damage', kind: 'car', name: 'Oil Slick', price: 500, cooldown: 25, color: '#8a5cff', icon: '◐',
+    desc: 'Dumps a slick of oil behind the car. Police cars that hit it spin out of control.' },
+  { id: 'spikes', cat: 'damage', kind: 'car', name: 'Spike Drop', price: 900, cooldown: 35, color: '#ff9a3d', icon: '⋀',
+    desc: 'Drops a spike strip behind the car. Police cars that cross it burst their tyres and crawl along for 10 seconds.' },
+  { id: 'emp', cat: 'damage', kind: 'car', name: 'EMP Blast', price: 1400, cooldown: 50, color: '#3d9bff', icon: 'ϟ',
+    desc: 'A shockwave that knocks out every police car within 45 m for 5 seconds. Sirens die, engines stall.' },
+  { id: 'ram', cat: 'damage', kind: 'passive', name: 'Ram Plating', price: 1300, color: '#ff5a5a', icon: '▣',
+    desc: 'A steel-plated bumper: ram a police car hard and it spins out for 3 seconds.' },
+  // ---- Getaways
+  { id: 'screen', cat: 'getaway', kind: 'car', name: 'Smoke Screen', price: 1200, cooldown: 55, color: '#9aa2ae', icon: '≋',
+    desc: 'Your exhaust pours out thick smoke for 7 seconds. Police behind you can\'t see you unless they\'re right on your bumper.' },
+  { id: 'tank', cat: 'getaway', kind: 'passive', name: 'Turbo Tank', price: 1000, color: '#2fa8ff', icon: '⛽',
+    desc: 'A bigger nitro tank: nitro lasts 40% longer and refills 50% faster.' },
+  { id: 'keycard', cat: 'getaway', kind: 'passive', name: 'Garage Keycard', price: 800, color: '#5a8aff', icon: 'P',
+    desc: 'Parking garages lose the cops in 1 second (instead of 3), and parks and alleys work faster too.' },
+  // ---- Mole
+  { id: 'scanner', cat: 'mole', kind: 'passive', name: 'Clue Scanner', price: 600, color: '#4dffa6', icon: '⌖',
+    desc: 'In story levels the marker points you to the nearest clue from anywhere on the map.' },
+  { id: 'magnet', cat: 'mole', kind: 'passive', name: 'Clue Magnet', price: 500, color: '#ffc34d', icon: '⊕',
+    desc: 'Pick up clues from 3 times further away, even from the roof next door.' },
+  { id: 'evidence', cat: 'mole', kind: 'passive', name: 'Forensics Kit', price: 1200, color: '#ff7ad9', icon: '⌬',
+    desc: 'The Case Board marks which clues are red herrings (planted to fool you).' },
+  { id: 'detector', cat: 'mole', kind: 'passive', name: 'Lie Detector', price: 1000, color: '#ffd27a', icon: '⚖',
+    desc: 'At every deduction it clears one innocent suspect, so there are fewer to choose from.' },
 ];
 
 export const gadget = (id) => GADGETS.find((g) => g.id === id);
@@ -68,7 +106,7 @@ export function equip(id) {
  * another message is already on screen, like a clue's text).
  */
 export function earn(game, amount, reason = '', { quiet = false } = {}) {
-  amount = Math.round(amount);
+  amount = Math.round(amount * (owns('clip') ? 1.25 : 1));
   if (amount <= 0) return 0;
   shop().cash += amount;
   save.write();

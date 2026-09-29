@@ -7,10 +7,14 @@ import { audio } from '../core/audio.js';
 //   Oil Slick     - an oil patch behind you; police cars that hit it spin out
 //   EMP Blast     - a shockwave that knocks out every cruiser within 45 m
 //   Signal Jammer - the police radio goes dead: they lose you on the spot
+//   Spike Drop    - a spike strip behind you; cops that cross it crawl along
+//   Smoke Screen  - thick exhaust smoke: cops behind you can't see you
 
 const OIL_TIME = 14, OIL_RADIUS = 5.5, SPIN_TIME = 2.2;
 const EMP_RADIUS = 45, EMP_TIME = 5;
 const JAM_TIME = 8;
+const SPIKE_TIME = 18, SPIKE_HALF = 3.4, FLAT_TIME = 10;
+const SCREEN_TIME = 7;
 
 export class CarGadgets {
   /** @param {import('../states/drivingState.js').DrivingState} state */
@@ -19,6 +23,8 @@ export class CarGadgets {
     this.slot = new GadgetSlot(state.game, 'car');
     this.slicks = [];   // { mesh, pos, t }
     this.waves = [];    // expanding rings (EMP / jammer effects)
+    this.strips = [];   // { mesh, x, z, ax, az, t, hit:Set }
+    this.screen = 0;    // smoke screen time left
   }
 
   use() {
@@ -27,6 +33,8 @@ export class CarGadgets {
     const id = this.slot.gadget.id;
     if (id === 'oil') this._oil();
     else if (id === 'emp') this._emp();
+    else if (id === 'spikes') this._spikes();
+    else if (id === 'screen') this._screen();
     else this._jammer();
     this.slot.used();
   }
@@ -49,6 +57,45 @@ export class CarGadgets {
     this.slicks.push({ mesh: g, sheen, pos, t: 0 });
     audio.sfx('whoosh', { vol: 0.8 });
     this.state.game.hud.toast('Oil slick!', 'Cops that drive over it will spin out.', '#8a5cff', 2);
+  }
+
+  // ---------------------------------------------------------------- Spike Drop
+  _spikes() {
+    const p = this.state.player;
+    const x = p.pos.x - p.fwdX * 6, z = p.pos.z - p.fwdZ * 6;
+    // Across the road: along the car's right-hand direction
+    const ax = -p.fwdZ, az = p.fwdX;
+    const g = new THREE.Group();
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(SPIKE_HALF * 2, 0.08, 0.5), new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: 0.6, roughness: 0.4 }));
+    bar.position.y = 0.05;
+    g.add(bar);
+    const spikeGeo = new THREE.ConeGeometry(0.07, 0.28, 5);
+    const spikeMat = new THREE.MeshStandardMaterial({ color: 0xd8dde4, metalness: 0.9, roughness: 0.25, emissive: 0x3a2a10 });
+    const spikes = new THREE.InstancedMesh(spikeGeo, spikeMat, 24);
+    const m = new THREE.Matrix4();
+    for (let i = 0; i < 24; i++) {
+      m.makeTranslation(-SPIKE_HALF + 0.15 + (i % 12) * ((SPIKE_HALF * 2 - 0.3) / 11), 0.22, i < 12 ? -0.12 : 0.12);
+      spikes.setMatrixAt(i, m);
+    }
+    g.add(spikes);
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(SPIKE_HALF * 2 + 0.6, 1.1), makeGlowMaterial(0xff9a3d, 0.25));
+    glow.rotation.x = -Math.PI / 2;
+    glow.position.y = 0.02;
+    g.add(glow);
+    g.position.set(x, 0, z);
+    g.rotation.y = Math.atan2(ax, az) - Math.PI / 2;
+    this.state.scene.add(g);
+    this.strips.push({ mesh: g, glow, x, z, ax, az, t: 0, hit: new Set() });
+    audio.sfx('spike', { vol: 0.6 });
+    this.state.game.hud.toast('Spike strip down!', 'Cops that drive over it burst their tyres.', '#ff9a3d', 2);
+  }
+
+  // ---------------------------------------------------------------- Smoke Screen
+  _screen() {
+    this.screen = SCREEN_TIME;
+    this.state.police.smoked = SCREEN_TIME;
+    audio.sfx('whoosh', { vol: 1 });
+    this.state.game.hud.toast('Smoke screen!', `Cops behind you can't see through it for ${SCREEN_TIME} seconds. Break away!`, '#9aa2ae', 3);
   }
 
   // ---------------------------------------------------------------- EMP
@@ -111,6 +158,20 @@ export class CarGadgets {
   // ---------------------------------------------------------------- Per step / frame
   /** Physics step: police cars that drive onto oil spin out. */
   simulate(dt) {
+    for (const st of this.strips) {
+      for (const u of this.state.police.units) {
+        if (st.hit.has(u)) continue;
+        const c = u.car, dx = c.pos.x - st.x, dz = c.pos.z - st.z;
+        const along = dx * st.ax + dz * st.az;          // across the road
+        const across = Math.abs(dx * st.az - dz * st.ax); // distance from the strip
+        if (Math.abs(along) < SPIKE_HALF + 0.6 && across < 1.4 && c.speed > 3) {
+          st.hit.add(u);
+          u.flat = FLAT_TIME;
+          this._spark(c.pos);
+          audio.sfx('spike', { vol: 0.4 });
+        }
+      }
+    }
     for (const sl of this.slicks) {
       for (const u of this.state.police.units) {
         if (u.stunned > 0) continue;
@@ -128,6 +189,22 @@ export class CarGadgets {
 
   update(dt) {
     this.slot.update(dt);
+    this.strips = this.strips.filter((st) => {
+      st.t += dt;
+      st.glow.material.opacity = 0.18 + Math.sin(st.t * 5) * 0.07;
+      if (st.t > SPIKE_TIME) { this.state.scene.remove(st.mesh); return false; }
+      return true;
+    });
+    // Smoke screen: grey clouds pour out of the exhaust
+    if (this.screen > 0) {
+      this.screen -= dt;
+      const p = this.state.player;
+      // (the particle pool is shared with tyre smoke, so keep it to ~1 puff a frame)
+      this.state.particles.emit(p.pos.x - p.fwdX * 2.4 + (Math.random() - 0.5) * 1.5, 0.8 + Math.random(), p.pos.z - p.fwdZ * 2.4 + (Math.random() - 0.5) * 1.5, {
+        vx: -p.fwdX * 2 + (Math.random() - 0.5) * 3, vy: 0.6 + Math.random(), vz: -p.fwdZ * 2 + (Math.random() - 0.5) * 3,
+        size: 3.2, grow: 4.5, life: 2, alpha: 0.6, color: [0.55, 0.58, 0.63],
+      });
+    }
     this.slicks = this.slicks.filter((sl) => {
       sl.t += dt;
       sl.mesh.scale.setScalar(Math.min(1, 0.2 + sl.t * 3));
@@ -148,6 +225,9 @@ export class CarGadgets {
   }
 
   reset() {
+    for (const st of this.strips) this.state.scene.remove(st.mesh);
+    this.strips = [];
+    this.screen = 0;
     for (const sl of this.slicks) this.state.scene.remove(sl.mesh);
     for (const w of this.waves) this.state.scene.remove(w.ring, w.flash);
     this.slicks = [];

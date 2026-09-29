@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { clamp, easeOutCubic, easeInOut, dampAngle } from '../core/utils.js';
+import { clamp, damp, easeOutCubic, easeInOut, dampAngle } from '../core/utils.js';
 
 // The on-foot player controller: movement physics and parkour moves.
 //
@@ -73,6 +73,9 @@ export const TUNING = {
   ladderSpeed: 3.6,    // m/s climbing (faster while sprinting)
   ladderSprintSpeed: 5.5,
   ladderReach: 3,      // you can only grab a ladder near its bottom (from the street)
+
+  glideFallSpeed: 2.2, // Glider Wing gadget: gliding fall speed (m/s, settles a little above this)
+  glideSpeed: 11,      // ... and the forward speed it settles to
 };
 
 const T = TUNING;
@@ -98,6 +101,11 @@ export class PlayerController {
     this.mantle = null;     // { from, to, duration, t, vault, keepSpeed }
     this.height = T.height; // current body height (lower while sliding)
     this.speedScale = 1;    // AI runners (police officers) can be slower
+    // Shop gadgets (set by the on-foot state)
+    this.jumpScale = 1;     // Spring Boots: higher jumps
+    this.wallRunScale = 1;  // Gecko Gloves: longer wall-runs
+    this.canGlide = false;  // Glider Wing: hold jump in the air to glide
+    this.gliding = false;
     this.zipLines = [];     // set by the level: [{ a: Vector3, b: Vector3 }] (a = high end)
     this.zip = null;        // { line, t, speed } while riding a zip line
     this.zipCooldown = 0;
@@ -134,6 +142,8 @@ export class PlayerController {
     this.usedWallNormal = null;
     this.ladder = null;
     this.grappleMove = null;
+    this.gliding = false;
+    this.glideArmed = false;
   }
 
   get horizontalSpeed() {
@@ -234,7 +244,7 @@ export class PlayerController {
     const lowBody = this.state === 'slide' || this.state === 'crouch';
     if (this.jumpBufferTimer > 0 && this.coyoteTimer > 0 && this.state !== 'roll' && (!lowBody || this._canStand())) {
       if (lowBody) this.height = T.height; // slide-jump: pop back up and keep the speed
-      this.vel.y = T.jumpSpeed;
+      this.vel.y = T.jumpSpeed * this.jumpScale;
       this.grounded = false;
       this.coyoteTimer = 0;
       this.jumpBufferTimer = 0;
@@ -248,8 +258,27 @@ export class PlayerController {
       this.jumpHeld = false;
     }
 
+    // --- Glider Wing (gadget): press jump again in mid-air, and hold it -----
+    if (this.grounded || this.state !== 'air') this.glideArmed = false;
+    else if (ctl.jumpPressed && this.coyoteTimer <= 0 && this.stateTime > 0.08) this.glideArmed = true;
+    const wasGliding = this.gliding;
+    this.gliding = this.canGlide && this.glideArmed && ctl.jumpHeld && !this.grounded &&
+      this.state === 'air' && this.vel.y < 0.5;
+    if (this.gliding && !wasGliding) this.events.push({ type: 'glide' });
+
     // --- Gravity ------------------------------------------------------------
     this.vel.y = Math.max(this.vel.y - T.gravity * dt, -T.maxFallSpeed);
+    if (this.gliding) {
+      // The wing cancels most of gravity and brakes a fast fall down to a
+      // gentle glide; it also carries you forward at gliding speed.
+      this.vel.y += T.gravity * dt * 0.9;
+      if (this.vel.y < -T.glideFallSpeed) this.vel.y = damp(this.vel.y, -T.glideFallSpeed, 5, dt);
+      const dir = wishLen > 0.2 ? wish : this._facingDir();
+      const s = this.horizontalSpeed;
+      const want = Math.max(T.glideSpeed, s * 0.995);
+      this.vel.x = damp(this.vel.x, dir.x * want, 1.6, dt);
+      this.vel.z = damp(this.vel.z, dir.z * want, 1.6, dt);
+    }
 
     // --- Move and collide, one axis at a time --------------------------------
     const fallSpeed = -this.vel.y;
@@ -629,7 +658,7 @@ export class PlayerController {
     if (this.grounded) { this._endWallRun(); this._onLand(fall); return; }
     // Ran out of time, or out of wall?
     const stillWall = this._findRunWallFace(w.normal);
-    if (this.stateTime > T.wallRunTime || !stillWall) {
+    if (this.stateTime > T.wallRunTime * this.wallRunScale || !stillWall) {
       this.vel.x = w.tangent.x * w.speed;
       this.vel.z = w.tangent.z * w.speed;
       this._endWallRun();

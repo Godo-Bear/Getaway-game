@@ -62,12 +62,21 @@ export class TouchControls {
   setMode(mode) {
     if (mode === this.mode) return;
     this.mode = mode;
+    this._latch = {};
     this.root.classList.toggle('t-hidden', mode === 'none');
     for (const btn of this.root.querySelectorAll('[data-b]')) {
       const label = LABELS[mode][btn.dataset.b];
       btn.textContent = label || '';
       btn.hidden = !label;
+      btn.classList.remove('latched');
     }
+  }
+
+  /** Light a button up while its action is switched on (e.g. sprint). */
+  setOn(key, on) {
+    if (this._latch?.[key] === on) return;
+    (this._latch ||= {})[key] = on;
+    this.root.querySelector(`[data-b="${key}"]`)?.classList.toggle('latched', on);
   }
 
   /** Show/hide the ghost mode button and light it up while ghost mode is on. */

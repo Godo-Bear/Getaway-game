@@ -36,6 +36,7 @@ export class StreetChaseMode {
     this.evades = 0;
     this.nearMisses = 0;
     this.cashDrops = 0;
+    this.cashEarned = 0;
     this._placeCashDrop();
     const hud = s.game.hud;
     hud.setPhase('Street Chase');
@@ -68,8 +69,10 @@ export class StreetChaseMode {
     this.evades++;
     const bonus = 500 * this.heat;
     this.score += bonus;
+    const cash = earn(this.state.game, 40 * this.heat, '', { quiet: true });
+    this.cashEarned += cash;
     audio.sfx('checkpoint');
-    this.state.game.hud.toast('Cops lost!', `+${bonus}. They're searching the area... keep your head down.`, 'var(--safe)');
+    this.state.game.hud.toast('Cops lost!', `+${bonus} points, +$${cash}. They're searching the area... keep your head down.`, 'var(--safe)');
   }
 
   onNearMiss() {
@@ -112,7 +115,8 @@ export class StreetChaseMode {
       const bonus = 750 * this.heat;
       this.score += bonus;
       this.cashDrops++;
-      const shopCash = earn(s.game, 75, '', { quiet: true });
+      const shopCash = earn(s.game, 120 + 30 * this.heat, '', { quiet: true });
+      this.cashEarned += shopCash;
       hud.toast(`Cash drop! +${bonus} points, +$${shopCash}`, 'Cash for the Shop.', 'var(--safe)');
       audio.sfx('cash');
       this._placeCashDrop();
@@ -121,7 +125,7 @@ export class StreetChaseMode {
     const stars = '★'.repeat(this.heat) + '☆'.repeat(5 - this.heat);
     hud.setScore(this.score, `HEAT <span class="heat">${stars}</span>${police.searching ? ' &nbsp;<b>SEARCHING</b>' : ''}`);
     hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span><span>Evaded <b>${this.evades}</b></span>` +
-      `<span>Near misses <b>${this.nearMisses}</b></span>`);
+      `<span>Near misses <b>${this.nearMisses}</b></span><span>Earned <b style="color:var(--safe)">$${this.cashEarned}</b></span>`);
   }
 
   onBusted() {
@@ -138,7 +142,7 @@ export class StreetChaseMode {
         <div><span>Heat reached</span><b>${this.heat}</b></div>
         <div><span>Times evaded</span><b>${this.evades}</b></div>
         <div><span>Near misses</span><b>${this.nearMisses}</b></div>
-        <div><span>Cash for the Shop</span><b style="color:var(--safe)">+$${earn(s.game, score / 25, '', { quiet: true })}</b></div>
+        <div><span>Cash for the Shop</span><b style="color:var(--safe)">+$${this.cashEarned + earn(s.game, score / 10, '', { quiet: true })}</b></div>
       </div>
       ${isBest ? '<p class="new-best">New best score!</p>' : ''}`);
   }

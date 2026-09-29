@@ -5,6 +5,8 @@ import { showTitle, hideCard } from '../ui/menus.js';
 import { showSettings } from '../ui/settings.js';
 import { audio } from '../core/audio.js';
 import { startPart } from '../story/chapterFlow.js';
+import { showSpeedrunMenu } from '../story/speedrun.js';
+import { startFreeRoam } from './modes/freeRoam.js';
 
 // Title screen: the menu card on the left, and behind it a slow camera
 // fly-around of the night-time rooftops.
@@ -25,11 +27,15 @@ export class TitleState {
       this.scene.add(city.group);
     }
     this.game.hud.hideAll();
+    this.game.speedrun = null;
+    this.game.freeRoam = null;
     showTitle({
+      game: this.game,
       settings: (back) => showSettings(this.game, back),
+      speedrun: (back) => showSpeedrunMenu(this.game, back),
       story: (chapterId, part = 0, ghost = false) => startPart(this.game, chapterId, part, { ghost, fresh: true }),
       rooftopRun: () => this.game.sm.change('onFoot', { mode: 'survival' }),
-      freeRun: () => this.game.sm.change('onFoot', { mode: 'free' }),
+      freeRun: (opts) => startFreeRoam(this.game, opts),
       streetChase: () => this.game.sm.change('driving', { mode: 'survival' }),
     });
   }

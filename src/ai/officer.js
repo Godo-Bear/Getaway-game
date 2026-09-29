@@ -91,6 +91,16 @@ export class OfficerSquad {
         if (u.waitTimer <= 0) { this._spawn(u, player.pos); u.model.root.visible = true; }
         continue;
       }
+      // Stunned by a flashbang (gadget): stand still, dazed.
+      if (u.stunned > 0) {
+        u.stunned -= dt;
+        u.ctl.moveX = u.ctl.moveZ = 0;
+        u.ctl.sprint = false;
+        u.pc.update(dt, u.ctl);
+        u.pc.events.length = 0;
+        u.model.update(dt, u.pc);
+        continue;
+      }
       // Fixed small steps, like the player
       let t = dt;
       while (t > 1e-4) {

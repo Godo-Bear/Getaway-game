@@ -11,6 +11,8 @@ const DEFAULTS = {
     mouseSensitivity: 1.0,
     invertY: false,
     firstPerson: false, // on-foot camera view
+    sprintToggle: true, // tap sprint once to keep sprinting (false = hold it)
+    crosshair: true,
     carColour: 'amber',
     // 'low' | 'medium' | 'high'. Everyone starts on medium (smooth on most
     // laptops and phones); raise it in Settings if your computer can take it.
@@ -24,6 +26,7 @@ const DEFAULTS = {
   best: {
     rooftopRun: 0,   // best score in the helicopter survival mode
     streetChase: 0,  // best score in the car survival mode
+    speedrun: {},    // route id -> best time (seconds)
   },
   progress: {
     chapterUnlocked: 1,

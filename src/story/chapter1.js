@@ -1,7 +1,7 @@
 // Chapter 1: "The Harbor Trust Job"
 //
 // Story: the heist at the Harbor Trust bank goes wrong. The police arrive
-// minutes after you crack the vault: someone tipped them off. You escape
+// the moment you empty the vault: someone tipped them off. You escape
 // across the rooftops, drive to the safehouse, then work out who talked.
 //
 // The traitor in Chapter 1 is VINCE. Clues can point at the truth, or be
@@ -18,23 +18,48 @@ export const CHAPTER1 = {
   short: 'The Harbor Trust Job',
   traitor: 'vince',
   nextChapter: 'chapter2',
-  rating: { gold: 300, silver: 480 }, // chapter time targets (seconds)
+  rating: { gold: 420, silver: 640 }, // chapter time targets (seconds)
   deduction: { question: 'Who tipped off the police?' },
 
   // ---------------------------------------------------------------- Part 1
-  prologue: [
+  heistIntro: [
     {
-      kicker: 'Harbor Trust Bank, 12:07 a.m.',
-      title: 'Somebody talked',
+      kicker: 'Harbor Trust Bank, 11:52 p.m.',
+      title: 'The Harbor Trust Job',
       lines: [
-        'The vault was open for ninety seconds when the sirens started. Not the alarm: Marla had that covered. Real sirens, coming fast, from every direction.',
-        'Dex isn\'t answering the radio. The back door is swarming with cops. The only way out is up.',
+        'The back door was unlocked, just like Vince said it would be. The bank is dark and silent. Somewhere below, four pallets of cash are waiting in the vault.',
+        'Vince planned it. Marla is on the radio, keeping the alarm quiet. Dex is outside in the van. All you have to do is get in, and get out.',
       ],
     },
     {
       kicker: 'On the radio',
+      who: 'marla',
+      lines: ['"The cameras are still live. Kill them in the security room first: it\'s the door on your left. Stay out of their red cones until then."'],
+    },
+    {
+      kicker: 'On the radio',
       who: 'vince',
-      lines: ['"Forget the van. Take the stairs to the roof. Your car is parked on the Pier Street garage roof."'],
+      lines: ['"The manager keeps the vault code in his office. Then it\'s just the keypad and the cash. In and out."'],
+    },
+    {
+      kicker: 'How to play',
+      title: 'The heist',
+      lines: [
+        'Follow the marker. To do something (switch off the cameras, read the note, type the code, grab the cash), stand in its glowing ring for a moment.',
+        'A camera that sees you for about a second raises the alarm early and sends you back to the door.',
+      ],
+    },
+  ],
+
+  // ---------------------------------------------------------------- Part 2
+  prologue: [
+    {
+      kicker: 'Harbor Trust roof, 12:07 a.m.',
+      title: 'Somebody talked',
+      lines: [
+        'The vault was open for ninety seconds when the sirens started. Real sirens, coming fast, from every direction. The police knew exactly when to come.',
+        'Dex isn\'t answering the radio. The back door is swarming with cops. The only way out is across the rooftops.',
+      ],
     },
     {
       kicker: 'On the radio',
@@ -54,7 +79,7 @@ export const CHAPTER1 = {
   // Played over the helicopter's loudspeaker when it arrives
   heliCallout: { who: 'hale', line: 'This is Detective Hale. The building is surrounded. There is nowhere left to run.' },
 
-  // ---------------------------------------------------------------- Part 2
+  // ---------------------------------------------------------------- Part 3
   driveIntro: [
     {
       kicker: 'Pier Street garage, 12:19 a.m.',
@@ -76,7 +101,7 @@ export const CHAPTER1 = {
   ],
   driveObjective: 'Lose the cops, then get to the safehouse',
 
-  // ---------------------------------------------------------------- Part 3
+  // ---------------------------------------------------------------- Deduction
   outro: [
     {
       kicker: 'The safehouse, 12:31 a.m.',
@@ -149,6 +174,13 @@ export const CHAPTER1 = {
   // The parts of the chapter, played in order (then the deduction).
   get parts() {
     return [
+      {
+        id: 'heist', kind: 'onFoot', mode: 'heist', title: 'The heist',
+        intro: this.heistIntro, startLabel: 'Start the heist',
+        objective: 'Kill the security cameras',
+        doneTitle: 'Out of the vault',
+        doneText: 'Four pallets of cash, and every siren in the city coming your way. Somebody knew. The stairwell door bangs shut behind you as you run for the roof.',
+      },
       {
         id: 'rooftops', kind: 'onFoot', title: 'The rooftops',
         level: 'ch1Rooftops',

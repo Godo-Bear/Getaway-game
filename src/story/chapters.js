@@ -6,4 +6,5 @@ import { CHAPTER4 } from './chapter4.js';
 
 export const CHAPTERS = { chapter1: CHAPTER1, chapter2: CHAPTER2, chapter3: CHAPTER3, chapter4: CHAPTER4 };
 
-export const CHAPTER_LIST = [CHAPTER1, CHAPTER2, CHAPTER3, CHAPTER4].map((c) => ({ id: c.id, title: c.title, number: c.number, available: true }));
+// (the chapters themselves, in order: id, number, title, short, parts...)
+export const CHAPTER_LIST = [CHAPTER1, CHAPTER2, CHAPTER3, CHAPTER4];

@@ -10,6 +10,7 @@ import { OnFootState } from './states/onFootState.js';
 import { DrivingState } from './states/drivingState.js';
 import { DeductionState } from './states/deductionState.js';
 import { startPart } from './story/chapterFlow.js';
+import { startSpeedrun } from './story/speedrun.js';
 import { PostFx } from './world/postFx.js';
 import { AutoQuality } from './core/autoQuality.js';
 import { syncOnStart } from './core/cloud.js';
@@ -120,8 +121,10 @@ function start(renderer) {
   if (story) startPart(game, mode, Number(params.get('part') || 0), { ghost: params.has('ghost'), fresh: true });
   else if (mode === 'rooftop') game.sm.change('onFoot', { mode: 'survival' });
   else if (mode === 'free') game.sm.change('onFoot', { mode: 'free' });
+  else if (mode === 'freecar') game.sm.change('driving', { mode: 'free' });
+  else if (mode === 'speedrun') startSpeedrun(game, 'chapter1');
   else if (mode === 'chase') game.sm.change('driving', { mode: 'survival' });
-  else if (mode === 'drive1') startPart(game, 'chapter1', 1, { fresh: true });
+  else if (mode === 'drive1') startPart(game, 'chapter1', 2, { fresh: true });
   else if (/^deduce\d$/.test(mode || '')) game.sm.change('deduction', { chapterId: `chapter${mode.slice(-1)}` });
   else game.sm.change('title');
 

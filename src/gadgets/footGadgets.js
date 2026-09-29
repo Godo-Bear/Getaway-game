@@ -8,6 +8,7 @@ import { audio } from '../core/audio.js';
 //   Smoke Bomb  - a cloud at your feet; inside it the police can't see you
 //   Holo-Decoy  - a hologram of you that the spotlights and officers chase
 //   Grapple Gun - aim at a building and get pulled up onto its roof
+//   Flashbang   - blinds helicopter crews and stuns nearby officers
 //
 // The on-foot modes ask this object two things:
 //   concealed  - is the player hidden by smoke right now?
@@ -16,6 +17,7 @@ import { audio } from '../core/audio.js';
 const SMOKE_TIME = 6, SMOKE_RADIUS = 5;
 const DECOY_TIME = 8;
 const GRAPPLE_RANGE = 24, GRAPPLE_MAX_RISE = 18; // enough to get from the street onto most roofs
+const FLASH_BLIND = 5, FLASH_RADIUS = 15;
 
 const _v = new THREE.Vector3(), _dir = new THREE.Vector3();
 
@@ -43,7 +45,7 @@ export class FootGadgets {
     if (this.state.mode.ghost) return; // no police to fool in ghost mode
     if (!this.slot.ready) { this.slot.explainNotReady(); return; }
     const id = this.slot.gadget.id;
-    const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : this._grapple();
+    const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash() : this._grapple();
     if (ok) this.slot.used();
   }
 
@@ -113,6 +115,34 @@ export class FootGadgets {
     this.decoy = null;
   }
 
+  // ---------------------------------------------------------------- Flashbang
+  _flash() {
+    const s = this.state, mode = s.mode, p = s.player.pos;
+    let blinded = 0, stunned = 0;
+    for (const h of [mode.heli, ...(mode.helis || [])]) {
+      if (!h) continue;
+      h.blinded = FLASH_BLIND;
+      // The spotlight swings away from you while the crew can't see
+      const a = Math.random() * Math.PI * 2;
+      h.lastSeen.set(p.x + Math.cos(a) * 35, p.y, p.z + Math.sin(a) * 35);
+      blinded++;
+    }
+    for (const u of mode.officers?.units || []) {
+      if (u.waitTimer > 0) continue;
+      if (u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = FLASH_BLIND; stunned++; }
+    }
+    // A white burst at your feet
+    const burst = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xfff6c8, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    burst.position.set(p.x, p.y + 1.5, p.z);
+    s.scene.add(burst);
+    this.burst = { sprite: burst, t: 0 };
+    s.game.post?.lightning?.(0.8);
+    audio.sfx('thunder', { vol: 0.35 });
+    const what = [blinded ? `${blinded > 1 ? 'Helicopters' : 'The helicopter'} blinded` : '', stunned ? `${stunned} officer${stunned > 1 ? 's' : ''} stunned` : ''].filter(Boolean).join(', ');
+    s.game.hud.toast('Flashbang!', what ? `${what} for ${FLASH_BLIND} seconds. Go!` : 'Nobody was close enough to be dazzled.', '#fff3a0', 3);
+    return true;
+  }
+
   // ---------------------------------------------------------------- Grapple
   _grapple() {
     const s = this.state, pc = s.player;
@@ -158,6 +188,13 @@ export class FootGadgets {
   // ---------------------------------------------------------------- Per frame
   update(dt) {
     this.slot.update(dt);
+    if (this.burst) {
+      const b = this.burst;
+      b.t += dt;
+      b.sprite.scale.setScalar(4 + b.t * 60);
+      b.sprite.material.opacity = Math.max(0, 1 - b.t * 2.5);
+      if (b.t > 0.4) { this.state.scene.remove(b.sprite); b.sprite.material.dispose(); this.burst = null; }
+    }
     const s = this.smoke;
     if (s) {
       s.t += dt;

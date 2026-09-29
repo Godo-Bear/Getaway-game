@@ -14,6 +14,7 @@ import { Minimap } from '../ui/minimap.js';
 import { BigMap } from '../ui/bigMap.js';
 import { save } from '../core/save.js';
 import { NitroPickups } from '../vehicles/nitroPickups.js';
+import { owns } from '../gadgets/gadgets.js';
 import { CarGadgets } from '../gadgets/carGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
@@ -21,6 +22,7 @@ import { audio } from '../core/audio.js';
 import { playerCarColour } from '../vehicles/carColours.js';
 import { StreetChaseMode } from './modes/streetChaseMode.js';
 import { ChapterDriveMode } from './modes/chapterDriveMode.js';
+import { FreeDriveMode } from './modes/freeDriveMode.js';
 
 // Driving game state: everything the driving modes share.
 //   - the street city, the player's car, police, traffic, smoke particles
@@ -30,7 +32,8 @@ import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 //
 // What you're DOING is decided by a mode object (like the on-foot modes):
 //   survival -> StreetChaseMode   (endless, score, heat rises over time)
-//   chapter1 -> ChapterDriveMode  (story: drive to the safehouse)
+//   story    -> ChapterDriveMode  (story: drive to the safehouse, chases...)
+//   free     -> FreeDriveMode     (Free Run in the car: no score, optional police)
 //
 // A mode can implement:
 //   cityOptions()      -> { seed, blocks }
@@ -55,7 +58,7 @@ const EVADE_TIME_HIDDEN = 5;  // ... when in an alley or park
 const EVADE_TIME_GARAGE = 3;  // ... when parked in a garage
 const NEAR_MISS_DIST = 4.4;
 
-const MODES = { survival: StreetChaseMode, story: ChapterDriveMode, chapter1: ChapterDriveMode };
+const MODES = { survival: StreetChaseMode, story: ChapterDriveMode, chapter1: ChapterDriveMode, free: FreeDriveMode };
 
 export class DrivingState extends PlayState {
   constructor(game) {
@@ -265,13 +268,27 @@ export class DrivingState extends PlayState {
       const rec = this.nearTrack.get(other);
       if (rec) rec.hit = true;
       if (impact > 4) this._damage((impact - 4) * 0.008, impact);
-      if (other.isPolice && impact > 6) this.mode.onPoliceRam?.();
+      if (other.isPolice && impact > 6) {
+        this.mode.onPoliceRam?.();
+        // Ram Plating (gadget): a hard hit spins the cruiser out.
+        const u = owns('ram') && this.police.units.find((x) => x.car === other);
+        if (u && !(u.stunned > 0) && impact > 8) {
+          u.stunned = 3;
+          u.emp = false;
+          u.spinDir = Math.random() < 0.5 ? -1 : 1;
+          other.gripFactor = 0.2;
+          other.yawRate += u.spinDir * 3;
+          this.game.hud.toast('Rammed!', 'That cruiser is out of the chase for a moment.', '#ff5a5a', 1.5);
+        }
+      }
     });
 
     // --- Nitro: used by boosting, refilled by drifting and big air
-    if (p.boosting) this.nitro = Math.max(0, this.nitro - dt * 0.32);
-    if (p.drifting) this.nitro = Math.min(1, this.nitro + dt * 0.16);
-    if (p.airborne) this.nitro = Math.min(1, this.nitro + dt * 0.25);
+    // (Turbo Tank gadget: lasts longer and refills faster)
+    const tank = owns('tank');
+    if (p.boosting) this.nitro = Math.max(0, this.nitro - dt * (tank ? 0.23 : 0.32));
+    if (p.drifting) this.nitro = Math.min(1, this.nitro + dt * (tank ? 0.24 : 0.16));
+    if (p.airborne) this.nitro = Math.min(1, this.nitro + dt * (tank ? 0.37 : 0.25));
   }
 
   /** Looping sounds: engine, tyres, nitro, sirens (louder when close), music. */
@@ -408,7 +425,9 @@ export class DrivingState extends PlayState {
     this._wasInGarage = inGarage;
     // You can't "lose" cops that haven't found you yet.
     if (!police.searching && police.everSeen) {
-      const need = this.inGarage ? EVADE_TIME_GARAGE : this.playerHidden ? EVADE_TIME_HIDDEN : EVADE_TIME;
+      // (Garage Keycard gadget: garages, parks and alleys lose them faster)
+      const key = owns('keycard');
+      const need = this.inGarage ? (key ? 1 : EVADE_TIME_GARAGE) : this.playerHidden ? (key ? 3.5 : EVADE_TIME_HIDDEN) : EVADE_TIME;
       if (police.timeSinceSeen > need) {
         police.searching = true;
         this.mode.onEvade?.();
@@ -482,7 +501,7 @@ export class DrivingState extends PlayState {
         if (p.speed > 15 && rel > 10) rec.fast = true;
       } else if (rec && d > NEAR_MISS_DIST + 1) {
         if (rec.fast && !rec.hit) {
-          this.nitro = Math.min(1, this.nitro + 0.15);
+          this.nitro = Math.min(1, this.nitro + (owns('tank') ? 0.22 : 0.15));
           audio.sfx('whoosh');
           this.mode.onNearMiss?.();
         }

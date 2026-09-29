@@ -11,6 +11,7 @@ import { getChapterRun, newChapterRun } from './chapterRun.js';
 import { formatTime } from '../core/utils.js';
 import { save } from '../core/save.js';
 import { earn } from '../gadgets/gadgets.js';
+import { speedrunPartDone } from './speedrun.js';
 
 /**
  * @param {object} game
@@ -26,7 +27,7 @@ export function startPart(game, chapterId, index = 0, { ghost = false, fresh = f
     game.chapterRun = newChapterRun(chapterId);
   }
   const state = part.kind === 'drive' ? 'driving' : 'onFoot';
-  game.sm.change(state, { mode: 'story', chapterId, part: index, ghost });
+  game.sm.change(state, { mode: part.mode || 'story', chapterId, part: index, ghost });
 }
 
 /** Called by a story mode when the part's goal is reached. */
@@ -36,6 +37,7 @@ export function finishPart(state, mode) {
   const run = getChapterRun(game, chapter.id);
   run.parts[part.id] = state.time;
   save.submitTime(`${chapter.id}.${part.id}`, state.time);
+  if (game.speedrun) { speedrunPartDone(state, mode); return; }
   const next = chapter.parts[partIndex + 1];
   const clueTotal = Object.keys(chapter.clues).length;
   game.hud.setMarker(null);

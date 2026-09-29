@@ -34,6 +34,8 @@ export function showSettings(game, onBack) {
     ${slider('set-sens', 'Mouse / look sensitivity', s.mouseSensitivity, 0.3, 2.5, 0.05, (v) => `${Number(v).toFixed(2)}x`)}
     <label class="setting check" for="set-invert"><span>Invert look up/down</span><input type="checkbox" id="set-invert" ${s.invertY ? 'checked' : ''}></label>
     <label class="setting check" for="set-fp"><span>First-person view on foot (V)</span><input type="checkbox" id="set-fp" ${s.firstPerson ? 'checked' : ''}></label>
+    <label class="setting check" for="set-sprint"><span>Sprint stays on (press sprint once to switch it on or off)</span><input type="checkbox" id="set-sprint" ${s.sprintToggle !== false ? 'checked' : ''}></label>
+    <label class="setting check" for="set-cross"><span>Crosshair on foot</span><input type="checkbox" id="set-cross" ${s.crosshair !== false ? 'checked' : ''}></label>
     <p class="sub setting-head">Graphics</p>
     <div class="setting"><span>Quality</span><div class="seg" id="set-quality">
       ${['low', 'medium', 'high'].map((q) => `<button class="chip${s.graphics === q ? ' on' : ''}" data-q="${q}">${q}</button>`).join('')}
@@ -61,6 +63,8 @@ export function showSettings(game, onBack) {
   document.getElementById('set-invert').addEventListener('change', (e) => { s.invertY = e.target.checked; apply(); });
   document.getElementById('set-auto').addEventListener('change', (e) => { s.autoGraphics = e.target.checked; apply(); });
   document.getElementById('set-fp').addEventListener('change', (e) => { s.firstPerson = e.target.checked; apply(); });
+  document.getElementById('set-sprint').addEventListener('change', (e) => { s.sprintToggle = e.target.checked; apply(); });
+  document.getElementById('set-cross').addEventListener('change', (e) => { s.crosshair = e.target.checked; apply(); });
   for (const b of document.querySelectorAll('#set-quality [data-q]')) {
     b.addEventListener('click', (e) => {
       e.stopPropagation();

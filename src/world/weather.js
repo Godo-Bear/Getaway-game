@@ -170,7 +170,7 @@ export class Weather {
  * the Weather setting can force rain everywhere, or turn it off.
  */
 export function pickWeather(settings, wanted = 'clear') {
-  if (settings.weather === 'off') return 'clear';
+  if (wanted === 'indoor' || settings.weather === 'off') return 'clear';
   if (settings.weather === 'rain' && wanted === 'clear') return 'rain';
   return wanted;
 }

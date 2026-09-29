@@ -121,7 +121,9 @@ export class Helicopter {
     this.time += dt;
     _chest.set(player.pos.x, player.pos.y + 1.2, player.pos.z);
     // A holo-decoy (gadget) glows: the helicopter always spots it.
-    this.seesPlayer = player.isLure || this.canSee(_chest);
+    // A flashbang (gadget) blinds the crew for a few seconds.
+    this.blinded = Math.max(0, (this.blinded || 0) - dt);
+    this.seesPlayer = this.blinded <= 0 && (player.isLure || this.canSee(_chest));
 
     // --- Where should the spot go?
     let target;

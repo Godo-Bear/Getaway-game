@@ -16,20 +16,22 @@ Handy URL options for testing:
 | URL | What it does |
 | --- | --- |
 | `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2`, `chapter3`, `chapter4`) |
+| `/?mode=speedrun` | Start a Chapter 1 speedrun |
+| `/?mode=freecar` | Free Run, starting in the car |
 | `/?mode=chapter2&part=1` | Jump into a later part of a chapter (parts count from 0) |
 | `/?mode=chapter3&ghost` | Jump into a chapter with ghost mode switched on |
-| `/?mode=drive1` | Jump straight into Story Chapter 1, Part 2 (the drive) |
+| `/?mode=drive1` | Jump straight into Story Chapter 1, Part 3 (the drive) |
 | `/?mode=deduce1` | Jump straight into a deduction (also `deduce2` to `deduce4`) with whatever clues you've found |
 | `/?mode=rooftop` | Jump straight into Rooftop Run (helicopter survival) |
-| `/?mode=free` | Jump straight into Free Run (parkour practice) |
+| `/?mode=free` | Jump straight into Free Run (on the rooftops) |
 | `/?mode=chase` | Jump straight into Street Chase (driving survival) |
 | `&nolock` | Play without mouse lock (A/D turn, drag to look) |
 
 Press **F3** (or **`**) in game for an FPS / debug readout.
 
-**Controls:** keyboard + mouse (driving: Shift drift, Space nitro, M map; F gadget; scroll to zoom), any standard gamepad (Xbox layout: sticks, A jump/handbrake, RB nitro/sprint, LB gadget, RT/LT gas/brake, Y view, Menu pause; the d-pad and A/B drive menus), or touch (virtual joystick + buttons appear on the first touch). See *Controls* on the title screen.
+**Controls:** keyboard + mouse (on foot: Shift switches sprint on and off; driving: Shift drift, Space nitro, M map; F gadget; scroll to zoom), any standard gamepad (Xbox layout: sticks, A jump/handbrake, RB nitro/sprint, LB gadget, RT/LT gas/brake, Y view, Menu pause; the d-pad and A/B drive menus), or touch (virtual joystick + buttons appear on the first touch). See *Controls* on the title screen.
 
-**Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, graphics quality (low / medium / high), weather (story / rain / off), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
+**Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, sprint toggle or hold, crosshair, graphics quality (low / medium / high), weather (story / rain / off), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
 
 **Graphics:** medium and high add post-processing (`src/world/postFx.js`): bloom so neon, lamps, headlights and windows glow, a vignette and a cool/warm colour grade. The sky is a gradient dome with a moon halo and storm clouds (`src/world/lighting.js`). Rain and thunderstorms (`src/world/weather.js`) add rain streaks, wet shiny roads and roofs that reflect the sky, lightning flashes and thunder. Low skips the post-processing for older laptops; phones start on medium.
 
@@ -73,10 +75,13 @@ This repo is already connected to the `getaway-game-50249` project.
 
 * **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight: stay hidden a moment and the helicopters search further away.
 * **Street Chase**: endless driving survival. Points for every second you stay free (more when fast or drifting). Heat rises every 35 s and when you ram cops. Space = nitro, Shift = drift; blue canisters on the road refill nitro (so do drifting, jumps and near misses). Only the two nearest cops chase you up close; the rest patrol nearby junctions. Lose the cops by breaking line of sight; parks, alleys and driving under the elevated railway help. Once lost, the cops sweep a widening search area (red circle on the minimap). From heat 4, roadblocks and spike strips appear on the road ahead.
-* **Free Run**: rooftops with no helicopters, for practising moves.
-* **Story: Chapter 1, Part 1**: a hand-built rooftop route from the Harbor Trust bank to the getaway car on the Pier Street garage. Checkpoints, one police helicopter (caught = back to the last checkpoint), 4 clues (2 on the main path, 2 behind harder shortcuts), and a bronze/silver/gold rating.
-* **Story: Chapter 1, Part 2**: drive the getaway car from the garage to the crew's safehouse (green light). You must lose the cops before you pull up, or you'd lead them straight there. A fifth clue is hidden in the park in the middle of town (amber dot on the minimap).
-* **Story: Chapter 1, Part 3**: the deduction. Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2.
+* **Free Run**: one session across both worlds. Roam the rooftops on foot (cash bags on the roofs), walk up to your car on the street (blue beams) to drive the city (cash drops, drifts, near misses), and stop in a parking garage to head back up. Police are optional (a helicopter on the roofs, two patrol cars on the streets, double cash); getting caught just sends you back, it never ends the run. Switch worlds or police from the pause menu too.
+* **Speedrun**: story parts back to back against the clock (Chapter 1 to 4, or the whole story): no story scenes, no deductions, split times for every part, best times saved. The timer only runs while you're playing.
+* **Cash**: Rooftop Run and Street Chase pay for cash bags/drops, losing the cops, and a tenth of your score; Free Run pays for everything you pick up.
+* **Story: Chapter 1, Part 1 (the heist)**: inside the Harbor Trust bank. Kill the security cameras (their red cones catch you), find the vault code in the manager's office, open the vault, grab four pallets of cash, then beat the alarm to the roof stairs. Stand in a glowing ring to do each thing.
+* **Story: Chapter 1, Part 2**: a hand-built rooftop route from the Harbor Trust bank roof to the getaway car on the Pier Street garage. Checkpoints, one police helicopter (caught = back to the last checkpoint), 4 clues (2 on the main path, 2 behind harder shortcuts), and a bronze/silver/gold rating.
+* **Story: Chapter 1, Part 3**: drive the getaway car from the garage to the crew's safehouse (green light). You must lose the cops before you pull up, or you'd lead them straight there. A fifth clue is hidden in the park in the middle of town (amber dot on the minimap).
+* **Story: Chapter 1, the deduction**: Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2.
 * **Story: Chapter 2, The Ferry**: chase Vince's car across town before he reaches the ferry terminal (heat 3-4, roadblocks and spike strips), then chase him on foot across the docks: warehouse roofs, container stacks, a wall-run, a duct to slide under and a zip line down to the pier.
 * **Story: Chapter 3, Headquarters**: zip-line onto the police HQ roof, find Det. Hale's ledger while officers chase you out of the stairwells (and the helicopter joins later), zip down to the car, then race the clock to the last ferry through heat-5 roadblocks. The final deduction reveals who planned everything.
 * **Story: Chapter 4, Last Flight**: a thunderstorm. Chase Marla's car through the wet streets to the rail yard by the airfield, then chase her on foot across the freight trains (crossing plates between tracks, a signal gantry to climb, hangar roofs and a zip line) before she reaches her plane. The last deduction: who warned her you were coming? Then the ending.
@@ -87,8 +92,14 @@ This repo is already connected to the `getaway-game-50249` project.
 * **Big map** (driving): press M or tap the minimap. Click anywhere to set a pink waypoint (shown on the minimap, as a light beam and an on-screen pointer).
 * **Zoom**: scroll wheel (or pinch on a phone) zooms the camera, on foot and in the car.
 * **Clues**: three per chapter, all on the route; two point at the traitor, one is a red herring. There are no clues in the car chases.
-* **Gadget Shop** (title screen): earn cash from clues, finished parts, solved chapters, cash bags/drops and survival scores, and buy gadgets. Equip one for on foot and one for the car, and press F to use it (LB on a gamepad, the Gadget button on a phone): Smoke Bomb, Holo-Decoy, Grapple Gun, Oil Slick, EMP Blast, Signal Jammer. Two are always on once owned: the Clue Scanner (marker to the nearest clue from anywhere) and the Lie Detector (clears one innocent suspect at each deduction). Code: `src/gadgets/`.
-* **Moves**: sprint + C to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
+* **Gadget Shop** (title screen): five categories. Equip one active gadget for on foot and one for the car and press F to use it (LB on a gamepad, the Gadget button on a phone); the rest are always on once bought. Code: `src/gadgets/`.
+  * Utility: Smoke Bomb, Holo-Decoy (foot), Signal Jammer (car), Money Clip (+25% cash).
+  * Movement: Grapple Gun (foot), Glider Wing (press jump again in mid-air and hold to glide), Spring Boots (higher jumps), Gecko Gloves (longer wall-runs).
+  * Damage: Flashbang (foot: blinds helicopters, stuns officers), Oil Slick, Spike Drop, EMP Blast (car), Ram Plating (ramming spins cops out).
+  * Getaways: Smoke Screen (car), Turbo Tank (more nitro), Garage Keycard (garages lose the cops in 1 second).
+  * Mole: Clue Scanner, Clue Magnet (pick up clues from further away), Forensics Kit (Case Board marks red herrings), Lie Detector.
+* **Crosshair**: on foot (aim the Grapple Gun with it). SPRINT shows under it while sprint is on.
+* **Moves**: Shift switches sprint on (and off again); sprint + C to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
 * **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen.
 
 ## Project layout
@@ -106,6 +117,6 @@ src/
   story/               chapter data (parts, story text, clues, verdicts), chapter flow, the crew
   world/levels/        hand-built story levels
   states/              title, on-foot state, driving state (+ shared PlayState base)
-  states/modes/        Free Run, Rooftop Run, Street Chase, chapter on-foot parts, chapter driving parts
+  states/modes/        Free Run (rooftops + car), Rooftop Run, Street Chase, the bank heist, chapter on-foot parts, chapter driving parts
 reference/getaway.html the original single-file prototype (for reference only)
 ```
