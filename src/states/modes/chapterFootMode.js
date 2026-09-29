@@ -42,6 +42,7 @@ export class ChapterFootMode {
     this.startGhost = !!params.ghost;
     this.ghost = false;
     this.ghostSnap = null;
+    this.weather = this.part.weather || 'clear'; // 'clear' | 'rain' | 'storm'
     this.hudSections = ['tl', 'meter', 'controls', 'marker'];
     this.heli = null;
     this.officers = null;
@@ -341,7 +342,8 @@ export class ChapterFootMode {
     }
 
 
-    // --- Decor: police lights in the street
+    // --- Decor: moving scenery, police lights in the street
+    this.level.animate?.(dt);
     for (const m of this.level.policeCars || []) updateSirens(m, t + m.position.x * 0.1);
     if (this.level.beacon) this.level.beacon.material.opacity = 0.12 + Math.sin(t * 3) * 0.04;
 

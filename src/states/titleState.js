@@ -48,7 +48,7 @@ export class TitleState {
   }
 
   render(renderer) {
-    renderer.render(this.scene, this.camera);
+    this.game.post.render(this.scene, this.camera, this.game.dt);
   }
 
   resize(w, h) {

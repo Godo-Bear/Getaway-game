@@ -12,7 +12,10 @@ const DEFAULTS = {
     invertY: false,
     firstPerson: false, // on-foot camera view
     carColour: 'amber',
-    graphics: 'high', // 'low' | 'medium' | 'high'
+    // 'low' | 'medium' | 'high'. Phones and tablets start on medium: the glow
+    // effects at full resolution are heavy for a phone's graphics chip.
+    graphics: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'medium' : 'high',
+    weather: 'auto',  // 'auto' (story decides) | 'rain' (rain everywhere) | 'off'
     masterVolume: 0.8,
     musicVolume: 0.6,
     sfxVolume: 0.9,

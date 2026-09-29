@@ -177,7 +177,12 @@ body.touch-mode #hud-speed { font-size: 44px; }
 #touch .t-ghost.on { background: rgba(57, 230, 255, 0.45); border-color: var(--cyan); }
 /* Menus and story cards must scroll with a finger (the page itself doesn't) */
 .overlay, .card { touch-action: pan-y; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.overlay.title .card { max-height: 100%; overflow: auto; }
+
+/* Short screens: the title menu scrolls (with a smaller logo so it isn't clipped) */
+@media (max-height: 700px) {
+  .overlay.title .card { max-height: 100%; overflow-y: auto; }
+  .logo { font-size: clamp(48px, 9vw, 96px); }
+}
 /* Short screens (phones held sideways): smaller HUD and compact cards */
 @media (max-height: 520px) {
   #hud-tl { padding: 10px 14px; max-width: min(420px, 50vw); }

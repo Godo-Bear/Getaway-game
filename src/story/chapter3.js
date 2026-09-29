@@ -21,7 +21,7 @@ export const CHAPTER3 = {
   title: 'Chapter 3: Headquarters',
   short: 'Headquarters',
   traitor: 'marla',
-  nextChapter: null,
+  nextChapter: 'chapter4',
   rating: { gold: 300, silver: 500 },
   deduction: { question: 'Who planned the whole thing?' },
 
@@ -141,6 +141,5 @@ export const CHAPTER3 = {
     },
   },
 
-  resultOutro: 'You send Hale\'s ledger, Dex\'s phone and the box 42 file to every newsroom in the city. By morning, Hale is in handcuffs and Marla\'s apartment is empty, one green pen left on the table. The ferry horn sounds. You\'re free. For now.',
-  finale: true,
+  resultOutro: 'You send Hale\'s ledger, Dex\'s phone and the box 42 file to every newsroom in the city. By morning, Hale is in handcuffs. But when the police reach Marla\'s apartment it\'s empty, one green pen left on the table. So is the rest of box 42: twenty million in bearer bonds. The ferry horn sounds. It isn\'t over yet.',
 };

@@ -38,6 +38,7 @@ export class ChapterDriveMode {
     this.startGhost = !!params.ghost;
     this.ghost = false;
     this.ghostSnap = null;
+    this.weather = this.part.weather || 'clear'; // 'clear' | 'rain' | 'storm'
     this.hudSections = ['tl', 'map', 'speedo', 'meter', 'controls', 'marker'];
     this.heat = this.part.heat?.start ?? 2;
     this.fugitive = null;
@@ -100,7 +101,7 @@ export class ChapterDriveMode {
     const f = part.fugitive;
     if (f) {
       const dest = s.city.landmarks[part.goal.block].node;
-      this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng);
+      this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color);
       const fn = g.node(f.startNode[0], f.startNode[1]);
       this.fugitive.place(fn, f.heading ?? Math.PI);
     }

@@ -7,6 +7,7 @@ import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
 import { NightLighting, lightingForQuality } from '../world/lighting.js';
+import { Weather, pickWeather } from '../world/weather.js';
 import { CONTROLS } from '../ui/menus.js';
 import { damp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
@@ -63,6 +64,8 @@ export class OnFootState extends PlayState {
     this.model = new PlayerModel();
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
+    // Rain / storm (the story part decides; the Weather setting can override)
+    this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
     this.cam = new ThirdPersonCamera(this.camera, this.world);
     const s = game.settings;
     this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
@@ -212,6 +215,7 @@ export class OnFootState extends PlayState {
     this.cam.update(dt, p.pos, p.horizontalSpeed);
     this.arms.update(frozen ? 0 : dt, p, this.model.runPhase);
     this.lighting.follow(p.pos);
+    if (!frozen) this.weather.update(dt, this.camera.position);
 
     if (this.game.showDebug) {
       hud.setDebug(`${this.game.fps.toFixed(0)} fps\n${p.state} ${p.horizontalSpeed.toFixed(1)} m/s\n` +
@@ -299,7 +303,7 @@ export class OnFootState extends PlayState {
   }
 
   renderFrame(renderer) {
-    renderer.render(this.scene, this.camera);
+    this.game.post.render(this.scene, this.camera, this.game.dt);
   }
 
   resize(w, h) {
@@ -309,6 +313,8 @@ export class OnFootState extends PlayState {
   }
 
   teardown() {
+    this.weather?.dispose();
+    this.weather = null;
     this.mode?.teardown?.();
     this.scene?.traverse((o) => {
       if (o.geometry && !o.isInstancedMesh) o.geometry.dispose();

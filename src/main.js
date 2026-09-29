@@ -10,6 +10,7 @@ import { OnFootState } from './states/onFootState.js';
 import { DrivingState } from './states/drivingState.js';
 import { DeductionState } from './states/deductionState.js';
 import { startPart } from './story/chapterFlow.js';
+import { PostFx } from './world/postFx.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -57,16 +58,21 @@ function start(renderer) {
     sm: new StateMachine(),
     showDebug: false,
     fps: 60,
+    dt: 1 / 60,
+    post: new PostFx(renderer), // bloom, vignette, lightning (skipped on low graphics)
     goTitle: () => game.sm.change('title'),
     /** Apply settings that can change live (called by the settings screen). */
     applySettings: () => {
       const st = game.settings;
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, { low: 1, medium: 1.25, high: 1.75 }[st.graphics] ?? 1.5));
       renderer.setSize(window.innerWidth, window.innerHeight);
+      game.post.setQuality(st.graphics);
+      game.post.setSize(window.innerWidth, window.innerHeight);
       audio.setVolumes(st);
       game.sm.current?.applySettings?.();
     },
   };
+  game.post.setQuality(settings.graphics);
   audio.setVolumes(settings);
   game.touch = new TouchControls(game.input);
   game.audio = audio; // handy for debugging in the console
@@ -88,6 +94,7 @@ function start(renderer) {
 
   window.addEventListener('resize', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
+    game.post.setSize(window.innerWidth, window.innerHeight);
     game.sm.resize(window.innerWidth, window.innerHeight);
   });
 
@@ -95,8 +102,8 @@ function start(renderer) {
   window.game = game;
 
   // URL options for testing:
-  //   ?mode=chapter1|chapter2|chapter3 [&part=N] [&ghost]  - a story part (N from 0)
-  //   ?mode=deduce1|deduce2|deduce3 | rooftop | free | chase  - jump straight into a mode
+  //   ?mode=chapter1..chapter4 [&part=N] [&ghost]  - a story part (N from 0)
+  //   ?mode=deduce1..deduce4 | rooftop | free | chase  - jump straight into a mode
   //   ?nolock                       - play without mouse lock (A/D turn, drag to look)
   const params = new URLSearchParams(location.search);
   if (params.has('nolock')) game.input.pointerLockFailed = game.input.lockDisabled = true;
@@ -119,6 +126,7 @@ function start(renderer) {
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
     game.fps = game.fps * 0.95 + (1 / Math.max(dt, 1e-4)) * 0.05;
+    game.dt = dt;
 
     game.input.poll(dt);
     game.touch.setMode(game.sm.currentName === 'onFoot' ? 'onFoot' : game.sm.currentName === 'driving' ? 'driving' : 'none');

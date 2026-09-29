@@ -15,11 +15,11 @@ Handy URL options for testing:
 
 | URL | What it does |
 | --- | --- |
-| `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2`, `chapter3`) |
+| `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2`, `chapter3`, `chapter4`) |
 | `/?mode=chapter2&part=1` | Jump into a later part of a chapter (parts count from 0) |
 | `/?mode=chapter3&ghost` | Jump into a chapter with ghost mode switched on |
 | `/?mode=drive1` | Jump straight into Story Chapter 1, Part 2 (the drive) |
-| `/?mode=deduce1` | Jump straight into a deduction (also `deduce2`, `deduce3`) with whatever clues you've found |
+| `/?mode=deduce1` | Jump straight into a deduction (also `deduce2` to `deduce4`) with whatever clues you've found |
 | `/?mode=rooftop` | Jump straight into Rooftop Run (helicopter survival) |
 | `/?mode=free` | Jump straight into Free Run (parkour practice) |
 | `/?mode=chase` | Jump straight into Street Chase (driving survival) |
@@ -29,7 +29,9 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 **Controls:** keyboard + mouse, any standard gamepad (Xbox layout: sticks, A jump/handbrake, RB nitro/sprint, RT/LT gas/brake, Y view, Menu pause; the d-pad and A/B drive menus), or touch (virtual joystick + buttons appear on the first touch). See *Controls* on the title screen.
 
-**Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, graphics quality (low / medium / high), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
+**Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, graphics quality (low / medium / high), weather (story / rain / off), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
+
+**Graphics:** medium and high add post-processing (`src/world/postFx.js`): bloom so neon, lamps, headlights and windows glow, a vignette and a cool/warm colour grade. The sky is a gradient dome with a moon halo and storm clouds (`src/world/lighting.js`). Rain and thunderstorms (`src/world/weather.js`) add rain streaks, wet shiny roads and roofs that reflect the sky, lightning flashes and thunder. Low skips the post-processing for older laptops; phones start on medium.
 
 **Audio:** recorded sounds in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
 
@@ -49,6 +51,7 @@ The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in
 * **Story: Chapter 1, Part 3**: the deduction. Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2.
 * **Story: Chapter 2, The Ferry**: chase Vince's car across town before he reaches the ferry terminal (heat 3-4, roadblocks and spike strips), then chase him on foot across the docks: warehouse roofs, container stacks, a wall-run, a duct to slide under and a zip line down to the pier.
 * **Story: Chapter 3, Headquarters**: zip-line onto the police HQ roof, find Det. Hale's ledger while officers chase you out of the stairwells (and the helicopter joins later), zip down to the car, then race the clock to the last ferry through heat-5 roadblocks. The final deduction reveals who planned everything.
+* **Story: Chapter 4, Last Flight**: a thunderstorm. Chase Marla's car through the wet streets to the rail yard by the airfield, then chase her on foot across the freight trains (crossing plates between tracks, a signal gantry to climb, hangar roofs and a zip line) before she reaches her plane. The last deduction: who warned her you were coming? Then the ending.
 * **Ghost mode** (story parts): press **G** (d-pad left on a gamepad, the Ghost button on the left edge of a touch screen, or the pause menu). The police, helicopter and officers vanish and the clock stops, so you can roam freely; on foot, a marker points at the nearest clue you haven't found. Nothing counts while it's on (no clues, checkpoints or finishing), and turning it off puts you back where you turned it on, with the police back on your case.
 * **Ladders**: every building has a yellow ladder. Fall to the street and you're no longer sent back: walk into a ladder and hold forward to climb back up (a marker points to the nearest one). Only falling into the harbour sends you back.
 * **Hiding spots**: on foot, stand in a stairwell hut or under a water tower (green floor patch) to hide from the helicopter and the officers. Driving, pull into a parking garage (blue P on the minimap): the cops can't see you from the street and lose you in a few seconds.

@@ -420,6 +420,113 @@ export class RooftopKit {
     }
   }
 
+  // ------------------------------------------------------------------
+  // Chapter 4 pieces: the rail yard
+  // ------------------------------------------------------------------
+
+  /** Railway track along Z at x: dark gravel bed, sleepers look and two steel rails (visual only). */
+  track(x, z0, z1) {
+    const lo = Math.min(z0, z1), hi = Math.max(z0, z1);
+    this.batch.addBox({ x: x - 1.7, y: 0.01, z: lo }, { x: x + 1.7, y: 0.1, z: hi }, { side: 'concrete', top: 'concrete', color: 0x3a3632, uvScale: [2, 2], topScale: [2, 2] });
+    for (let z = lo + 0.4; z < hi; z += 0.9) {
+      this.batch.addBox({ x: x - 1.25, y: 0.1, z }, { x: x + 1.25, y: 0.18, z: z + 0.25 }, { side: 'plain', top: 'plain', color: 0x2a221c });
+    }
+    for (const side of [-0.72, 0.72]) {
+      this.batch.addBox({ x: x + side - 0.05, y: 0.18, z: lo }, { x: x + side + 0.05, y: 0.32, z: hi }, { side: 'metal', top: 'plain', color: 0x8a8e96 });
+    }
+  }
+
+  /** Two bogies (wheel sets) under a rail car. */
+  _bogies(x, lo, hi) {
+    for (const z of [lo + 2.2, hi - 2.2]) {
+      this.batch.addBlock(x, 0.3, z, 2.2, 0.7, 2.6, { side: 'plain', top: 'plain', color: 0x1c1c1e });
+    }
+    this.batch.addBox({ x: x - 1.3, y: 0.9, z: lo + 0.3 }, { x: x + 1.3, y: 1.05, z: hi - 0.3 }, { side: 'plain', top: 'plain', color: 0x26262a });
+  }
+
+  /** A boxcar along Z (3 m wide, roof at 4.4 m). Walkable roof; gets a ladder. */
+  boxcar(x, z0, z1, color = 0x7a2e1e) {
+    const lo = Math.min(z0, z1), hi = Math.max(z0, z1), top = 4.4;
+    this.world.addBox(x - 1.5, 0, lo, x + 1.5, top, hi, { tag: 'railcar' });
+    this._bogies(x, lo, hi);
+    this.batch.addBox({ x: x - 1.5, y: 1.05, z: lo }, { x: x + 1.5, y: top, z: hi }, { side: 'metal', top: 'metal', color, uvScale: [0.8, 2.2] });
+    // Roof walkway and a sliding door on each side
+    this.batch.addBox({ x: x - 0.35, y: top, z: lo + 0.3 }, { x: x + 0.35, y: top + 0.05, z: hi - 0.3 }, { side: 'plain', top: 'plain', color: 0x3a3a3e });
+    const mid = (lo + hi) / 2;
+    for (const sx of [-1, 1]) {
+      this.batch.addBox({ x: x + sx * 1.5 - 0.04, y: 1.4, z: mid - 1.6 }, { x: x + sx * 1.5 + 0.04, y: 3.9, z: mid + 1.6 },
+        { side: 'plain', top: null, color: new THREE.Color(color).multiplyScalar(0.7).getHex() });
+    }
+    const b = { minX: x - 1.5, maxX: x + 1.5, minZ: lo, maxZ: hi, h: top };
+    this.buildings.push(b);
+    return b;
+  }
+
+  /** A tank car: a round tank (roof walkway at 3.8 m). */
+  tankCar(x, z0, z1, color = 0x2a2e36) {
+    const lo = Math.min(z0, z1), hi = Math.max(z0, z1), top = 3.8;
+    this.world.addBox(x - 1.4, 0, lo, x + 1.4, top, hi, { tag: 'railcar' });
+    this._bogies(x, lo, hi);
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, hi - lo - 0.6, 18), new THREE.MeshLambertMaterial({ color }));
+    tank.rotation.x = Math.PI / 2;
+    tank.position.set(x, 2.4, (lo + hi) / 2);
+    tank.castShadow = tank.receiveShadow = true;
+    this.extra.add(tank);
+    this.batch.addBox({ x: x - 0.45, y: top - 0.05, z: lo + 0.3 }, { x: x + 0.45, y: top + 0.05, z: hi - 0.3 }, { side: 'plain', top: 'plain', color: 0x4a4a50 });
+    const b = { minX: x - 1.4, maxX: x + 1.4, minZ: lo, maxZ: hi, h: top };
+    this.buildings.push(b);
+    return b;
+  }
+
+  /** An open hopper car (coal / gravel): rim at 3.6 m. */
+  hopperCar(x, z0, z1, color = 0x4a3a2a) {
+    const lo = Math.min(z0, z1), hi = Math.max(z0, z1), top = 3.6;
+    this.world.addBox(x - 1.5, 0, lo, x + 1.5, top, hi, { tag: 'railcar' });
+    this._bogies(x, lo, hi);
+    this.batch.addBox({ x: x - 1.5, y: 1.05, z: lo }, { x: x + 1.5, y: top, z: hi }, { side: 'metal', top: 'plain', color, uvScale: [0.8, 2.2] });
+    this.batch.addBox({ x: x - 1.3, y: top - 0.02, z: lo + 0.2 }, { x: x + 1.3, y: top + 0.01, z: hi - 0.2 }, { side: null, top: 'plain', color: 0x18161a });
+    const b = { minX: x - 1.5, maxX: x + 1.5, minZ: lo, maxZ: hi, h: top };
+    this.buildings.push(b);
+    return b;
+  }
+
+  /**
+   * A signal gantry across the tracks along X at z: a walkable deck (top at
+   * y) on two lattice towers, with red/green signal lamps hanging under it.
+   */
+  gantry(x0, x1, z, y, signalsAt = []) {
+    const look = { side: 'metal', top: 'plain', color: 0x6a6e76, uvScale: [1, 1] };
+    this.solid(x0, y - 0.3, z - 0.75, x1, y, z + 0.75, look, 'gantry');
+    for (const x of [x0, x1]) {
+      this.world.addBox(x - 0.5, 0, z - 0.5, x + 0.5, y - 0.3, z + 0.5, { tag: 'gantry' });
+      for (const [ox, oz] of [[-0.4, -0.4], [0.4, -0.4], [-0.4, 0.4], [0.4, 0.4]]) {
+        this.batch.addBox({ x: x + ox - 0.08, y: 0, z: z + oz - 0.08 }, { x: x + ox + 0.08, y: y - 0.3, z: z + oz + 0.08 }, look);
+      }
+      for (let yy = 1.5; yy < y - 0.5; yy += 1.5) this.batch.addBox({ x: x - 0.5, y: yy, z: z - 0.5 }, { x: x + 0.5, y: yy + 0.1, z: z + 0.5 }, look);
+    }
+    // Railings along both edges (visual; low enough to step over the ends)
+    for (const dz of [-0.72, 0.72]) this.batch.addBox({ x: x0, y: y + 0.85, z: z + dz - 0.03 }, { x: x1, y: y + 0.9, z: z + dz + 0.03 }, { side: 'plain', top: 'plain', color: 0xc9861e });
+    for (const [sx, col] of signalsAt) {
+      this.batch.addBlock(sx, y - 1.4, z, 0.6, 1.1, 0.5, { side: 'plain', top: 'plain', color: 0x121214 });
+      const lamp = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: col, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+      lamp.position.set(sx, y - 0.95, z + 0.3);
+      lamp.scale.setScalar(1.3);
+      this.extra.add(lamp);
+    }
+  }
+
+  /** A tall floodlight tower (a hard white light that blooms). */
+  floodlight(x, z, h = 18) {
+    this.world.addBox(x - 0.4, 0, z - 0.4, x + 0.4, h, z + 0.4, { tag: 'pole' });
+    this.batch.addBox({ x: x - 0.25, y: 0, z: z - 0.25 }, { x: x + 0.25, y: h, z: z + 0.25 }, { side: 'metal', top: 'plain', color: 0x5a5e66 });
+    this.batch.addBox({ x: x - 1.6, y: h, z: z - 0.5 }, { x: x + 1.6, y: h + 1.2, z: z + 0.5 }, { side: 'plain', top: 'plain', color: 0x2a2c30 });
+    this.batch.addBox({ x: x - 1.5, y: h + 0.1, z: z - 0.52 }, { x: x + 1.5, y: h + 1.1, z: z + 0.52 }, { side: 'glow', top: null, color: 0xfff4dc });
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xfff0d0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.8 }));
+    glow.position.set(x, h + 0.6, z);
+    glow.scale.setScalar(9);
+    this.extra.add(glow);
+  }
+
   /** Neon sign on a building face. side: 0 = -Z face, 1 = +Z, 2 = -X, 3 = +X */
   sign(b, side, text, color, y = null) {
     this.signs.push({ b, side, text, color, y });

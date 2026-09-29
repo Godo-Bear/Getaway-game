@@ -203,8 +203,9 @@ export class PlayState {
     }
     this.frameUpdate(dt, frozen);
     // While paused / in a menu: only quiet music (the state's own mix is skipped).
-    if (frozen) audio.setMix({ music: 0.3, intensity: 0.1 });
-    else audio.setMix(this.audioMix?.() ?? {});
+    const rain = this.weather?.rainVolume ?? 0;
+    if (frozen) audio.setMix({ music: 0.3, intensity: 0.1, rain: rain * 0.5 });
+    else audio.setMix({ rain, ...(this.audioMix?.() ?? {}) });
   }
 
   render(renderer) {

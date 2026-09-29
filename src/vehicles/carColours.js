@@ -10,6 +10,7 @@ export const CAR_COLOURS = [
   { id: 'gold-chapter1', name: 'Harbor Gold', hex: 0xd4a73a, unlock: 'Gold rating in Chapter 1' },
   { id: 'gold-chapter2', name: 'Pearl White', hex: 0xe8e6e0, unlock: 'Gold rating in Chapter 2' },
   { id: 'gold-chapter3', name: 'Neon Violet', hex: 0x7a2fd3, unlock: 'Gold rating in Chapter 3' },
+  { id: 'gold-chapter4', name: 'Storm Chrome', hex: 0xa9b4c2, unlock: 'Gold rating in Chapter 4' },
 ];
 
 export function isColourUnlocked(c) {

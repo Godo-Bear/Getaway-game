@@ -324,7 +324,7 @@ export class DeductionState {
     showCard(`
       <p class="sub kicker">The End</p>
       <h2>GETAWAY</h2>
-      <p>Vince is doing time for the back door. Dex is testifying. Det. Hale is in a cell with his own ledger as evidence. Marla is on a plane somewhere, and she owes you a share.</p>
+      <p>Vince is doing time for the back door. Dex is testifying against everyone. Marla is in handcuffs on a wet runway, and Det. Hale is going away for a very long time: his own ledger, his lawyer\'s phone and box 42 made sure of that. The storm is clearing. You walk away in the rain, free.</p>
       <div class="stat-grid">${rows}</div>
       <p class="sub">Thanks for playing. Gold ratings unlock new car colours in Settings, and ghost mode (G, or the pause menu) lets you explore any part without the police.</p>`,
     [{ label: 'Back to title', primary: true, onClick: () => this.game.goTitle() }], { side: true });
@@ -343,7 +343,7 @@ export class DeductionState {
   }
 
   render(renderer) {
-    renderer.render(this.scene, this.camera);
+    this.game.post.render(this.scene, this.camera, this.game.dt);
   }
 
   resize(w, h) {

@@ -22,7 +22,7 @@ import { clamp } from './utils.js';
 
 const SAMPLE_SFX = ['cash', 'caught', 'checkpoint', 'click', 'clue', 'crash0', 'crash1', 'door', 'glass',
   'land', 'locked', 'step0', 'step1', 'step2', 'step3', 'step4', 'vault', 'win'];
-const LOOP_NAMES = ['engine', 'screech', 'siren', 'rotor', 'wind', 'city', 'nitro'];
+const LOOP_NAMES = ['engine', 'screech', 'siren', 'rotor', 'wind', 'city', 'nitro', 'rain'];
 
 // Fake gearbox: the engine note rises, then drops at each gear change.
 const GEARS = [0, 9, 18, 27, 36, 60];
@@ -144,6 +144,11 @@ class AudioManager {
     // Helicopter rotor: low noise chopped by a square wave
     { const f = this._filter('lowpass', 170), am = ctx.createGain(); am.gain.value = 0.5; this._lfo('square', 11, 0.5, am.gain);
       const g = this._out(); this._noiseSource().connect(f); f.connect(am); am.connect(g); L.rotor = g; }
+    // Rain: bright hiss (high noise) with a softer patter underneath
+    { const hp = this._filter('highpass', 1600, 0.5), lp = this._filter('lowpass', 7500, 0.5), g = this._out();
+      const n = this._noiseSource(); n.connect(hp); hp.connect(lp); lp.connect(g);
+      const pf = this._filter('bandpass', 500, 0.8), pg = this.ctx.createGain(); pg.gain.value = 0.6;
+      this._noiseSource().connect(pf); pf.connect(pg); pg.connect(g); L.rain = g; }
     // Tyre screech: narrow band of high noise
     { const f = this._filter('bandpass', 2300, 7), g = this._out(); this._noiseSource().connect(f); f.connect(g); this._lfo('sine', 5, 300, f.frequency); L.screech = g; }
     // Nitro: rushing hiss
@@ -297,6 +302,7 @@ class AudioManager {
     const ctx = this.ctx, t = ctx.currentTime + when;
     const n = ctx.createBufferSource();
     n.buffer = this.noise;
+    n.loop = true; // long sounds (thunder) outlast the 2 s noise buffer
     const f = this._filter(type, freq, q);
     const g = ctx.createGain();
     g.gain.setValueAtTime(vol, t);
@@ -336,6 +342,12 @@ class AudioManager {
       }
       case 'whoosh':
         this._noiseHit(0.45, 1200, 0.7, 0.35 * vol);
+        return;
+      case 'thunder':
+        // A sharp crack, then a long low rumble
+        this._noiseHit(0.35, 1800, 0.6, 0.25 * vol);
+        this._noiseHit(3.2, 90, 0.7, 1.1 * vol, 0.05, 'lowpass');
+        this._noiseHit(2.4, 160, 0.9, 0.6 * vol, 0.4, 'lowpass');
         return;
       case 'horn':
         this._tone(415, 0.45, 'square', 0.07 * vol);

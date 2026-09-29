@@ -31,6 +31,7 @@ const LANDMARKS = {
   anchor: { height: 10, tint: 0x5a4a3a, door: 0x8a5a10, sign: 'THE ANCHOR', signColor: '#ffb020' },
   terminal: { height: 9, tint: 0xa8a49a, door: 0x2a70a8, sign: 'FERRY TERMINAL', signColor: '#39e6ff' },
   hq: { height: 30, tint: 0x6a7080, door: 0x2a4aa0, sign: 'POLICE', signColor: '#3d7bff', windows: true },
+  airfield: { height: 11, tint: 0x7a7e86, door: 0x2a90c8, sign: 'NORTH AIRFIELD', signColor: '#39e6ff' },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];

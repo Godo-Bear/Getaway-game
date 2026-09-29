@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PlayState } from './playState.js';
 import { NightLighting, lightingForQuality } from '../world/lighting.js';
+import { Weather, pickWeather } from '../world/weather.js';
 import { generateStreetCity } from '../world/streetCity.js';
 import { makeGlowMaterial } from '../world/materials.js';
 import { Car, CAR_SPECS, collideCarWithWorld, collideCars } from '../vehicles/car.js';
@@ -93,6 +94,8 @@ export class DrivingState extends PlayState {
     this.minimap = new Minimap(game.hud.el.map, this.city);
     this.beacon = this._buildBeacon();
     this.mode.build?.();
+    // Rain / storm (the story part decides; the Weather setting can override)
+    this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
 
     game.hud.show(this.mode.hudSections);
     game.hud.showControls(CONTROLS.driving);
@@ -278,6 +281,7 @@ export class DrivingState extends PlayState {
 
     this._syncCamera(dt, false);
     this.lighting.follow(p.pos);
+    if (!frozen) this.weather.update(dt, this.camera.position);
     this.particles.update(frozen ? 0 : dt);
 
     // HUD: speedometer, minimap, beacon marker
@@ -463,7 +467,7 @@ export class DrivingState extends PlayState {
   }
 
   renderFrame(renderer) {
-    renderer.render(this.scene, this.camera);
+    this.game.post.render(this.scene, this.camera, this.game.dt);
   }
 
   resize(w, h) {
@@ -473,6 +477,8 @@ export class DrivingState extends PlayState {
   }
 
   teardown() {
+    this.weather?.dispose();
+    this.weather = null;
     this.roadblocks?.clear();
     this.police?.clear();
     this.traffic?.clear();

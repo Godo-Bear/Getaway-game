@@ -15,7 +15,10 @@ import { driveToward, handleStuck, makeAiState } from './driver.js';
 // FugitiveCar - a car fleeing through the city to a destination. It picks
 //   turns that head for the destination, with the odd random detour.
 
-const VINCE_COLORS = { hoodie: 0x4a3322, trousers: 0x23201c, mask: 0xd2a27f, skin: 0xd2a27f, gloves: 0xd2a27f, bag: 0x2a2a2a };
+const RUNNER_COLORS = {
+  vince: { hoodie: 0x4a3322, trousers: 0x23201c, mask: 0xd2a27f, skin: 0xd2a27f, gloves: 0xd2a27f, bag: 0x2a2a2a },
+  marla: { hoodie: 0x1f6a4a, trousers: 0x1a1c22, mask: 0xc98f6a, skin: 0xc98f6a, gloves: 0x111111, bag: 0x3a2a1a },
+};
 
 export class FugitiveRunner {
   /**
@@ -23,7 +26,7 @@ export class FugitiveRunner {
    * @param {Array<THREE.Vector3 & {jump?:boolean, zip?:boolean}>} path - feet positions
    * @param {{speed?:number, triggerDist?:number}} opts
    */
-  constructor(scene, path, { speed = 8.6, triggerDist = 30 } = {}) {
+  constructor(scene, path, { speed = 8.6, triggerDist = 30, colors = 'vince' } = {}) {
     this.scene = scene;
     this.path = path;
     this.baseSpeed = speed;
@@ -34,7 +37,7 @@ export class FugitiveRunner {
     this.s = 0;               // distance travelled along the path
     this.running = false;
     this.pos = path[0].clone();
-    this.model = new PlayerModel(VINCE_COLORS, { bag: true });
+    this.model = new PlayerModel(RUNNER_COLORS[colors] || RUNNER_COLORS.vince, { bag: true });
     scene.add(this.model.root);
     // A fake "controller" the animation code can read
     this.body = { pos: this.pos, vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0,
@@ -100,12 +103,13 @@ export class FugitiveCar {
    * @param {object} city - from generateStreetCity
    * @param {object} dest - road graph node to flee to
    * @param {Function} rng
+   * @param {number} color - paint colour (Vince's brown sedan by default)
    */
-  constructor(scene, city, dest, rng) {
+  constructor(scene, city, dest, rng, color = 0x5a3a22) {
     this.city = city;
     this.dest = dest;
     this.rng = rng;
-    this.mesh = makeCarMesh({ kind: 'civilian', color: 0x5a3a22 });
+    this.mesh = makeCarMesh({ kind: 'civilian', color });
     scene.add(this.mesh);
     this.scene = scene;
     this.car = new Car({ ...CAR_SPECS.police, maxSpeed: 36 }, this.mesh);

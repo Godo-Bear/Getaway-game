@@ -25,7 +25,7 @@ const RADIUS = 55; // joystick throw in pixels
 export class TouchControls {
   constructor(input) {
     this.input = input;
-    this.mode = 'none';
+    this.mode = null; // setMode() below applies the first real mode
     this.root = document.createElement('div');
     this.root.id = 'touch';
     this.root.hidden = true;

@@ -38,7 +38,11 @@ export function showSettings(game, onBack) {
     <div class="setting"><span>Quality</span><div class="seg" id="set-quality">
       ${['low', 'medium', 'high'].map((q) => `<button class="chip${s.graphics === q ? ' on' : ''}" data-q="${q}">${q}</button>`).join('')}
     </div></div>
-    <p class="sub" style="font-size:14px">Low: no shadows, lower resolution, less traffic (best for older laptops). Shadow changes apply when the next level loads.</p>
+    <p class="sub" style="font-size:14px">Low: no shadows, no glow effects, lower resolution, less traffic (best for older laptops). Medium and High add glowing lights (bloom). Shadow changes apply when the next level loads.</p>
+    <div class="setting"><span>Weather</span><div class="seg" id="set-weather">
+      ${[['auto', 'story'], ['rain', 'rain'], ['off', 'off']].map(([v, l]) => `<button class="chip${(s.weather || 'auto') === v ? ' on' : ''}" data-w="${v}">${l}</button>`).join('')}
+    </div></div>
+    <p class="sub" style="font-size:14px">Story: storms where the story has them. Rain: rain in every mode. Off: always clear. Applies when the next level loads.</p>
     <p class="sub setting-head">Getaway car</p>
     <div class="swatches">${colours}</div>
     <p class="sub" id="set-colour-name" style="font-size:14px"></p>`,
@@ -60,6 +64,14 @@ export function showSettings(game, onBack) {
       e.stopPropagation();
       s.graphics = b.dataset.q;
       document.querySelectorAll('#set-quality [data-q]').forEach((x) => x.classList.toggle('on', x === b));
+      apply();
+    });
+  }
+  for (const b of document.querySelectorAll('#set-weather [data-w]')) {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      s.weather = b.dataset.w;
+      document.querySelectorAll('#set-weather [data-w]').forEach((x) => x.classList.toggle('on', x === b));
       apply();
     });
   }
