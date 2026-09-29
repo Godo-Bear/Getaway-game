@@ -12,6 +12,7 @@ const DEFAULTS = {
     invertY: false,
     firstPerson: false, // on-foot camera view
     sprintToggle: true, // tap sprint once to keep sprinting (false = hold it)
+    difficulty: 'normal', // 'easy' | 'normal' | 'hard' (src/core/difficulty.js)
     crosshair: true,
     carColour: 'amber',
     // 'low' | 'medium' | 'high'. Everyone starts on medium (smooth on most

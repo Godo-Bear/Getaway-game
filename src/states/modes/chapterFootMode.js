@@ -12,6 +12,7 @@ import { finishPart } from '../../story/chapterFlow.js';
 import { save } from '../../core/save.js';
 import { earn, owns } from '../../gadgets/gadgets.js';
 import { admin } from '../../core/admin.js';
+import { diff } from '../../core/difficulty.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
@@ -152,7 +153,8 @@ export class ChapterFootMode {
     this.fugitive?.dispose();
     this.fugitive = null;
     if (part.fugitive) {
-      this.fugitive = new FugitiveRunner(s.scene, this.level.fugitivePath, part.fugitive);
+      const f = part.fugitive;
+      this.fugitive = new FugitiveRunner(s.scene, this.level.fugitivePath, { ...f, speed: (f.speed ?? 8.6) * diff().fugitive });
     }
 
     const hud = s.game.hud;
@@ -173,7 +175,8 @@ export class ChapterFootMode {
     this.officers?.dispose();
     this.officers = null;
     if (part.officers) {
-      this.officers = new OfficerSquad(s.scene, s.world, this.level.officerSpawns, part.officers);
+      const o = part.officers;
+      this.officers = new OfficerSquad(s.scene, s.world, this.level.officerSpawns, { ...o, speed: (o.speed ?? 0.86) * diff().officerSpeed });
     }
   }
 
@@ -324,7 +327,8 @@ export class ChapterFootMode {
           hud.toast(`${SUSPECTS[c.who].name}, on the loudspeaker`, `"${c.line}" Stay out of the spotlight: hide under water towers or in stairwell huts.`, SUSPECTS[c.who].color, 7);
         } else hud.toast('Police helicopter!', 'Stay out of the spotlight.', 'var(--red)');
       }
-      const params = { spotSpeed: part.heli.spotSpeed + Math.min(1.2, t / 90), fill: part.heli.fill, lead: part.heli.lead };
+      const d = diff();
+      const params = { spotSpeed: (part.heli.spotSpeed + Math.min(1.2, t / 90)) * d.spot, fill: part.heli.fill * d.fill, lead: part.heli.lead };
       // Gadgets: a holo-decoy draws the spotlight away; smoke hides you.
       this.heli.update(dt, s.policeTarget, params);
       const lit = this.heli.isPlayerLit(p.pos) && !s.concealed;

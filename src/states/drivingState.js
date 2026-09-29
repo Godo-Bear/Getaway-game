@@ -16,6 +16,7 @@ import { save } from '../core/save.js';
 import { NitroPickups } from '../vehicles/nitroPickups.js';
 import { owns } from '../gadgets/gadgets.js';
 import { admin } from '../core/admin.js';
+import { diff } from '../core/difficulty.js';
 import { CarGadgets } from '../gadgets/carGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
@@ -243,11 +244,14 @@ export class DrivingState extends PlayState {
 
   simulate(dt) {
     const p = this.player;
-    const heat = HEAT[this.mode.heat - 1];
+    const d = diff();
+    const base = HEAT[this.mode.heat - 1];
+    const heat = { ...base, speedFactor: base.speedFactor * d.copSpeed }; // (difficulty)
     const ground = this.city.groundHeight;
 
-    // --- AI decisions
-    const cops = this.mode.copCount?.() ?? heat.cops;
+    // --- AI decisions (difficulty: one cop fewer on Easy, one more on Hard)
+    const want = this.mode.copCount?.() ?? heat.cops;
+    const cops = want > 0 ? Math.max(1, want + d.cops) : 0;
     this.police.setCount(cops, p, this.camera);
     this.police.update(dt, p, heat, this.camera);
     this.carGadgets.simulate(dt);
@@ -432,7 +436,7 @@ export class DrivingState extends PlayState {
     if (!police.searching && police.everSeen) {
       // (Garage Keycard gadget: garages, parks and alleys lose them faster)
       const key = owns('keycard');
-      const need = this.inGarage ? (key ? 1 : EVADE_TIME_GARAGE) : this.playerHidden ? (key ? 3.5 : EVADE_TIME_HIDDEN) : EVADE_TIME;
+      const need = (this.inGarage ? (key ? 1 : EVADE_TIME_GARAGE) : this.playerHidden ? (key ? 3.5 : EVADE_TIME_HIDDEN) : EVADE_TIME) * diff().evade;
       if (police.timeSinceSeen > need) {
         police.searching = true;
         this.mode.onEvade?.();
@@ -455,7 +459,7 @@ export class DrivingState extends PlayState {
     }
     // About 3-4 seconds nearly stopped next to cops gets you busted; driving
     // off drains it quickly, so squeezing past them is fine.
-    if (close > 0 && p.speed < 4) this.busted += dt * (0.2 + close * 0.06);
+    if (close > 0 && p.speed < 4) this.busted += dt * (0.2 + close * 0.06) * diff().bust;
     else this.busted -= dt * (p.speed > 10 ? 0.6 : 0.3);
     this.busted = clamp(this.busted, 0, 1);
     this.game.hud.setMeter(this.busted, this.busted > 0.01 && close ? 'BUSTED! Get moving!' : 'Busted', 'var(--blue)');
@@ -470,7 +474,8 @@ export class DrivingState extends PlayState {
   /** Roadblocks and spike strips (only when the mode's rules allow them). */
   _updateRoadblocks(dt) {
     const p = this.player;
-    const rules = this.mode.roadblockRules?.() ?? null;
+    const r = this.mode.roadblockRules?.() ?? null;
+    const rules = r && { ...r, roadblockEvery: r.roadblockEvery * diff().roadblocks }; // (difficulty)
     if (this.roadblocks.update(dt, p, rules) === 'spiked') {
       this.flatTyres = 10;
       this.game.hud.toast('Tyres burst!', 'Spike strip. Less grip and a lower top speed for 10 seconds.', 'var(--red)');

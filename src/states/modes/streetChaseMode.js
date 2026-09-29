@@ -2,6 +2,7 @@ import { save } from '../../core/save.js';
 import { earn } from '../../gadgets/gadgets.js';
 import { formatTime } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
+import { diff } from '../../core/difficulty.js';
 
 // Street Chase: endless driving survival.
 //
@@ -89,7 +90,7 @@ export class StreetChaseMode {
 
     // Heat level
     this.heatProgress += dt;
-    const newHeat = Math.min(5, 1 + Math.floor(this.heatProgress / HEAT_TIME));
+    const newHeat = Math.min(5, 1 + Math.floor(this.heatProgress / (HEAT_TIME * diff().heatTime)));
     if (newHeat > this.heat) {
       this.heat = newHeat;
       hud.toast(`Heat level ${this.heat}`, 'More cruisers are joining the chase.', 'var(--red)');

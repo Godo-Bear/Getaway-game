@@ -5,6 +5,7 @@ import { showCard } from './menus.js';
 import { save } from '../core/save.js';
 import { CAR_COLOURS, isColourUnlocked } from '../vehicles/carColours.js';
 import { adminSettingsHtml, bindAdminSettings, showAdminPanel } from './adminPanel.js';
+import { difficultyPickerHtml, bindDifficultyPicker } from './difficultyPicker.js';
 
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 
@@ -27,6 +28,8 @@ export function showSettings(game, onBack) {
 
   showCard(`
     <h2>Settings</h2>
+    <p class="sub setting-head">Difficulty</p>
+    ${difficultyPickerHtml()}
     <p class="sub setting-head">Sound</p>
     ${slider('set-master', 'Master volume', s.masterVolume, 0, 1, 0.05, pct)}
     ${slider('set-music', 'Music', s.musicVolume, 0, 1, 0.05, pct)}
@@ -55,6 +58,7 @@ export function showSettings(game, onBack) {
 
   const apply = () => { save.write(); game.applySettings(); };
   const again = () => showSettings(game, onBack);
+  bindDifficultyPicker();
   bindAdminSettings(again, () => showAdminPanel(() => { game.applySettings(); again(); }));
   const bindSlider = (id, key, fmt) => {
     const el = document.getElementById(id), out = document.getElementById(`${id}-out`);

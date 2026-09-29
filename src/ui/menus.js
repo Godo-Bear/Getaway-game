@@ -14,6 +14,8 @@ import { showAccount } from './account.js';
 import { cloud } from '../core/cloud.js';
 import { admin } from '../core/admin.js';
 import { showAdminPanel } from './adminPanel.js';
+import { difficultyPickerHtml, bindDifficultyPicker } from './difficultyPicker.js';
+import { diff } from '../core/difficulty.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -175,7 +177,7 @@ export function showTitle(actions) {
     <button class="btn primary story-btn" data-go="story">
       <span class="t-kick">Story · ${solved}/${CHAPTER_LIST.length} solved</span>
       <b>${next.title.replace(/^Chapter (\d+): /, 'Chapter $1 · ')}</b>
-      <small>${solved === 0 ? 'Start here: the Harbor Trust job' : 'Carry on with the story'}</small>
+      <small>${solved === 0 ? 'Start here: the Harbor Trust job' : 'Carry on with the story'} · ${diff().name}</small>
       <span class="arrow">›</span>
     </button>
     <div class="tiles">
@@ -253,7 +255,9 @@ export function showChapterSelect(actions) {
     };
   });
   buttons.push({ label: 'Back', onClick: () => showTitle(actions) });
-  showCard('<p class="sub kicker">Story</p><h2>Chapters</h2><p class="sub">Each chapter: pull off the job, lose the police, then work out who betrayed you.</p>', buttons, { list: true });
+  showCard(`<p class="sub kicker">Story</p><h2>Chapters</h2><p class="sub">Each chapter: pull off the job, lose the police, then work out who betrayed you.</p>
+    <p class="sub setting-head" style="margin-top:4px !important">Difficulty</p>${difficultyPickerHtml()}`, buttons, { list: true });
+  bindDifficultyPicker();
 }
 
 function showChapterParts(chapterId, actions, back) {

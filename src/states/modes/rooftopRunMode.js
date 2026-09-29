@@ -5,6 +5,7 @@ import { Helicopter } from '../../ai/helicopter.js';
 import { save } from '../../core/save.js';
 import { earn } from '../../gadgets/gadgets.js';
 import { admin } from '../../core/admin.js';
+import { diff } from '../../core/difficulty.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
@@ -130,7 +131,8 @@ export class RooftopRunMode {
     const p = s.player;
     const hud = s.game.hud;
 
-    const newLevel = Math.min(MAX_LEVEL, 1 + Math.floor(s.time / LEVEL_TIME));
+    const d = diff();
+    const newLevel = Math.min(MAX_LEVEL, 1 + Math.floor(s.time / (LEVEL_TIME * d.levelTime)));
     if (newLevel > this.level) {
       this.level = newLevel;
       hud.toast(`Wanted level ${this.level}`, 'The spotlights are getting faster.', 'var(--red)');
@@ -142,14 +144,14 @@ export class RooftopRunMode {
     const target = s.policeTarget, fooled = target !== p || s.concealed;
     let lit = false, seen = false;
     for (const h of this.helis) {
-      h.update(dt, target, L);
+      h.update(dt, target, { ...L, spotSpeed: L.spotSpeed * d.spot });
       if (h.seesPlayer && !fooled) seen = true;
       if (h.isPlayerLit(p.pos) && !s.concealed) lit = true;
     }
     this.hidden = this.helis.length > 0 && !seen;
 
     // Out of the light, the meter drains quickly (faster still when hidden).
-    this.spotted = clamp(this.spotted + (lit ? dt * L.fill : -dt * (this.hidden ? 0.9 : 0.6)), 0, 1);
+    this.spotted = clamp(this.spotted + (lit ? dt * L.fill * d.fill : -dt * (this.hidden ? 0.9 : 0.6)), 0, 1);
     hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : this.hidden ? 'Hidden' : 'Spotted',
       lit ? 'var(--red)' : '#8a8f9c');
 

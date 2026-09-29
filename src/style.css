@@ -435,3 +435,5 @@ body.touch-mode #hud-gadget { top: auto; left: auto; right: calc(92px + env(safe
   /* the speedometer moves above the joystick (the bottom middle has buttons) */
   body.touch-mode #hud-speedo { left: calc(24px + env(safe-area-inset-left, 0px)); bottom: calc(184px + env(safe-area-inset-bottom, 0px)); transform: none; text-align: left; width: 130px; }
 }
+.diff-tabs { margin: 2px 0 0; }
+.diff-desc { margin: 6px 0 2px !important; min-height: 1.3em; }

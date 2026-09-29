@@ -7,6 +7,7 @@ import { showSettings } from '../ui/settings.js';
 import { audio } from '../core/audio.js';
 import { startSpeedrun, formatRun } from '../story/speedrun.js';
 import { admin } from '../core/admin.js';
+import { diff } from '../core/difficulty.js';
 
 // Shared behaviour for every "playing" mode (on foot, driving):
 //   - pause menu (P / Esc, or automatically when the mouse lock is lost)
@@ -82,7 +83,7 @@ export class PlayState {
     const run = this.game.chapterRun;
     const chapter = run && this.isStory ? CHAPTERS[run.chapterId] : null;
     const ghostOn = !!this.mode?.ghost;
-    showCard(`<p class="sub kicker">${this.game.speedrun ? `Speedrun · ${formatRun(this.game.speedrun.t)}` : 'Game paused'}</p><h2>Paused</h2>`, [
+    showCard(`<p class="sub kicker">${this.game.speedrun ? `Speedrun · ${formatRun(this.game.speedrun.t)}` : 'Game paused'} · ${diff().name}</p><h2>Paused</h2>`, [
       { label: 'Resume', primary: true, onClick: resume },
       ...(chapter ? [{ label: 'Case Board', onClick: () => showCaseBoard(chapter, run.clues, back, 'clues', false, this._buyOpts()) }] : []),
       ...(this.canGhost ? [{

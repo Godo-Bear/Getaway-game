@@ -8,6 +8,7 @@ import { FugitiveCar } from '../../ai/fugitive.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
+import { diff } from '../../core/difficulty.js';
 
 // A story part played in a car (any chapter). The part's data decides:
 //
@@ -91,7 +92,7 @@ export class ChapterDriveMode {
     this.warnTimer = 0;
     this.done = false;
     this.catchMeter = 0;
-    this.timeLeft = part.goal.timer ?? null;
+    this.timeLeft = part.goal.timer != null ? part.goal.timer * diff().timer : null;
     this.clueFound = part.clue ? this.run.clues.has(part.clue.id) : true;
     if (this.clue) this.clue.group.visible = !this.clueFound;
 
@@ -104,6 +105,7 @@ export class ChapterDriveMode {
       this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color);
       const fn = g.node(f.startNode[0], f.startNode[1]);
       this.fugitive.place(fn, f.heading ?? Math.PI);
+      this.fugitive.car.speedFactor = diff().fugitive;
     }
 
     if (this.goalPos) s.beacon.set(this.goalPos.x, this.goalPos.z, part.goal.label, part.goal.color ?? 0x4dffa6);
@@ -237,7 +239,7 @@ export class ChapterDriveMode {
     // Heat rises over time (or sooner if you ram cops), up to the part's max.
     if (!this.ghost) this.heatTimer += dt;
     const h = part.heat;
-    if (h && this.heat < h.max && this.heatTimer > h.riseEvery) {
+    if (h && this.heat < h.max && this.heatTimer > h.riseEvery * diff().heatTime) {
       this.heatTimer = 0;
       this.heat++;
       hud.toast(`Heat level ${this.heat}`, this.heat >= (part.roadblocks?.fromHeat ?? 9) ? 'Roadblocks and spike strips ahead!' : 'More cruisers are joining the chase.', 'var(--red)');
@@ -273,7 +275,7 @@ export class ChapterDriveMode {
       const d = Math.hypot(fc.pos.x - p.pos.x, fc.pos.z - p.pos.z);
       if (fc.lastImpact > 5 && d < 6) this.catchMeter += 0.12;
       fc.lastImpact = 0;
-      this.catchMeter = clamp(this.catchMeter + (d < CATCH_RADIUS ? dt * 0.3 : -dt * 0.08), 0, 1);
+      this.catchMeter = clamp(this.catchMeter + (d < CATCH_RADIUS ? dt * 0.3 * diff().catchRate : -dt * 0.08), 0, 1);
       if (this.catchMeter > 0.01 || d < CATCH_RADIUS * 2) {
         hud.setMeter(this.catchMeter, d < CATCH_RADIUS ? `Run ${part.fugitive.name} off the road!` : `Catch ${part.fugitive.name}`, 'var(--amber)');
       }

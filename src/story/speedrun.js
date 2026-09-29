@@ -14,6 +14,7 @@ import { earn } from '../gadgets/gadgets.js';
 import { showCard } from '../ui/menus.js';
 import { audio } from '../core/audio.js';
 import { admin } from '../core/admin.js';
+import { diff, DIFFICULTIES } from '../core/difficulty.js';
 
 /** Every part of a chapter, as route steps. */
 const chapterSteps = (c) => c.parts.map((_, i) => ({ chapterId: c.id, part: i }));
@@ -37,13 +38,16 @@ export function formatRun(t) {
   return `${m}:${s.toFixed(2).padStart(5, '0')}`;
 }
 
-export function bestRun(routeId) {
-  return save.data.best.speedrun?.[routeId] ?? null;
+/** Best times are kept per difficulty ('chapter1' on Normal, 'chapter1.easy', 'chapter1.hard'). */
+const runKey = (routeId, d = diff().id) => (d === 'normal' ? routeId : `${routeId}.${d}`);
+
+export function bestRun(routeId, d) {
+  return save.data.best.speedrun?.[runKey(routeId, d)] ?? null;
 }
 
 export function startSpeedrun(game, routeId) {
   const route = speedrunRoutes().find((r) => r.id === routeId);
-  game.speedrun = { routeId, name: route.name, route: route.steps, i: 0, t: 0, splits: [], caught: 0 };
+  game.speedrun = { routeId, name: route.name, route: route.steps, i: 0, t: 0, splits: [], caught: 0, difficulty: diff().id };
   const first = route.steps[0];
   startPart(game, first.chapterId, first.part, { fresh: true });
   game.hud.toast('Go!', 'No story scenes. The timer only runs while you\'re playing.', 'var(--amber)', 3);
@@ -74,13 +78,13 @@ export function speedrunPartDone(state, mode) {
 function finishSpeedrun(state) {
   const { game } = state;
   const sr = game.speedrun;
-  const old = bestRun(sr.routeId);
+  const old = bestRun(sr.routeId, sr.difficulty);
   // Admin cheats (or skipped parts) don't set records
   const counts = !sr.adminUsed && !admin.cheating;
   const isBest = counts && (old == null || sr.t < old);
   if (isBest) {
     save.data.best.speedrun ||= {};
-    save.data.best.speedrun[sr.routeId] = sr.t;
+    save.data.best.speedrun[runKey(sr.routeId, sr.difficulty)] = sr.t;
     save.write();
   }
   const cash = earn(game, 150 * sr.route.length + (isBest ? 300 : 0), '', { quiet: true });
@@ -94,7 +98,7 @@ function finishSpeedrun(state) {
   }).join('');
   const routeId = sr.routeId;
   showCard(`
-    <p class="sub kicker">Speedrun complete · ${sr.name}</p>
+    <p class="sub kicker">Speedrun complete · ${sr.name} · ${DIFFICULTIES[sr.difficulty].name}</p>
     <div class="run-total">${formatRun(sr.t)}</div>
     <div class="splits">${rows}<span>Times caught</span><b>${sr.caught}</b><span>Cash earned</span><b style="color:var(--safe)">+$${cash}</b></div>
     <p class="sub">${!counts ? 'Admin cheats were on, so this time isn\'t saved.' : isBest ? (old == null ? 'Your first recorded time. Now beat it.' : `New personal best! Your old best was ${formatRun(old)}.`) : `Your best is ${formatRun(old)}.`}</p>`,
@@ -109,7 +113,8 @@ export function showSpeedrunMenu(game, onBack) {
   const routes = speedrunRoutes();
   showCard(`
     <h2>Speedrun</h2>
-    <p class="sub">Story parts back to back against the clock: no scenes, no deductions. The timer pauses whenever you pause.</p>`,
+    <p class="sub">Story parts back to back against the clock: no scenes, no deductions. The timer pauses whenever you pause.
+      Difficulty: <b style="color:var(--ink)">${diff().name}</b> (change it in Settings; each difficulty has its own best times).</p>`,
   [
     ...routes.map((r) => {
       const best = bestRun(r.id);

@@ -31,7 +31,9 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 **Controls:** keyboard + mouse (on foot: Shift switches sprint on and off; driving: Shift drift, Space nitro, M map; F gadget; scroll to zoom), any standard gamepad (Xbox layout: sticks, A jump/handbrake, RB nitro/sprint, LB gadget, RT/LT gas/brake, Y view, Menu pause; the d-pad and A/B drive menus), or touch (virtual joystick + buttons appear on the first touch). See *Controls* on the title screen.
 
-**Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, sprint toggle or hold, crosshair, graphics quality (low / medium / high), weather (story / rain / off), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
+**Difficulty** (Settings, or the Story screen): **Easy** (slower police and spotlights, one cop car fewer, the meters fill slower, more time on timers, slower people to chase), **Normal** (as designed) or **Hard** (faster police, one cop car more, less time, and 25% more cash). It changes on-foot and driving parts, the survival modes and Free Run. Speedrun best times are kept per difficulty. Code: `src/core/difficulty.js`.
+
+**Settings** (title screen or pause menu): difficulty, master/music/effects volume, look sensitivity, invert Y, first-person view, sprint toggle or hold, crosshair, graphics quality (low / medium / high), weather (story / rain / off), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
 
 **Graphics:** medium and high add post-processing (`src/world/postFx.js`): bloom so neon, lamps, headlights and windows glow, a vignette and a cool/warm colour grade. The sky is a gradient dome with a moon halo and storm clouds (`src/world/lighting.js`). Rain and thunderstorms (`src/world/weather.js`) add rain streaks, wet shiny roads and roofs that reflect the sky, lightning flashes and thunder. Low skips the post-processing for older laptops; phones start on medium.
 

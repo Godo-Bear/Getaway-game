@@ -7,6 +7,7 @@ import { Helicopter } from '../../ai/helicopter.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 import { admin } from '../../core/admin.js';
+import { diff } from '../../core/difficulty.js';
 import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
 
 // Free Run, on foot: roam the rooftops. One half of a Free Run session
@@ -166,7 +167,7 @@ export class FreeRunMode {
         hud.toast('Police helicopter!', 'Stay out of the spotlight. Hide under water towers or in stairwell huts.', 'var(--red)', 4);
       }
       if (this.heli) {
-        const params = { spotSpeed: 6.2, fill: 0.5, lead: 0.2 };
+        const params = { spotSpeed: 6.2 * diff().spot, fill: 0.5 * diff().fill, lead: 0.2 };
         this.heli.update(dt, s.policeTarget, params);
         const lit = this.heli.isPlayerLit(p.pos) && !s.concealed;
         this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.6), 0, 1);

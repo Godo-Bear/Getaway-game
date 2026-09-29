@@ -16,6 +16,7 @@
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { admin } from '../core/admin.js';
+import { diff } from '../core/difficulty.js';
 
 // Shop categories, in the order the Shop shows them.
 export const CATEGORIES = [
@@ -131,7 +132,7 @@ export function equip(id) {
  * another message is already on screen, like a clue's text).
  */
 export function earn(game, amount, reason = '', { quiet = false } = {}) {
-  amount = Math.round(amount * (owns('clip') ? 1.25 : 1));
+  amount = Math.round(amount * (owns('clip') ? 1.25 : 1) * diff().cash); // Money Clip, Hard difficulty
   if (amount <= 0) return 0;
   shop().cash += amount;
   save.write();

@@ -8,6 +8,7 @@ import { finishPart } from '../../story/chapterFlow.js';
 import { earn } from '../../gadgets/gadgets.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { admin } from '../../core/admin.js';
+import { diff } from '../../core/difficulty.js';
 import { audio } from '../../core/audio.js';
 
 // Chapter 1, Part 1: the heist inside the Harbor Trust bank (on foot).
@@ -69,7 +70,7 @@ export class BankHeistMode {
     this.vaultOpen = false;
     this.doorAngle = 0;
     this.alarm = false;
-    this.alarmT = ALARM_TIME;
+    this.alarmT = ALARM_TIME * diff().timer;
     this.spotted = 0;
     this.cash = 0;
     this.camTime = 0;
@@ -121,7 +122,7 @@ export class BankHeistMode {
     if (admin.flag('god')) { this.spotted = 0; this.alarmT = Math.max(this.alarmT, 10); return; } // admin god mode
     this.run.caught++;
     audio.sfx('caught');
-    if (this.alarm) this.alarmT = ALARM_TIME;
+    if (this.alarm) this.alarmT = ALARM_TIME * diff().timer;
     this._backToDoor(title, msg, 'var(--red)');
   }
 
@@ -154,7 +155,7 @@ export class BankHeistMode {
       if (ang < 0.42 && !this._blocked(c.x, c.z, p.x, p.z)) seen = true;
     }
     if (!this.camsOff && !this.alarm) {
-      this.spotted = clamp(this.spotted + (seen ? dt / 1.1 : -dt * 0.45), 0, 1);
+      this.spotted = clamp(this.spotted + (seen ? (dt / 1.1) * diff().fill : -dt * 0.45), 0, 1);
       hud.setMeter(this.spotted, seen ? 'A camera can see you!' : 'Camera', 'var(--red)');
       if (this.spotted >= 1) {
         this._caught('Caught on camera', 'The guards saw you and locked the doors. Kill the cameras in the security room first.');
@@ -282,7 +283,7 @@ export class BankHeistMode {
 
   _triggerAlarm() {
     this.alarm = true;
-    this.alarmT = ALARM_TIME;
+    this.alarmT = ALARM_TIME * diff().timer;
     this.state.game.hud.setMeter(0, '');
     audio.sfx('sting');
     const v = SUSPECTS.vince;
