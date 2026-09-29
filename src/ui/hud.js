@@ -12,9 +12,9 @@ export class Hud {
       tl: $('hud-tl'), phase: $('hud-phase'), objective: $('hud-objective'), stats: $('hud-stats'),
       score: $('hud-score'), scoreValue: $('hud-score-value'), scoreLabel: $('hud-score-label'),
       mapWrap: $('hud-map-wrap'), map: $('hud-map'),
-      speedo: $('hud-speedo'), speed: $('hud-speed'), nitro: $('hud-nitro'), health: $('hud-health'),
+      speedo: $('hud-speedo'), speed: $('hud-speed'), nitro: $('hud-nitro'),
       meter: $('hud-meter'), meterLabel: $('hud-meter-label'), meterFill: $('hud-meter-fill'),
-      controls: $('hud-controls'), debug: $('hud-debug'), marker: $('hud-marker'),
+      controls: $('hud-controls'), debug: $('hud-debug'), marker: $('hud-marker'), waypoint: $('hud-waypoint'),
       toast: $('toast'), fade: $('fade'),
     };
     this._cache = new Map();
@@ -36,6 +36,7 @@ export class Hud {
       meter: this.el.meter, controls: this.el.controls, marker: this.el.marker };
     for (const [k, el] of Object.entries(all)) el.hidden = !sections.includes(k);
     if (!sections.includes('marker')) this.el.marker.style.display = 'none';
+    this.el.waypoint.style.display = 'none'; // shown again by a driving state that has one
   }
 
   hideAll() {
@@ -54,16 +55,10 @@ export class Hud {
   }
   setDebug(text) { this._set(this.el.debug, 'debug', text); }
 
-  setSpeedo(kmh, nitro, health) {
+  setSpeedo(kmh, nitro) {
     this._set(this.el.speed, 'speed', String(Math.round(kmh)));
     const n = `${(nitro * 100).toFixed(0)}%`;
     if (this._cache.get('nitro') !== n) { this._cache.set('nitro', n); this.el.nitro.style.width = n; }
-    const h = `${(health * 100).toFixed(0)}%`;
-    if (this._cache.get('health') !== h) {
-      this._cache.set('health', h);
-      this.el.health.style.width = h;
-      this.el.health.style.background = health > 0.5 ? 'var(--safe)' : health > 0.25 ? 'var(--amber)' : 'var(--red)';
-    }
   }
 
   /** The Spotted / Busted meter. value 0..1; hidden when empty. */
@@ -110,7 +105,15 @@ export class Hud {
    * with an arrow if it's off-screen).
    */
   setMarker(worldPos, camera, label, color = 'var(--amber)', distance = null) {
-    const m = this.el.marker;
+    this._placeMarker(this.el.marker, 'marker', worldPos, camera, label, color, distance);
+  }
+
+  /** A second pointer for the waypoint you set on the big map (M). */
+  setWaypoint(worldPos, camera, distance = null) {
+    this._placeMarker(this.el.waypoint, 'waypoint', worldPos, camera, 'Waypoint', '#ff5ad0', distance);
+  }
+
+  _placeMarker(m, key, worldPos, camera, label, color, distance) {
     if (!worldPos) { m.style.display = 'none'; return; }
     m.style.display = 'block';
     const v = worldPos.clone().project(camera);
@@ -129,7 +132,7 @@ export class Hud {
     m.style.setProperty('--mc', color);
     m.style.setProperty('--ang', `${90 - (Math.atan2(y, x) * 180) / Math.PI}deg`);
     const text = distance != null ? `${label} ${Math.round(distance)} m` : label;
-    this._set(m.querySelector('.lbl'), 'marker', text);
+    this._set(m.querySelector('.lbl'), key, text);
   }
 
   update(dt) {

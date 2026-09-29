@@ -11,13 +11,13 @@
 // input.touch, which the Input class reads exactly like keys and gamepads.
 
 const LABELS = {
-  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide' },
-  driving: { a: 'Drift', b: 'Nitro', c: 'Cam', d: 'Horn' },
-  none: { a: null, b: null, c: null, d: null },
+  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide', e: 'Gadget' },
+  driving: { a: 'Drift', b: 'Nitro', c: 'Cam', d: 'Horn', e: 'Gadget' },
+  none: { a: null, b: null, c: null, d: null, e: null },
 };
 const ACTIONS = {
-  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: 'crouch' },
-  driving: { a: 'jump', b: 'sprint', c: 'camera', d: 'horn' },
+  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: 'crouch', e: 'gadget' },
+  driving: { a: 'drift', b: 'nitro', c: 'camera', d: 'horn', e: 'gadget' },
   none: {},
 };
 const RADIUS = 55; // joystick throw in pixels
@@ -38,6 +38,7 @@ export class TouchControls {
         <button data-b="b"></button>
         <button data-b="a" class="t-main"></button>
       </div>
+      <button data-b="e" class="t-gadget"></button>
       <button class="t-pause" aria-label="Pause">II</button>
       <button class="t-ghost" hidden>Ghost</button>`;
     document.body.appendChild(this.root);
@@ -104,15 +105,31 @@ export class TouchControls {
   _bindLook() {
     const look = this.root.querySelector('.t-look');
     let id = null, lx = 0, ly = 0;
-    look.addEventListener('pointerdown', (e) => { id = e.pointerId; lx = e.clientX; ly = e.clientY; look.setPointerCapture(id); });
+    // Two fingers on the look area = pinch to zoom the camera.
+    const fingers = new Map();
+    let pinch = 0;
+    const spread = () => { const [a, b] = [...fingers.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
+    look.addEventListener('pointerdown', (e) => {
+      fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      look.setPointerCapture(e.pointerId);
+      if (fingers.size === 2) { pinch = spread(); id = null; return; }
+      id = e.pointerId; lx = e.clientX; ly = e.clientY;
+    });
     look.addEventListener('pointermove', (e) => {
+      if (fingers.has(e.pointerId)) fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if (fingers.size === 2) {
+        const d = spread();
+        this.input.zoom += (pinch - d) / 60; // fingers apart = zoom in
+        pinch = d;
+        return;
+      }
       if (e.pointerId !== id) return;
       this.input.mouseDX += (e.clientX - lx) * 1.4;
       this.input.mouseDY += (e.clientY - ly) * 1.4;
       lx = e.clientX;
       ly = e.clientY;
     });
-    const end = (e) => { if (e.pointerId === id) id = null; };
+    const end = (e) => { fingers.delete(e.pointerId); if (e.pointerId === id) id = null; };
     look.addEventListener('pointerup', end);
     look.addEventListener('pointercancel', end);
   }

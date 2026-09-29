@@ -10,6 +10,7 @@ import { CHAPTERS } from './chapters.js';
 import { getChapterRun, newChapterRun } from './chapterRun.js';
 import { formatTime } from '../core/utils.js';
 import { save } from '../core/save.js';
+import { earn } from '../gadgets/gadgets.js';
 
 /**
  * @param {object} game
@@ -51,6 +52,7 @@ export function finishPart(state, mode) {
   };
 
   const found = Object.entries(chapter.clues).filter(([id]) => run.clues.has(id));
+  const cash = earn(game, 250, '', { quiet: true });
   state.gameOver(`
     <p class="sub kicker">${chapter.title} · Part ${partIndex + 1} complete</p>
     <h2>${part.doneTitle}</h2>
@@ -59,6 +61,7 @@ export function finishPart(state, mode) {
       <div><span>Time</span><b>${formatTime(state.time)}</b></div>
       <div><span>Clues this run</span><b>${found.length}/${clueTotal}</b></div>
       <div><span>Times caught</span><b>${run.caught}</b></div>
+      <div><span>Cash earned</span><b style="color:var(--safe)">+$${cash}</b></div>
     </div>`,
   [{
     label: next ? `Continue: Part ${partIndex + 2}, ${next.title}` : 'Continue: the deduction',
@@ -69,5 +72,7 @@ export function finishPart(state, mode) {
 /** Every clue the player has found, in this run or any earlier one. */
 export function knownClues(game, chapterId) {
   const run = game.chapterRun?.chapterId === chapterId ? game.chapterRun.clues : new Set();
-  return new Set([...run, ...(save.data.progress.clues?.[chapterId] || [])]);
+  // Only clues that still exist (old saves may list clues a chapter no longer has).
+  const valid = CHAPTERS[chapterId]?.clues || {};
+  return new Set([...run, ...(save.data.progress.clues?.[chapterId] || [])].filter((id) => id in valid));
 }

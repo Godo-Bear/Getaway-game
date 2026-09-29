@@ -76,12 +76,14 @@ export class OfficerSquad {
   /**
    * @param {number} dt
    * @param {PlayerController} player
-   * @param {boolean} hidden - the player is in a hiding spot
+   * @param {boolean} hidden - the player is in a hiding spot (or in gadget smoke)
+   * @param {THREE.Vector3|null} lure - a holo-decoy: the officers run there instead
    * @returns {'caught'|null}
    */
-  update(dt, player, hidden = false) {
+  update(dt, player, hidden = false, lure = null) {
     let result = null;
-    if (!hidden) this.lastKnown.copy(player.pos);
+    if (lure) this.lastKnown.copy(lure);
+    else if (!hidden) this.lastKnown.copy(player.pos);
     this.searchTimer -= dt;
     for (const u of this.units) {
       if (u.waitTimer > 0) {
@@ -93,7 +95,7 @@ export class OfficerSquad {
       let t = dt;
       while (t > 1e-4) {
         const h = Math.min(STEP, t);
-        this._think(u, hidden ? this._searchPoint(u) : player.pos, h);
+        this._think(u, lure || (hidden ? this._searchPoint(u) : player.pos), h);
         u.pc.update(h, u.ctl);
         u.pc.events.length = 0;
         u.ctl.jumpPressed = false;

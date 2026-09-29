@@ -49,7 +49,6 @@ export class Car {
     this.vy = 0;
     this.airborne = false;
     this.airTime = 0;
-    this.health = 1;
     this.forwardSpeed = 0;
     this.lateralSpeed = 0;
     this.drifting = false;
@@ -82,11 +81,6 @@ export class Car {
     this.syncMesh();
   }
 
-  /** How much damage slows the car down: full speed above 50% health. */
-  get damageFactor() {
-    return this.health > 0.5 ? 1 : lerp(0.45, 1, this.health / 0.5);
-  }
-
   step(dt, groundHeight) {
     const s = this.spec, c = this.controls;
     const fx = Math.sin(this.heading), fz = Math.cos(this.heading);
@@ -96,7 +90,7 @@ export class Car {
 
     this.boosting = false;
     if (!this.airborne) {
-      const maxF = s.maxSpeed * this.speedFactor * this.damageFactor * (c.nitro ? s.nitroMaxFactor : 1);
+      const maxF = s.maxSpeed * this.speedFactor * (c.nitro ? s.nitroMaxFactor : 1);
 
       // --- Throttle / brake / reverse
       if (c.throttle > 0) {

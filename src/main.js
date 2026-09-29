@@ -11,6 +11,7 @@ import { DrivingState } from './states/drivingState.js';
 import { DeductionState } from './states/deductionState.js';
 import { startPart } from './story/chapterFlow.js';
 import { PostFx } from './world/postFx.js';
+import { AutoQuality } from './core/autoQuality.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -36,6 +37,11 @@ function createRenderer() {
   }
 }
 
+// Highest pixel ratio per graphics setting. "Retina" screens have 2-3x as
+// many pixels; drawing all of them (plus the glow effects) is what makes
+// laptops lag, so we cap it.
+const MAX_DPR = { low: 0.85, medium: 1, high: 1.5 };
+
 const renderer = createRenderer();
 if (renderer) start(renderer);
 
@@ -43,8 +49,7 @@ function start(renderer) {
   const settings = save.data.settings;
   // Pixel ratio: rendering at full "retina" resolution is very expensive.
   // Cap it depending on the graphics setting.
-  const maxDpr = { low: 1, medium: 1.25, high: 1.75 }[settings.graphics] ?? 1.5;
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, maxDpr));
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR[settings.graphics] ?? 1));
   renderer.setSize(window.innerWidth, window.innerHeight);
   renderer.shadowMap.enabled = settings.graphics !== 'low';
   document.getElementById('game').appendChild(renderer.domElement);
@@ -64,7 +69,7 @@ function start(renderer) {
     /** Apply settings that can change live (called by the settings screen). */
     applySettings: () => {
       const st = game.settings;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, { low: 1, medium: 1.25, high: 1.75 }[st.graphics] ?? 1.5));
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR[st.graphics] ?? 1));
       renderer.setSize(window.innerWidth, window.innerHeight);
       game.post.setQuality(st.graphics);
       game.post.setSize(window.innerWidth, window.innerHeight);
@@ -73,6 +78,7 @@ function start(renderer) {
     },
   };
   game.post.setQuality(settings.graphics);
+  const autoQuality = new AutoQuality(game);
   audio.setVolumes(settings);
   game.touch = new TouchControls(game.input);
   game.audio = audio; // handy for debugging in the console
@@ -132,6 +138,7 @@ function start(renderer) {
     game.touch.setMode(game.sm.currentName === 'onFoot' ? 'onFoot' : game.sm.currentName === 'driving' ? 'driving' : 'none');
     game.sm.update(dt);
     game.sm.render(renderer);
+    autoQuality.update(dt);
     game.input.endFrame();
     requestAnimationFrame(frame);
   }

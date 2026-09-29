@@ -6,6 +6,7 @@ import { SUSPECTS } from '../story/crew.js';
 import { getChapterRun, totalTime, chapterRating } from '../story/chapterRun.js';
 import { startPart, knownClues } from '../story/chapterFlow.js';
 import { save } from '../core/save.js';
+import { earn, owns } from '../gadgets/gadgets.js';
 import { formatTime, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
 
@@ -44,6 +45,14 @@ export class DeductionState {
     // Evidence = clues found this run plus anything found before (e.g. in a clue hunt).
     this.evidence = knownClues(this.game, chapterId);
     this.wrong = 0;
+    // Lie Detector gadget: clears one innocent suspect (preferably one a
+    // red-herring clue points at, since that's the tempting wrong answer).
+    this.cleared = null;
+    if (owns('detector')) {
+      const traitor = this.chapter.traitor;
+      const herring = Object.values(this.chapter.clues).find((c) => c.redHerring && c.pointsTo !== traitor);
+      this.cleared = herring?.pointsTo || SUSPECT_ORDER.find((id) => id !== traitor);
+    }
     this.time = 0;
     this.game.hud.hideAll();
     this._buildScene();
@@ -69,7 +78,7 @@ export class DeductionState {
     this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
 
     scene.add(new THREE.HemisphereLight(0x6070a0, 0x201810, 0.9));
-    const lamp = new THREE.PointLight(0xffc27a, 60, 18, 1.6);
+    const lamp = new THREE.PointLight(0xffc27a, 42, 18, 1.6);
     lamp.position.set(1.5, 2.6, 3);
     scene.add(lamp);
 
@@ -208,8 +217,9 @@ export class DeductionState {
       <div class="accuse-grid">
         ${SUSPECT_ORDER.map((id) => {
           const s = SUSPECTS[id];
-          return `<button class="btn" data-accuse="${id}"><span class="badge" style="background:${s.color}">${s.name[0]}</span>
-            <span>${s.name}<small>${s.role}</small></span></button>`;
+          const clear = id === this.cleared;
+          return `<button class="btn${clear ? ' cleared' : ''}" data-accuse="${id}" ${clear ? 'disabled' : ''}><span class="badge" style="background:${s.color}">${s.name[0]}</span>
+            <span>${s.name}<small>${clear ? 'Cleared by the Lie Detector' : s.role}</small></span></button>`;
         }).join('')}
       </div>`,
     [
@@ -256,7 +266,7 @@ export class DeductionState {
     const run = this.run;
     const ids = Object.keys(chapter.clues);
     const { found, total } = this._clueCount();
-    const complete = run.parts.rooftops != null && run.parts.drive != null;
+    const complete = chapter.parts.every((pt) => run.parts[pt.id] != null); // played every part this run
     const time = totalTime(run);
 
     // Rating: from time, clues and catches, then one tier lower per wrong guess.
@@ -267,6 +277,7 @@ export class DeductionState {
     // Save progress
     const p = save.data.progress;
     p.solved = p.solved || {};
+    const firstSolve = !p.solved[chapter.id];
     p.solved[chapter.id] = true;
     p.chapterUnlocked = Math.max(p.chapterUnlocked || 1, chapter.number + 1);
     p.ratings = p.ratings || {};
@@ -280,6 +291,8 @@ export class DeductionState {
     }
     const isBest = complete && save.submitTime(`${chapter.id}.total`, time);
     save.write();
+    // Reward for the Shop: more the first time, a bonus for gold
+    const cash = earn(this.game, (firstSolve ? 500 : 150) + (rating === 'gold' ? 200 : 0), '', { quiet: true });
 
     const clueHtml = ids.map((cid) => {
       const info = chapter.clues[cid];
@@ -297,6 +310,7 @@ export class DeductionState {
         <div><span>Best time</span><b>${p.bestTimes[`${chapter.id}.total`] != null ? formatTime(p.bestTimes[`${chapter.id}.total`]) : '-'}</b></div>
         <div><span>Clues found</span><b>${found}/${total}</b></div>
         <div><span>Caught / wrong guesses</span><b>${run.caught} / ${this.wrong}</b></div>
+        <div><span>Cash earned</span><b style="color:var(--safe)">+$${cash}</b></div>
       </div>
       ${isBest ? '<p class="new-best">New best chapter time!</p>' : ''}
       ${newColour ? '<p class="new-best">Gold rating! New car colour unlocked.</p>' : ''}
@@ -343,7 +357,8 @@ export class DeductionState {
   }
 
   render(renderer) {
-    this.game.post.render(this.scene, this.camera, this.game.dt);
+    // No glow here: the lamp-lit cards would bloom into unreadable white.
+    this.game.post.render(this.scene, this.camera, this.game.dt, { bloom: false });
   }
 
   resize(w, h) {

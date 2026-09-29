@@ -8,8 +8,9 @@ import { audio } from '../core/audio.js';
 import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
 import { NightLighting, lightingForQuality } from '../world/lighting.js';
 import { Weather, pickWeather } from '../world/weather.js';
+import { FootGadgets } from '../gadgets/footGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
-import { damp } from '../core/utils.js';
+import { damp, clamp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
 import { RooftopRunMode } from './modes/rooftopRunMode.js';
 import { ChapterFootMode } from './modes/chapterFootMode.js';
@@ -64,12 +65,14 @@ export class OnFootState extends PlayState {
     this.model = new PlayerModel();
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
+    this.gadgets = new FootGadgets(this); // shop gadgets (F)
     // Rain / storm (the story part decides; the Weather setting can override)
     this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
     this.cam = new ThirdPersonCamera(this.camera, this.world);
     const s = game.settings;
     this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
     this.cam.invertY = s.invertY;
+    if (s.footZoom) this.cam.distance = this.cam.currentDistance = s.footZoom;
     // First-person arms hang off the camera, so the camera joins the scene.
     this.scene.add(this.camera);
     this.arms = new FirstPersonArms(this.camera);
@@ -106,6 +109,7 @@ export class OnFootState extends PlayState {
     this.game.hud.setMarker(null);
     const sp = this.level.spawn;
     this.placePlayer(sp, sp.yaw ?? 0);
+    this.gadgets.reset();
     this.mode.start(this.firstStart);
     this.firstStart = false;
   }
@@ -149,6 +153,16 @@ export class OnFootState extends PlayState {
 
     if (input.wasPressed('view')) this.toggleView();
     if (input.wasPressed('respawn')) this.respawnKey();
+    if (input.wasPressed('gadget')) this.gadgets.use();
+
+    // Scroll wheel / pinch: move the camera closer or further away (remembered).
+    const zoom = input.consumeZoom();
+    if (zoom && !this.cam.firstPerson) {
+      this.cam.distance = clamp(this.cam.distance * (1 + zoom * 0.15), 1.8, 11);
+      this.game.settings.footZoom = this.cam.distance;
+      this._zoomSave = 1; // written to the save a moment later (not every scroll tick)
+    }
+    if (this._zoomSave > 0 && (this._zoomSave -= dt) <= 0) save.write();
   }
 
   get respawnLabel() {
@@ -197,6 +211,7 @@ export class OnFootState extends PlayState {
         if (this.mode.onFall) this.mode.onFall();
         else this.respawnToSafety('You fell.');
       }
+      this.gadgets.update(dt);
       this.mode.update(dt);
       this._streetHelp(dt);
     }
@@ -312,7 +327,18 @@ export class OnFootState extends PlayState {
     this.camera.updateProjectionMatrix();
   }
 
+  /** What the police should chase: the player, or a holo-decoy if one is out. */
+  get policeTarget() {
+    return this.gadgets?.lure || this.player;
+  }
+
+  /** Hidden by a smoke bomb right now? */
+  get concealed() {
+    return !!this.gadgets?.concealed;
+  }
+
   teardown() {
+    this.gadgets?.dispose();
     this.weather?.dispose();
     this.weather = null;
     this.mode?.teardown?.();

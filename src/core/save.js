@@ -12,9 +12,10 @@ const DEFAULTS = {
     invertY: false,
     firstPerson: false, // on-foot camera view
     carColour: 'amber',
-    // 'low' | 'medium' | 'high'. Phones and tablets start on medium: the glow
-    // effects at full resolution are heavy for a phone's graphics chip.
-    graphics: typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches ? 'medium' : 'high',
+    // 'low' | 'medium' | 'high'. Everyone starts on medium (smooth on most
+    // laptops and phones); raise it in Settings if your computer can take it.
+    graphics: 'medium',
+    autoGraphics: true, // lower the graphics setting by itself if the game runs slowly
     weather: 'auto',  // 'auto' (story decides) | 'rain' (rain everywhere) | 'off'
     masterVolume: 0.8,
     musicVolume: 0.6,
@@ -31,6 +32,12 @@ const DEFAULTS = {
     solved: {},      // chapterId -> true once the deduction is right
     ratings: {},     // chapterId -> best rating ('gold' | 'silver' | 'bronze')
     carColours: [],  // unlocked by gold ratings
+  },
+  // The gadget shop (src/gadgets/gadgets.js)
+  shop: {
+    cash: 500,       // spend it in the Shop; earned by playing
+    owned: [],       // gadget ids you've bought
+    equipped: { foot: null, car: null }, // the F-key gadget for each
   },
 };
 

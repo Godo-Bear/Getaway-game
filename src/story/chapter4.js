@@ -40,7 +40,7 @@ export const CHAPTER4 = {
         { kicker: 'How to play', title: 'Catch Marla',
           lines: [
             'Stay close to Marla\'s green car (the spinning amber arrow) or ram it to fill the meter. Don\'t let her reach the airfield.',
-            'The roads are wet and the police are everywhere: roadblocks and spike strips from heat 4. Lose them in a parking garage (blue P on the minimap) if you need to. A clue waits in the park in the middle of town.',
+            'The roads are wet and the police are everywhere: roadblocks and spike strips from heat 4. Lose them in a parking garage (blue P on the minimap) if you need to.',
           ] },
       ],
       startLabel: 'After her',
@@ -50,9 +50,8 @@ export const CHAPTER4 = {
       goal: { type: 'chase', block: '6,0', label: 'Airfield', color: 0x39e6ff },
       fugitive: { startNode: [2, 5], heading: Math.PI, name: 'Marla', who: 'marla', color: 0x1f6a4a,
         escapeTitle: 'Marla reached the airfield', escapeText: 'Her car disappears through the airfield gate. Stay on her bumper and ram her before she gets there.' },
-      clue: { id: 'flightPlan', park: '4,3', offset: [12, 0] },
       heat: { start: 3, max: 5, riseEvery: 40 },
-      roadblocks: { fromHeat: 4, every: 16, spikes: true },
+      roadblocks: { fromHeat: 4, every: 26, spikes: true },
       doneTitle: 'Marla bails out',
       doneText: 'Her car slides through the rail yard gate and into a fence. She\'s out and running across the freight trains toward the hangars with a bag of bonds from box 42.',
     },
@@ -87,30 +86,19 @@ export const CHAPTER4 = {
   ],
 
   clues: {
-    flightPlan: {
-      name: 'Flight plan',
-      text: 'Found in the park: a copy of Marla\'s flight plan, filed at 2:35 a.m. The jet was paid for by "HT Holdings", the same company that paid Dex.',
-      pointsTo: 'hale',
-      explain: 'HT Holdings is Hale\'s company. Somebody close to Hale paid for Marla\'s escape.',
-    },
+    // Three clues, all on Marla's route: the card and the phone log point at
+    // the traitor; the map is a red herring.
     lawyerCard: {
       name: 'Lawyer\'s card',
-      text: 'A business card: "R. Castellano, counsel to Det. R. Hale". On the back, in pencil: "North gate. 3:15."',
+      text: 'A business card: "R. Castellano, counsel to Det. R. Hale". On the back, in pencil: "North gate. 3:15." Paper-clipped to it: the receipt for Marla\'s jet, paid by "HT Holdings", the company that owns Hale\'s boat and paid Dex.',
       pointsTo: 'hale',
-      explain: 'Hale\'s lawyer knew the gate and the time before you did. The message came through him.',
+      explain: 'Hale\'s lawyer knew the gate and the time before you did, and Hale\'s own company paid for the jet. The message and the money both came from Hale.',
     },
     cellCall: {
       name: 'Phone log',
-      text: 'A printout from Marla\'s burner phone: one incoming call at 2:52 a.m., from a phone registered to Hale\'s lawyer, made inside the police HQ holding cells.',
+      text: 'A printout from Marla\'s burner phone: one incoming call at 2:52 a.m., from a phone registered to Hale\'s lawyer, made from inside the police HQ holding cells, where Hale is being held.',
       pointsTo: 'hale',
-      explain: 'The call came from the holding cells, on Hale\'s lawyer\'s phone, during his visit.',
-    },
-    dexKeys: {
-      name: 'Dex\'s car keys',
-      text: 'Dex\'s car keys, hanging on a hook on the hangar roof. Did Dex drive Marla here?',
-      pointsTo: 'dex',
-      redHerring: true,
-      explain: 'Dex\'s car was impounded as evidence tonight. Its keys came out of the evidence room, where only a detective could get them.',
+      explain: 'The call came from the holding cells, on Hale\'s lawyer\'s phone, during his visit to Hale.',
     },
     vinceMap: {
       name: 'Hand-drawn map',
@@ -125,7 +113,7 @@ export const CHAPTER4 = {
     hale: {
       correct: true,
       title: 'It was Hale',
-      text: 'From a holding cell, Hale used his lawyer\'s phone to warn Marla and paid for her jet through HT Holdings. With Marla gone, nobody could prove he\'d been taking her orders, and he could blame the whole thing on her. The planted keys and the old map were meant to point you at Dex and Vince.',
+      text: 'From a holding cell, Hale used his lawyer\'s phone to warn Marla and paid for her jet through HT Holdings. With Marla gone, nobody could prove he\'d been taking her orders, and he could blame the whole thing on her. The old map was meant to point you at Vince.',
     },
     marla: {
       correct: false,
@@ -135,7 +123,7 @@ export const CHAPTER4 = {
     dex: {
       correct: false,
       title: 'Not Dex',
-      text: 'Dex is the one who told you about the flight plan. His keys came out of the police evidence room.',
+      text: 'Dex is the one who told you about the flight plan. He\'s been with the prosecutors all night.',
     },
     vince: {
       correct: false,

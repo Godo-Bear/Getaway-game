@@ -133,6 +133,7 @@ export class PlayerController {
     this.wallRun = null;
     this.usedWallNormal = null;
     this.ladder = null;
+    this.grappleMove = null;
   }
 
   get horizontalSpeed() {
@@ -171,6 +172,10 @@ export class PlayerController {
 
     this.zipCooldown = Math.max(0, this.zipCooldown - dt);
     this.ladderCooldown = Math.max(0, this.ladderCooldown - dt);
+    if (this.state === 'grapple') {
+      this._updateGrapple(dt);
+      return;
+    }
     if (this.state === 'ladder') {
       this._updateLadder(dt, ctl);
       return;
@@ -763,6 +768,47 @@ export class PlayerController {
         this._startMantle(ledge, { vault: false, dir });
         this.mantle.exitSpeed = 0;
       } else letGo(0, 0, 0);
+    }
+  }
+
+  // ---------------------------------------------------------------------
+  // Grapple gun (a shop gadget): get pulled along a cable onto a roof
+  // ---------------------------------------------------------------------
+
+  /** Start a grapple pull to `target` (feet position on a roof). */
+  grapple(target) {
+    const d = this.pos.distanceTo(target);
+    this.grappleMove = { from: this.pos.clone(), to: target.clone(), t: 0, duration: 0.35 + d * 0.03 };
+    this.vel.set(0, 0, 0);
+    this.grounded = false;
+    this.ladder = null;
+    this.zip = null;
+    this.wallRun = null;
+    this.mantle = null;
+    this.height = T.height;
+    this.facing = Math.atan2(target.x - this.pos.x, target.z - this.pos.z);
+    this._setState('grapple');
+    this.events.push({ type: 'zip' });
+  }
+
+  _updateGrapple(dt) {
+    const g = this.grappleMove;
+    g.t += dt;
+    const k = clamp(g.t / g.duration, 0, 1);
+    const e = easeInOut(k);
+    // Straight line, lifted a little in the middle so you arc over the roof edge.
+    this.pos.set(
+      g.from.x + (g.to.x - g.from.x) * e,
+      g.from.y + (g.to.y - g.from.y) * e + Math.sin(Math.PI * k) * 1.5,
+      g.from.z + (g.to.z - g.from.z) * e,
+    );
+    if (k >= 1) {
+      this.grappleMove = null;
+      this.vel.set(0, 0, 0);
+      this.grounded = true;
+      this.lastGroundY = this.pos.y;
+      this._setState('ground');
+      this.events.push({ type: 'land', impact: 3 });
     }
   }
 

@@ -1,4 +1,5 @@
 import { save } from '../../core/save.js';
+import { earn } from '../../gadgets/gadgets.js';
 import { formatTime } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
@@ -39,7 +40,7 @@ export class StreetChaseMode {
     const hud = s.game.hud;
     hud.setPhase('Street Chase');
     hud.setObjective('Lose the cops. Keep driving.');
-    hud.toast('Drive!', 'Every second you stay free earns points. Shift for nitro, Space to drift.', 'var(--amber)');
+    hud.toast('Drive!', 'Every second you stay free earns points. Space for nitro, Shift to drift. Drive through blue canisters to refill nitro.', 'var(--amber)');
   }
 
   _placeCashDrop() {
@@ -56,7 +57,7 @@ export class StreetChaseMode {
   /** Roadblocks from heat 4, more often at heat 5. Spike strips too. */
   roadblockRules() {
     if (this.heat < 4) return null;
-    return { roadblockEvery: this.heat === 4 ? 20 : 13, spikes: true };
+    return { roadblockEvery: this.heat === 4 ? 26 : 18, spikes: true };
   }
 
   onPoliceRam() {
@@ -111,7 +112,8 @@ export class StreetChaseMode {
       const bonus = 750 * this.heat;
       this.score += bonus;
       this.cashDrops++;
-      hud.toast(`Cash drop! +${bonus}`, '', 'var(--safe)');
+      const shopCash = earn(s.game, 75, '', { quiet: true });
+      hud.toast(`Cash drop! +${bonus} points, +$${shopCash}`, 'Cash for the Shop.', 'var(--safe)');
       audio.sfx('cash');
       this._placeCashDrop();
     }
@@ -136,6 +138,7 @@ export class StreetChaseMode {
         <div><span>Heat reached</span><b>${this.heat}</b></div>
         <div><span>Times evaded</span><b>${this.evades}</b></div>
         <div><span>Near misses</span><b>${this.nearMisses}</b></div>
+        <div><span>Cash for the Shop</span><b style="color:var(--safe)">+$${earn(s.game, score / 25, '', { quiet: true })}</b></div>
       </div>
       ${isBest ? '<p class="new-best">New best score!</p>' : ''}`);
   }

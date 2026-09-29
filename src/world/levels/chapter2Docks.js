@@ -16,7 +16,7 @@ import { makeCarMesh } from '../../vehicles/carModel.js';
 //    S3 -> W2 warehouse (10.4): SLIDE under the ventilation duct   [CP 2]
 //    W2: crate -> upper level -> ZIP LINE down to W3 on the pier     [CP 3]
 //    W3 -> W4 ticket office (6): Vince is cornered there.
-//  Clues: note (W1 corner), IOU (S2), photo (side stack), badge (W3).
+//  Clues (all on the route): IOU (W1), photo (W2), badge (W3).
 // ======================================================================
 
 export function buildChapter2Docks() {
@@ -133,10 +133,10 @@ export function buildChapter2Docks() {
     { name: 'Checkpoint 3', roof: w3, spawn: new THREE.Vector3(30, 8.05, -121), yaw: 0 },
   ];
   const clues = [
-    { id: 'marlaNote', pos: new THREE.Vector3(8, 12, -2), onPath: false },
-    { id: 'vinceIOU', pos: new THREE.Vector3(-3, s2top, -37), onPath: true },
-    { id: 'dexPhoto', pos: new THREE.Vector3(17, s2top, -37.6), onPath: false },
-    { id: 'hqBadge', pos: new THREE.Vector3(34, 8, -130), onPath: true },
+    // All three right on Vince's route: you run over them while chasing him.
+    { id: 'vinceIOU', pos: new THREE.Vector3(0, 12, -13), onPath: true },
+    { id: 'dexPhoto', pos: new THREE.Vector3(0, 10.4, -69.5), onPath: true },
+    { id: 'hqBadge', pos: new THREE.Vector3(31, 8, -127), onPath: true },
   ];
   const guides = [
     [0, 12, -16, 0], [0, s1top, -27, 0], [-5.4, s2top, -38, 0], [0, 10.4, -62, 0],

@@ -75,7 +75,6 @@ export class Traffic {
       c.from = a;
       c.to = b;
       c.car.place(p.x, p.z, Math.atan2(b.x - a.x, b.z - a.z));
-      c.car.health = 1;
       c.knockedTimer = 0;
       c.swerve = 0;
       c.ai = makeAiState();

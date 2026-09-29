@@ -82,12 +82,18 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   edge(outer - wallT, outer, outer, outerMax);
   edge(outerMax, outer, outerMax + wallT, outerMax);
   // Hazard stripes on top of the wall so you can see it at night
-  // Filler skyline outside the wall (visual only)
+  // Filler skyline outside the wall (visual only: no collision, so these must
+  // never end up inside the city, or you'd drive straight through them)
   for (let i = 0; i < 70; i++) {
     const a = rng() * Math.PI * 2;
     const r = half + ROAD + rng.range(20, 140);
-    const x = Math.cos(a) * r, z = Math.sin(a) * r;
+    let x = Math.cos(a) * r, z = Math.sin(a) * r;
     const w = rng.range(14, 30), d = rng.range(14, 30), h = rng.range(15, 70);
+    // The city is a square but this ring is a circle: near the corners the
+    // circle dips inside the square. Push those buildings back out past the wall.
+    const need = outerMax + wallT + 6 + Math.max(w, d) / 2;
+    const m = Math.max(Math.abs(x), Math.abs(z));
+    if (m < need) { x *= need / m; z *= need / m; }
     batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), 0], topScale: [6, 6] });
   }
 
@@ -96,11 +102,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   for (let i = 0; i < blocks; i++) {
     for (let j = 0; j < blocks; j++) {
       const r = rng();
-      blockKinds.push(r < 0.14 ? 'park' : r < 0.36 ? 'alley' : r < 0.46 ? 'garage' : 'buildings');
+      blockKinds.push(r < 0.14 ? 'park' : r < 0.34 ? 'alley' : r < 0.56 ? 'garage' : 'buildings');
     }
   }
-  // Guarantee a few garages to hide in
-  for (let k = 0, tries = 0; blockKinds.filter((b) => b === 'garage').length < 4 && tries < 50; tries++) {
+  // Guarantee plenty of garages to hide in (about one block in six or more)
+  for (let k = 0, tries = 0; blockKinds.filter((b) => b === 'garage').length < 10 && tries < 80; tries++) {
     k = Math.floor(rng() * blockKinds.length);
     if (blockKinds[k] === 'buildings') blockKinds[k] = 'garage';
   }

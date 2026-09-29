@@ -32,8 +32,6 @@
     <div class="unit">km/h</div>
     <div class="bar-label">Nitro</div>
     <div class="bar"><div id="hud-nitro"></div></div>
-    <div class="bar-label">Car health</div>
-    <div class="bar"><div id="hud-health"></div></div>
   </div>
 
   <div class="hud" id="hud-meter">
@@ -43,7 +41,19 @@
 
   <div class="hud" id="hud-controls"></div>
   <div class="hud" id="hud-debug"></div>
-  <div class="hud" id="hud-marker"><div class="dia"></div><div class="lbl"></div></div>
+  <div class="hud marker" id="hud-marker"><div class="dia"></div><div class="lbl"></div></div>
+  <div class="hud" id="hud-gadget" hidden><div class="g-icon"></div><div class="g-text"><div class="g-name"></div><div class="g-state"></div><div class="g-bar"><div></div></div></div></div>
+  <div class="hud marker" id="hud-waypoint"><div class="dia"></div><div class="lbl"></div></div>
+
+  <!-- Big city map (M while driving): click to set a waypoint -->
+  <div id="bigmap" hidden>
+    <div class="bm-panel">
+      <div class="bm-head"><b>City map</b><span>Click or tap anywhere to set a waypoint</span></div>
+      <canvas id="bigmap-canvas" width="600" height="600"></canvas>
+      <div class="bm-legend"><span style="color:#ffb020">▲ you</span><span style="color:#ff3346">● police</span><span style="color:#5a8aff">P garage</span><span style="color:#ff5ad0">◆ waypoint</span></div>
+      <div class="btns"><button class="btn" id="bigmap-clear">Clear waypoint</button><button class="btn primary" id="bigmap-close">Back to the game (M)</button></div>
+    </div>
+  </div>
 
   <div id="toast"><div class="t"></div><div class="b"></div></div>
   <div id="fade"></div>

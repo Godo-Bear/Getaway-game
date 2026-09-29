@@ -11,6 +11,10 @@ import { ParticleSystem } from '../vehicles/particles.js';
 import { PoliceForce } from '../ai/police.js';
 import { Roadblocks } from '../ai/roadblocks.js';
 import { Minimap } from '../ui/minimap.js';
+import { BigMap } from '../ui/bigMap.js';
+import { save } from '../core/save.js';
+import { NitroPickups } from '../vehicles/nitroPickups.js';
+import { CarGadgets } from '../gadgets/carGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
@@ -36,12 +40,14 @@ import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 //   update(dt)         -> per-frame game logic (score, goals...)
 //   onEvade(), onReacquire(), onNearMiss(), onBusted(), onPoliceRam()
 
+// Cruisers per heat level. Kept low on purpose: only the two nearest ever
+// close in on you (see PoliceForce), the rest hang back and follow.
 export const HEAT = [
-  { cops: 2, speedFactor: 0.8 },
-  { cops: 3, speedFactor: 0.88 },
-  { cops: 4, speedFactor: 0.96 },
-  { cops: 6, speedFactor: 1.04 },
-  { cops: 8, speedFactor: 1.12 },
+  { cops: 1, speedFactor: 0.8 },
+  { cops: 2, speedFactor: 0.88 },
+  { cops: 3, speedFactor: 0.96 },
+  { cops: 4, speedFactor: 1.04 },
+  { cops: 5, speedFactor: 1.1 },
 ];
 const BUST_RADIUS = 9;
 const EVADE_TIME = 9;         // seconds out of sight to lose the cops
@@ -92,7 +98,17 @@ export class DrivingState extends PlayState {
     this.particles = new ParticleSystem(this.scene, 320);
     this.roadblocks = new Roadblocks(this.scene, this.city, this.rng);
     this.minimap = new Minimap(game.hud.el.map, this.city);
+    this.bigMap = new BigMap(this.minimap);
+    // Tap / click the minimap to open the big map (phones have no M key).
+    this._onMapTap = (e) => { e.preventDefault(); this.openMap(); };
+    game.hud.el.map.addEventListener('pointerdown', this._onMapTap);
+    this.nitroPickups = new NitroPickups(this.scene, this.city, this.rng);
+    this.carGadgets = new CarGadgets(this); // shop gadgets (F)
     this.beacon = this._buildBeacon();
+    // Pink light beam at your waypoint
+    this.waypointBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 70, 16, 1, true), makeGlowMaterial(0xff5ad0, 0.28));
+    this.waypointBeam.visible = false;
+    this.scene.add(this.waypointBeam);
     this.mode.build?.();
     // Rain / storm (the story part decides; the Weather setting can override)
     this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
@@ -131,7 +147,6 @@ export class DrivingState extends PlayState {
   }
 
   restart() {
-    this.player.health = 1;
     this.flatTyres = 0;
     this.player.speedFactor = 1;
     this.player.gripFactor = 1;
@@ -150,6 +165,9 @@ export class DrivingState extends PlayState {
     this.firstStart = false;
     this.police.lastKnown.copy(this.player.pos);
     this.traffic.scatter(this.player);
+    this.nitroPickups.scatter(this.player);
+    this.carGadgets.reset();
+    this.setWaypoint(null);
     this._syncCamera(1, true);
   }
 
@@ -159,23 +177,57 @@ export class DrivingState extends PlayState {
     this.camPos = null;
   }
 
-  readInput() {
+  readInput(dt = 1 / 60) {
     const input = this.game.input;
     const c = this.player.controls;
     c.throttle = input.axis('back', 'forward');
     c.steer = input.axis('left', 'right');
-    c.handbrake = input.isDown('jump');
-    c.nitro = input.isDown('sprint') && this.nitro > 0.02;
+    c.handbrake = input.isDown('drift');                       // Shift
+    c.nitro = input.isDown('nitro') && this.nitro > 0.02;      // Space
     if (input.wasPressed('horn')) {
       this.traffic.honk(this.player);
       audio.sfx('horn');
     }
     if (input.wasPressed('camera')) this.camMode = (this.camMode + 1) % 2;
     if (input.wasPressed('respawn')) this._unstick();
+    if (input.wasPressed('map')) this.openMap();
+    if (input.wasPressed('gadget')) this.carGadgets.use();
+    const zoom = input.consumeZoom();
+    if (zoom) {
+      const st = this.game.settings;
+      st.carZoom = clamp((st.carZoom || 1) * (1 + zoom * 0.12), 0.55, 2);
+      this._zoomSave = 1; // saved a moment later, not on every scroll tick
+    }
+    if (this._zoomSave > 0 && (this._zoomSave -= dt) <= 0) save.write();
   }
 
   get respawnLabel() { return 'Unstick the car (back on the road)'; }
   respawnKey() { this._unstick(); }
+
+  /** The big city map (M): the game waits while it's open. Click it to set a waypoint. */
+  openMap() {
+    if (this.over || this.inCard || this.paused || this.bigMap.isOpen) return;
+    this.inCard = true;
+    this._mapJustOpened = true;
+    this.game.input.exitPointerLock();
+    this._updateClickPrompt();
+    const p = this.player;
+    this.bigMap.open({
+      player: { x: p.pos.x, z: p.pos.z, heading: p.heading },
+      dots: [...this.police.units.map((u) => ({ x: u.car.pos.x, z: u.car.pos.z, color: '#ff3346' })), ...(this.mode.minimapDots?.() ?? [])],
+      target: this.beacon.group.visible ? this.beacon.pos : null,
+      targetColor: this.beacon.color,
+      waypoint: this.waypoint,
+    }, (w) => this.setWaypoint(w), () => { this.inCard = false; this._afterResume(); });
+  }
+
+  /** Set (or clear, with null) the waypoint you picked on the big map. */
+  setWaypoint(w) {
+    this.waypoint = w ? { x: w.x, z: w.z } : null;
+    this.waypointBeam.visible = !!w;
+    if (w) this.waypointBeam.position.set(w.x, 35, w.z);
+    if (!w) this.game.hud.setWaypoint(null);
+  }
 
   _unstick() {
     if (this.player.speed > 4) return;
@@ -194,6 +246,7 @@ export class DrivingState extends PlayState {
     const cops = this.mode.copCount?.() ?? heat.cops;
     this.police.setCount(cops, p, this.camera);
     this.police.update(dt, p, heat, this.camera);
+    this.carGadgets.simulate(dt);
     this.mode.simulate?.(dt);
     const all = [p, ...this.police.cars, ...this.traffic.cars, ...(this.mode.extraCars?.() ?? [])];
     this.traffic.update(dt, p, this.camera, all, this.police.units);
@@ -248,23 +301,36 @@ export class DrivingState extends PlayState {
     this.playerMesh.userData.paint?.color.setHex(playerCarColour());
   }
 
+  /** Crashes: a bang (and a message for big ones), but no damage: the car has no health. */
   _damage(amount, impact) {
     if (impact > 5) audio.sfx('crash', { vol: clamp(impact / 20, 0.3, 1) });
-    const before = this.player.health;
-    this.player.health = Math.max(0, this.player.health - amount);
-    if (before > 0.5 && this.player.health <= 0.5) this.game.hud.toast('Engine damaged', 'Your car is slowing down.', 'var(--red)');
     if (impact > 14) this.game.hud.toast('Crash!', '', 'var(--red)');
   }
 
   frameUpdate(dt, frozen) {
     const p = this.player;
     const hud = this.game.hud;
+    // M (or Esc) again closes the big map
+    const input = this.game.input;
+    // (not on the same frame it opened, or one press would open AND close it)
+    if (this.bigMap.isOpen && !this._mapJustOpened && (input.wasPressed('map') || input.wasPressed('pause'))) this.bigMap.close();
+    this._mapJustOpened = false;
     if (!frozen) {
       this.time += dt;
       this._updatePursuit(dt);
       this._updateBusted(dt);
       this._updateNearMisses();
       this._updateRoadblocks(dt);
+      if (this.nitroPickups.update(dt, p)) {
+        this.nitro = 1;
+        audio.sfx('nitroStart');
+        hud.toast('Nitro refilled!', 'Hold Space (or the Nitro button) to boost.', 'var(--cyan)', 2);
+      }
+      if (this.waypoint && Math.hypot(this.waypoint.x - p.pos.x, this.waypoint.z - p.pos.z) < 14) {
+        this.setWaypoint(null);
+        hud.toast('Waypoint reached', '', '#ff5ad0', 2);
+      }
+      this.carGadgets.update(dt);
       this.mode.update(dt);
       this._updateEffects();
     }
@@ -285,12 +351,13 @@ export class DrivingState extends PlayState {
     this.particles.update(frozen ? 0 : dt);
 
     // HUD: speedometer, minimap, beacon marker
-    hud.setSpeedo(p.speed * 3.6, this.nitro, p.health);
+    hud.setSpeedo(p.speed * 3.6, this.nitro);
     const dots = this.police.units.map((u) => ({
       x: u.car.pos.x, z: u.car.pos.z,
       color: Math.floor(this.time * 4 + u.car.pos.x) % 2 ? '#ff3346' : '#3d7bff',
     }));
     if (this.mode.minimapDots) dots.push(...this.mode.minimapDots());
+    dots.push(...this.nitroPickups.minimapDots());
     const target = this.beacon.group.visible ? this.beacon.pos : null;
     const police = this.police;
     const search = police.searching ? { x: police.lastKnown.x, z: police.lastKnown.z, r: police.searchRadius } : null;
@@ -298,7 +365,11 @@ export class DrivingState extends PlayState {
     this._mapTimer = (this._mapTimer || 0) - dt;
     if (this._mapTimer <= 0) {
       this._mapTimer = 1 / 30;
-      this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color, search);
+      this.minimap.draw({ x: p.pos.x, z: p.pos.z, heading: p.heading }, dots, target, this.time, this.beacon.color, search, this.waypoint);
+    }
+    if (this.waypoint) {
+      this._wpVec = (this._wpVec || new THREE.Vector3()).set(this.waypoint.x, 4, this.waypoint.z);
+      hud.setWaypoint(this._wpVec, this.camera, Math.hypot(this.waypoint.x - p.pos.x, this.waypoint.z - p.pos.z));
     }
     const mt = this.mode.markerTarget?.();
     if (mt) {
@@ -357,8 +428,10 @@ export class DrivingState extends PlayState {
     for (const u of this.police.units) {
       if (Math.hypot(u.car.pos.x - p.pos.x, u.car.pos.z - p.pos.z) < BUST_RADIUS) close++;
     }
-    if (close > 0 && p.speed < 6) this.busted += dt * (0.35 + close * 0.15);
-    else this.busted -= dt * (p.speed > 12 ? 0.5 : 0.2);
+    // About 3-4 seconds nearly stopped next to cops gets you busted; driving
+    // off drains it quickly, so squeezing past them is fine.
+    if (close > 0 && p.speed < 4) this.busted += dt * (0.2 + close * 0.06);
+    else this.busted -= dt * (p.speed > 10 ? 0.6 : 0.3);
     this.busted = clamp(this.busted, 0, 1);
     this.game.hud.setMeter(this.busted, this.busted > 0.01 && close ? 'BUSTED! Get moving!' : 'Busted', 'var(--blue)');
     if (this.busted >= 1) {
@@ -428,17 +501,14 @@ export class DrivingState extends PlayState {
         this.particles.emit(x, p.pos.y + 0.3, z, { vx: (Math.random() - 0.5), vy: 0.6, vz: (Math.random() - 0.5), size: 1.2, grow: 3, life: 1.1, alpha: 0.35, color: [0.75, 0.75, 0.78] });
       }
     }
-    // Engine smoke when damaged (darker and thicker the worse it gets)
-    if (p.health < 0.5 && Math.random() < (0.6 - p.health) * 1.5) {
-      const dark = 0.15 + p.health * 0.6;
-      this.particles.emit(p.pos.x + fx * 1.8, p.pos.y + 1.1, p.pos.z + fz * 1.8, { vx: (Math.random() - 0.5) * 0.6, vy: 1.8, vz: (Math.random() - 0.5) * 0.6, size: 1.0, grow: 2.2, life: 1.6, alpha: 0.55, color: [dark, dark, dark] });
-    }
   }
 
   _syncCamera(dt, snap) {
     const p = this.player;
-    const dist = this.camMode === 0 ? 8.5 : 13;
-    const height = this.camMode === 0 ? 3.1 : 5.5;
+    // Scroll wheel / pinch zooms the chase camera (0.55x - 2x, remembered).
+    const z = this.game.settings.carZoom || 1;
+    const dist = (this.camMode === 0 ? 8.5 : 13) * z;
+    const height = (this.camMode === 0 ? 3.1 : 5.5) * (0.6 + z * 0.4);
     const fx = p.fwdX, fz = p.fwdZ;
     const want = new THREE.Vector3(p.pos.x - fx * dist, p.pos.y + height, p.pos.z - fz * dist);
 
@@ -479,6 +549,10 @@ export class DrivingState extends PlayState {
   teardown() {
     this.weather?.dispose();
     this.weather = null;
+    this.bigMap?.close();
+    this.game.hud.el.map.removeEventListener('pointerdown', this._onMapTap);
+    this.nitroPickups?.clear();
+    this.carGadgets?.dispose();
     this.roadblocks?.clear();
     this.police?.clear();
     this.traffic?.clear();

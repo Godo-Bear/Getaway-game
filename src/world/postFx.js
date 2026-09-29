@@ -4,10 +4,11 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js';
 
 // Post-processing: effects applied to the finished image.
 //
-//   scene ─> RenderPass ─> Bloom ─> Grade (vignette, colour, lightning) ─> Output (tone map, sRGB)
+//   scene ─> RenderPass ─> Bloom ─> Grade (vignette, colour, lightning) ─> Output (tone map, sRGB) [─> FXAA]
 //
 //  - Bloom makes bright things (neon, lamps, headlights, lit windows) glow.
 //  - Grade adds a soft dark vignette, a slight cool/warm split, and the
@@ -48,10 +49,13 @@ const GradeShader = {
     }`,
 };
 
+// Kept deliberately light: laptop graphics chips struggle with full-size
+// high-precision effects. bloom: [strength, radius, threshold];
+// scale = bloom resolution (fraction of the screen); samples = MSAA
+// anti-aliasing (0 = use the much cheaper FXAA smoothing pass instead).
 const QUALITY = {
-  // bloom: [strength, radius, threshold], scale = bloom resolution
-  medium: { bloom: [0.55, 0.35, 0.72], scale: 0.5, samples: 0 },
-  high: { bloom: [0.7, 0.45, 0.68], scale: 0.5, samples: 4 },
+  medium: { bloom: [0.55, 0.35, 0.72], scale: 0.35, samples: 0 },
+  high: { bloom: [0.7, 0.45, 0.68], scale: 0.5, samples: 2 },
 };
 
 export class PostFx {
@@ -83,6 +87,11 @@ export class PostFx {
     this.composer.addPass(this.bloom);
     this.composer.addPass(this.grade);
     this.composer.addPass(new OutputPass());
+    this.fxaa = null;
+    if (!cfg.samples) {
+      this.fxaa = new FXAAPass();
+      this.composer.addPass(this.fxaa);
+    }
     this.bloomScale = cfg.scale;
   }
 
@@ -98,12 +107,17 @@ export class PostFx {
     this.flash = Math.max(this.flash, strength);
   }
 
-  render(scene, camera, dt = 1 / 60) {
+  /**
+   * @param {{bloom?:boolean}} opts - bloom: false for scenes that should stay
+   *   crisp and readable (the Case Board corkboard)
+   */
+  render(scene, camera, dt = 1 / 60, { bloom = true } = {}) {
     this.flash = Math.max(0, this.flash - dt * 3.5);
     if (!this.composer) {
       this.renderer.render(scene, camera);
       return;
     }
+    this.bloom.enabled = bloom;
     this.renderPass.scene = scene;
     this.renderPass.camera = camera;
     this.grade.uniforms.flash.value = this.flash;

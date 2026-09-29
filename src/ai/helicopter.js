@@ -120,7 +120,8 @@ export class Helicopter {
   update(dt, player, params) {
     this.time += dt;
     _chest.set(player.pos.x, player.pos.y + 1.2, player.pos.z);
-    this.seesPlayer = this.canSee(_chest);
+    // A holo-decoy (gadget) glows: the helicopter always spots it.
+    this.seesPlayer = player.isLure || this.canSee(_chest);
 
     // --- Where should the spot go?
     let target;
@@ -133,13 +134,18 @@ export class Helicopter {
         0,
         player.pos.z + player.vel.z * params.lead,
       );
+      this.hiddenFor = 0;
     } else {
-      // Search pattern: sweep random points around the last sighting,
-      // spreading wider the longer you stay hidden.
+      // Search pattern: sweep random points around the last sighting.
+      // Stay hidden for a moment (under a water tower, in a hut) and the
+      // helicopter gives up on that spot and searches further away (28-45 m),
+      // which gives you a head start when you come out.
+      this.hiddenFor = (this.hiddenFor || 0) + dt;
       this.searchTimer -= dt;
       if (this.searchTimer <= 0) {
-        this.searchTimer = 1.6;
-        const r = 4 + Math.min(18, this.rng() * 14);
+        const backOff = this.hiddenFor > 1.5;
+        this.searchTimer = backOff ? 3 : 1.6;
+        const r = backOff ? 28 + this.rng() * 17 : 4 + Math.min(18, this.rng() * 14);
         const a = this.rng() * Math.PI * 2;
         this.searchTarget.set(this.lastSeen.x + Math.cos(a) * r, 0, this.lastSeen.z + Math.sin(a) * r);
       }

@@ -33,7 +33,7 @@ export const CHAPTER2 = {
         { kicker: 'How to play', title: 'Catch Vince',
           lines: [
             'Stay close to Vince\'s brown sedan (the spinning amber arrow) to fill the meter, or ram him. Don\'t let him reach the ferry terminal.',
-            'The police are out in force tonight: expect roadblocks and spike strips. There\'s a clue in the park in the middle of town.',
+            'The police are out in force tonight: expect roadblocks and spike strips. Parking garages (blue P on the minimap) are good places to hide.',
           ] },
       ],
       startLabel: 'Go after him',
@@ -43,9 +43,8 @@ export const CHAPTER2 = {
       goal: { type: 'chase', block: '7,6', label: 'Ferry terminal', color: 0x39e6ff },
       fugitive: { startNode: [1, 2], heading: 0, name: 'Vince', who: 'vince',
         escapeTitle: 'Vince made the ferry', escapeText: 'He drove straight onto the boat. Stay on his bumper and ram him off the road.' },
-      clue: { id: 'dexStatement', park: '4,4', offset: [12, 0] },
       heat: { start: 3, max: 4, riseEvery: 45 },
-      roadblocks: { fromHeat: 4, every: 18, spikes: true },
+      roadblocks: { fromHeat: 4, every: 28, spikes: true },
       doneTitle: 'Vince bails out',
       doneText: 'His car spins into a fence at the container terminal. He grabs the bag and runs for the pier.',
     },
@@ -80,19 +79,8 @@ export const CHAPTER2 = {
   ],
 
   clues: {
-    dexStatement: {
-      name: 'Bank statement',
-      text: 'Found in the park: Dex\'s bank statement. $50,000 paid in yesterday by "HT Holdings". The same company is on the side of Det. Hale\'s boat.',
-      pointsTo: 'dex',
-      explain: 'Dex was paid fifty grand by a company tied to Hale the day before the job. That\'s not a driver\'s wage.',
-    },
-    marlaNote: {
-      name: 'Green-ink note',
-      text: 'A note in green ink: "Cameras off at 12:05 - M". Tucked in Vince\'s abandoned car.',
-      pointsTo: 'marla',
-      redHerring: true,
-      explain: 'Switching the cameras off at 12:05 was Marla\'s job in the plan. This just proves she did it.',
-    },
+    // Three clues: the badge (on the route) and the photo (off to the side)
+    // point at the traitor; the IOU is a red herring.
     vinceIOU: {
       name: 'Vince\'s IOU',
       text: 'Dropped by Vince as he ran: an IOU for $80,000, owed to a card game run out of the police social club. Stamped PAID tonight.',
@@ -102,15 +90,15 @@ export const CHAPTER2 = {
     },
     dexPhoto: {
       name: 'Photo of Dex',
-      text: 'A long-lens photo of Dex shaking hands with Det. Hale outside police HQ, dated last week.',
+      text: 'A long-lens photo of Dex shaking hands with Det. Hale outside police HQ, dated last week. On the back, in Hale\'s writing: "D. has the full plan. Vault timing to follow."',
       pointsTo: 'dex',
-      explain: 'Dex and Hale were meeting a week before the job. Dex never mentioned knowing a detective.',
+      explain: 'Dex and Hale were meeting a week before the job, and Hale\'s own note says Dex gave him the plan.',
     },
     hqBadge: {
       name: 'Visitor badge',
-      text: 'A police HQ visitor badge in Dex\'s name. Last scanned in at 11:50 tonight, eight minutes before he went off the radio.',
+      text: 'A police HQ visitor badge in Dex\'s name, last scanned in at 11:50 tonight, eight minutes before he went off the radio. Folded behind it: a bank slip showing $50,000 paid to Dex yesterday by "HT Holdings", the company that owns Det. Hale\'s boat.',
       pointsTo: 'dex',
-      explain: 'Dex walked into police HQ just before he went silent. He wasn\'t missing: he was reporting in.',
+      explain: 'Dex walked into police HQ just before he went silent, and Hale\'s company paid him fifty grand the day before. He wasn\'t missing: he was reporting in.',
     },
   },
 
@@ -128,7 +116,7 @@ export const CHAPTER2 = {
     marla: {
       correct: false,
       title: 'Not Marla',
-      text: 'The green-ink note only shows Marla did her part: cameras off at 12:05, as planned. It doesn\'t connect her to Hale.',
+      text: 'Nothing ties Marla to Hale tonight. She switched the cameras off at 12:05, exactly as planned, and stayed on the radio with you.',
     },
     hale: {
       correct: false,

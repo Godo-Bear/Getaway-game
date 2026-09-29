@@ -3,6 +3,7 @@ import { generateRooftopCity, findClearRoofSpot } from '../../world/rooftopCity.
 import { makeGlowMaterial } from '../../world/materials.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { save } from '../../core/save.js';
+import { earn } from '../../gadgets/gadgets.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
@@ -19,12 +20,12 @@ const MAX_LEVEL = 6;
 
 /** Difficulty for each wanted level (index 0 = level 1). */
 const LEVELS = [
-  { helis: 1, spotSpeed: 5.6, fill: 0.55, lead: 0.0 },
-  { helis: 1, spotSpeed: 6.4, fill: 0.62, lead: 0.2 },
-  { helis: 2, spotSpeed: 6.8, fill: 0.68, lead: 0.3 },
-  { helis: 2, spotSpeed: 7.6, fill: 0.75, lead: 0.45 },
-  { helis: 3, spotSpeed: 8.2, fill: 0.85, lead: 0.55 },
-  { helis: 3, spotSpeed: 9.0, fill: 1.0, lead: 0.7 },
+  { helis: 1, spotSpeed: 5.6, fill: 0.45, lead: 0.0 },
+  { helis: 1, spotSpeed: 6.4, fill: 0.5, lead: 0.2 },
+  { helis: 2, spotSpeed: 6.8, fill: 0.55, lead: 0.3 },
+  { helis: 2, spotSpeed: 7.4, fill: 0.62, lead: 0.4 },
+  { helis: 3, spotSpeed: 8.0, fill: 0.7, lead: 0.5 },
+  { helis: 3, spotSpeed: 8.6, fill: 0.8, lead: 0.6 },
 ];
 
 export class RooftopRunMode {
@@ -135,15 +136,18 @@ export class RooftopRunMode {
     const L = LEVELS[this.level - 1];
     if (s.time > 2.5 && this.helis.length < L.helis) this._spawnHelicopter();
 
+    // Gadgets: a holo-decoy draws the spotlights away; smoke hides you.
+    const target = s.policeTarget, fooled = target !== p || s.concealed;
     let lit = false, seen = false;
     for (const h of this.helis) {
-      h.update(dt, p, L);
-      if (h.seesPlayer) seen = true;
-      if (h.isPlayerLit(p.pos)) lit = true;
+      h.update(dt, target, L);
+      if (h.seesPlayer && !fooled) seen = true;
+      if (h.isPlayerLit(p.pos) && !s.concealed) lit = true;
     }
     this.hidden = this.helis.length > 0 && !seen;
 
-    this.spotted = clamp(this.spotted + (lit ? dt * L.fill : -dt * 0.35), 0, 1);
+    // Out of the light, the meter drains quickly (faster still when hidden).
+    this.spotted = clamp(this.spotted + (lit ? dt * L.fill : -dt * (this.hidden ? 0.9 : 0.6)), 0, 1);
     hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : this.hidden ? 'Hidden' : 'Spotted',
       lit ? 'var(--red)' : '#8a8f9c');
 
@@ -159,7 +163,8 @@ export class RooftopRunMode {
         const bonus = 250 * this.level;
         this.score += bonus;
         this.cashCollected++;
-        hud.toast(`+${bonus} cash!`, '', 'var(--safe)');
+        const shopCash = earn(s.game, 50, '', { quiet: true });
+        hud.toast(`+${bonus} points, +$${shopCash}!`, 'Cash for the Shop.', 'var(--safe)');
         audio.sfx('cash');
         this._placePickup();
       }
@@ -187,6 +192,7 @@ export class RooftopRunMode {
         <div><span>Best</span><b>${save.data.best.rooftopRun.toLocaleString('en-US')}</b></div>
         <div><span>Time survived</span><b>${formatTime(s.time)}</b></div>
         <div><span>Wanted level</span><b>${this.level}</b></div>
+        <div><span>Cash for the Shop</span><b style="color:var(--safe)">+$${earn(s.game, score / 25, '', { quiet: true })}</b></div>
       </div>
       ${isBest ? '<p class="new-best">New best score!</p>' : ''}`);
   }

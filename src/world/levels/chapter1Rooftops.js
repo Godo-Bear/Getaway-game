@@ -222,7 +222,6 @@ export function buildChapter1Rooftops() {
     { id: 'phone', pos: new THREE.Vector3(5.5, 24.2, -41), onPath: true },
     { id: 'floorplan', pos: new THREE.Vector3(-19.5, 20.5, -43), onPath: false },
     { id: 'earpiece', pos: new THREE.Vector3(26, 21, -61), onPath: true },
-    { id: 'matchbook', pos: new THREE.Vector3(30, 28.8, -86), onPath: false }, // on the hut roof
   ];
 
   // Orange arrows painted on the roofs showing the main path: [x, y, z, yaw]

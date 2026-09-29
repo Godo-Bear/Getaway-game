@@ -7,6 +7,8 @@ import { save } from '../core/save.js';
 import { CHAPTER_LIST, CHAPTERS } from '../story/chapters.js';
 import { showCaseBoard } from './caseBoard.js';
 import { formatTime } from '../core/utils.js';
+import { showShop } from './shop.js';
+import { cash } from '../gadgets/gadgets.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -57,16 +59,17 @@ export const CONTROLS = {
     Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
-    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
     <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb<br>
-    <kbd>V</kbd> first / third person &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
+    <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
-    <kbd>Space</kbd> handbrake (drift) &nbsp; <kbd>Shift</kbd> nitro<br>
-    Drifting and near-misses recharge nitro. Keep moving: stopping near cops fills the Busted meter.<br>
-    <kbd>Q</kbd> horn (traffic pulls aside) &nbsp; <kbd>C</kbd> camera<br>
+    <kbd>Shift</kbd> handbrake (drift) &nbsp; <kbd>Space</kbd> nitro<br>
+    Blue canisters on the road, drifting and near-misses refill nitro. Keep moving: stopping near cops fills the Busted meter.<br>
+    <kbd>Q</kbd> horn (traffic pulls aside) &nbsp; <kbd>C</kbd> camera &nbsp; <kbd>Scroll</kbd> zoom<br>
+    <kbd>M</kbd> big map: click to set a waypoint &nbsp; <kbd>F</kbd> gadget<br>
     Hide from the cops in parking garages (blue P on the minimap).<br>
     <kbd>R</kbd> unstick (when stopped) &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
 };
@@ -92,14 +95,17 @@ export function controlsHtml() {
     <div class="controls-grid">
       <kbd>W / S</kbd><span>Accelerate / brake and reverse</span>
       <kbd>A / D</kbd><span>Steer</span>
-      <kbd>Space</kbd><span>Handbrake: drift round corners</span>
-      <kbd>Shift</kbd><span>Nitro boost</span>
+      <kbd>Shift</kbd><span>Handbrake: drift round corners</span>
+      <kbd>Space</kbd><span>Nitro boost (refill it at the blue canisters on the road)</span>
       <kbd>Q</kbd><span>Horn: traffic ahead pulls aside</span>
       <kbd>C</kbd><span>Change camera</span>
+      <kbd>M</kbd><span>Big city map: click anywhere to set a waypoint (or tap the minimap)</span>
       <kbd>Parking garage</kbd><span>Hiding spot: drive in (blue P on the minimap) and the cops lose you fast</span>
       <kbd>R</kbd><span>Unstick the car (when stopped)</span>
     </div>
     <div class="controls-grid"><kbd>P / Esc</kbd><span>Pause</span><kbd>Tab</kbd><span>Case Board (story)</span>
+      <kbd>Scroll wheel</kbd><span>Zoom the camera in and out (on foot and driving)</span>
+      <kbd>F</kbd><span>Use your gadget (buy gadgets in the Shop on the title screen)</span>
       <kbd>G</kbd><span>Ghost mode on/off (story): no police, roam freely. Nothing counts while it's on; turning it off takes you back to where you turned it on</span>
       <kbd>H</kbd><span>Show / hide the controls help</span></div>
     <p class="sub">Gamepad (Xbox layout)</p>
@@ -109,6 +115,8 @@ export function controlsHtml() {
       <kbd>A</kbd><span>Jump / handbrake</span>
       <kbd>B</kbd><span>Slide / crouch</span>
       <kbd>RB or L3</kbd><span>Sprint / nitro</span>
+      <kbd>LB</kbd><span>Use gadget</span>
+      <kbd>D-pad right</kbd><span>Big map (driving)</span>
       <kbd>RT / LT</kbd><span>Accelerate / brake (driving)</span>
       <kbd>X</kbd><span>Horn</span>
       <kbd>Y</kbd><span>Switch view / camera</span>
@@ -123,6 +131,9 @@ export function controlsHtml() {
       <kbd>Drag right side</kbd><span>Look around</span>
       <kbd>Buttons</kbd><span>Jump or Drift, Sprint or Nitro, View or Camera, Slide or Horn, Pause</span>
       <kbd>Ghost (left edge)</kbd><span>Ghost mode on/off in story parts</span>
+      <kbd>Gadget button</kbd><span>Use your gadget</span>
+      <kbd>Tap the minimap</kbd><span>Big city map: tap to set a waypoint</span>
+      <kbd>Pinch</kbd><span>Zoom the camera in and out</span>
       <kbd>Pause menu</kbd><span>Back to checkpoint / unstick the car (there's no R key on a phone)</span>
     </div>`;
 }
@@ -138,6 +149,7 @@ export function showTitle(actions) {
       { label: 'Rooftop Run', sub: `Parkour survival: outrun the police helicopters. Best: ${best.rooftopRun.toLocaleString('en-US')}`, onClick: actions.rooftopRun },
       { label: 'Street Chase', sub: `Driving survival: lose the cops, use nitro. Best: ${best.streetChase.toLocaleString('en-US')}`, onClick: actions.streetChase },
       { label: 'Free Run', sub: 'Practise parkour on the rooftops, no helicopters', onClick: actions.freeRun },
+      { label: 'Gadget Shop', sub: `Smoke bombs, EMPs, grapple guns and more. Cash: $${cash().toLocaleString('en-US')}`, onClick: () => showShop(() => showTitle(actions)) },
       { label: 'Settings', sub: 'Volume, controls, graphics, car colour', onClick: () => actions.settings(() => showTitle(actions)) },
       { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: () => showTitle(actions) }]) },
     ],
@@ -164,7 +176,7 @@ export function showChapterSelect(actions) {
 
 function showChapterParts(chapterId, actions, back) {
   const chapter = CHAPTERS[chapterId];
-  const found = new Set(save.data.progress.clues?.[chapterId] || []);
+  const found = new Set((save.data.progress.clues?.[chapterId] || []).filter((id) => id in chapter.clues));
   const total = Object.keys(chapter.clues).length;
   const parts = chapter.parts.map((part, i) => ({
     label: `Part ${i + 1}: ${part.title}`,

@@ -102,10 +102,11 @@ export function buildChapter3Headquarters() {
     { name: 'HQ roof', roof: hq, spawn: new THREE.Vector3(0, 24.05, -37), yaw: 0 },
   ];
   const clues = [
-    { id: 'marlaEmail', pos: new THREE.Vector3(-6, 25, -12), onPath: true },
+    // All on the way: hotel roof on the way to the zip line, the ledger you
+    // have to fetch anyway, and the ticket by the second zip line.
+    { id: 'marlaEmail', pos: new THREE.Vector3(-1.5, 25, -10), onPath: true },
     { id: 'ledger', pos: new THREE.Vector3(19, 24, -65), onPath: true },
-    { id: 'dexPhone', pos: new THREE.Vector3(-21, 24, -62), onPath: false },
-    { id: 'vinceTicket', pos: new THREE.Vector3(-5, 24, -74), onPath: true },
+    { id: 'vinceTicket', pos: new THREE.Vector3(-2, 24, -73), onPath: true },
   ];
   const guides = [[0, 25, -10, 0], [15, 24, -46, 0], [15, 24, -58, 0], [4, 24, -72, 0]];
 

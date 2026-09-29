@@ -15,8 +15,7 @@ import { makeCarMesh } from '../../vehicles/carModel.js';
 //    T4 boxcars                                                            [CP 2]
 //    T4 -> container stack (5.2) -> hangar 1 roof (7.6)                    [CP 3]
 //    Hangar 1 -> ZIP LINE down to hangar 2 (5 m) -> Marla is cornered at the edge
-//  Clues: map (dock), phone log (T3 hoppers, off the path), lawyer's card
-//  (T4), car keys (hangar 1 roof).
+//  Clues (all on the route): map (dock), phone log (T1), lawyer's card (T4).
 // ======================================================================
 
 const CAR = 14, GAP = 1.4, PITCH = CAR + GAP;
@@ -57,7 +56,7 @@ export function buildChapter4Railyard() {
     kit.batch.addBox({ x: x0, y: y, z: z1 - 0.12 }, { x: x1, y: y + 0.02, z: z1 }, { side: 'glow', top: 'glow', color: 0x6a5010 });
   };
   plate(1.4, 3.7, -47.6, -45.8, 4.4);   // T1 -> T2 tank car (Marla's way)
-  plate(6.4, 8.6, -41.6, -40.2, 4.4);   // T2 -> T3 hoppers (the phone log)
+  plate(6.4, 8.6, -41.6, -40.2, 4.4);   // T2 -> T3 hoppers (a side route)
 
   // --- Signal gantry across all four tracks
   kit.gantry(-3, 19, -66.75, 6.8, [[0, 0xff2020], [5, 0xff2020], [10, 0x20ff60], [15, 0xff2020]]);
@@ -175,10 +174,10 @@ export function buildChapter4Railyard() {
     { name: 'Checkpoint 3', roof: h1, spawn: new THREE.Vector3(21, 7.65, -117.5), yaw: 0 },
   ];
   const clues = [
-    { id: 'vinceMap', pos: new THREE.Vector3(-11.5, 6, -10), onPath: false },
-    { id: 'cellCall', pos: new THREE.Vector3(10, 3.6, -40), onPath: false },
+    // All on Marla's route: the dock you start on, the first train, the last train.
+    { id: 'vinceMap', pos: new THREE.Vector3(-5.5, 6, -9), onPath: true },
+    { id: 'cellCall', pos: new THREE.Vector3(0, 4.4, -27), onPath: true },
     { id: 'lawyerCard', pos: new THREE.Vector3(15, 4.4, -80), onPath: true },
-    { id: 'dexKeys', pos: new THREE.Vector3(29, 7.6, -127), onPath: false },
   ];
   const guides = [[-6, 6, -10, -0.5], [0, 4.4, -40, 0], [5, 4.4, -63.5, 0], [15, 4.4, -95, 0], [18, 7.6, -124, 0]];
 

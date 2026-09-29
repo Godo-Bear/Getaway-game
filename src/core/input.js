@@ -26,6 +26,10 @@ export const BINDINGS = {
   ghost: ['KeyG'],          // story: ghost mode on/off (no police, nothing counts)
   horn: ['KeyQ'],           // driving: honk so traffic moves aside
   camera: ['KeyC', 'KeyV'], // driving: change camera
+  drift: ['ShiftLeft', 'ShiftRight'], // driving: handbrake / drift
+  nitro: ['Space'],         // driving: nitro boost
+  map: ['KeyM'],            // driving: big city map (set a waypoint)
+  gadget: ['KeyF'],         // use your equipped gadget
   pause: ['KeyP', 'Escape'],
   help: ['KeyH'],
   debug: ['F3', 'Backquote'],
@@ -41,6 +45,10 @@ export const PAD_BINDINGS = {
   camera: [3],        // Y: driving camera
   respawn: [13],      // d-pad down
   ghost: [14],        // d-pad left: ghost mode
+  drift: [0],         // A: handbrake / drift
+  nitro: [5, 10],     // RB or left stick click: nitro
+  map: [15],          // d-pad right: big map
+  gadget: [4],        // LB: use gadget
   caseBoard: [8],     // View / Back
   pause: [9],         // Menu / Start
   help: [12],         // d-pad up
@@ -104,6 +112,15 @@ export class Input {
       // refuse re-locking for a moment after Esc, which isn't a real failure.)
       if (!this.everLocked) this.pointerLockFailed = true;
     });
+
+    // Scroll wheel over the game = camera zoom (read with consumeZoom()).
+    // Only over the 3D view, so scrolling a menu doesn't zoom.
+    this.zoom = 0;
+    this.target.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const px = e.deltaMode === 1 ? e.deltaY * 40 : e.deltaY; // lines -> pixels
+      this.zoom += Math.max(-3, Math.min(3, px / 100));
+    }, { passive: false });
 
     document.addEventListener('mousemove', (e) => {
       // Locked: every movement turns the camera.
@@ -230,6 +247,13 @@ export class Input {
     if (pad.pressed.has(1)) buttons.find((b) => /^(Back|Resume)/.test(b.textContent))?.click();
     // Menu presses shouldn't also count as game input this frame.
     if (pad.pressed.has(0) || pad.pressed.has(1)) pad.pressed.clear();
+  }
+
+  /** Zoom steps since the last call: positive = zoom out, negative = zoom in. */
+  consumeZoom() {
+    const z = this.zoom;
+    this.zoom = 0;
+    return z;
   }
 
   /** Call once at the very end of every frame. */

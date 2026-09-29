@@ -49,7 +49,7 @@ html, body {
 #hud-score-label .heat { color: var(--red); letter-spacing: 2px; }
 
 #hud-map-wrap { top: 16px; right: 16px; }
-#hud-map { width: 180px; height: 180px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.15); display: block; }
+#hud-map { width: 180px; height: 180px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.15); display: block; pointer-events: auto; cursor: pointer; }
 
 #hud-speedo { right: 22px; bottom: 18px; text-align: right; width: 170px; }
 #hud-speed { font-family: var(--display); font-size: 64px; line-height: 0.85; font-variant-numeric: tabular-nums; }
@@ -58,7 +58,6 @@ html, body {
 .bar { height: 8px; background: rgba(255, 255, 255, 0.12); border-radius: 4px; overflow: hidden; }
 .bar > div { height: 100%; width: 0; border-radius: 4px; }
 #hud-nitro { background: linear-gradient(90deg, #2fa8ff, #6fe7ff); }
-#hud-health { background: var(--safe); }
 
 #hud-meter { left: 50%; transform: translateX(-50%); bottom: 26px; width: min(360px, 64vw); text-align: center; opacity: 0; transition: opacity 0.25s; }
 #hud-meter-label { font-size: 15px; font-weight: 700; margin-bottom: 6px; text-shadow: 0 1px 8px #000; }
@@ -74,10 +73,58 @@ html, body {
 
 #hud-debug { top: 8px; right: 10px; font: 12px/1.3 monospace; color: #9fa; text-align: right; text-shadow: 0 1px 3px #000; }
 
-#hud-marker { left: 0; top: 0; transform: translate(-50%, -50%); text-align: center; width: 140px; display: none; }
-#hud-marker .dia { width: 20px; height: 20px; margin: 0 auto; border: 3px solid var(--mc, var(--amber)); transform: rotate(45deg); }
-#hud-marker.off .dia { border: none; width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid var(--mc, var(--amber)); transform: rotate(var(--ang, 0deg)); }
-#hud-marker .lbl { font-size: 15px; font-weight: 700; margin-top: 6px; color: var(--mc, var(--amber)); text-shadow: 0 1px 6px #000; }
+.marker { left: 0; top: 0; transform: translate(-50%, -50%); text-align: center; width: 140px; display: none; }
+.marker .dia { width: 20px; height: 20px; margin: 0 auto; border: 3px solid var(--mc, var(--amber)); transform: rotate(45deg); }
+.marker.off .dia { border: none; width: 0; height: 0; border-left: 12px solid transparent; border-right: 12px solid transparent; border-bottom: 20px solid var(--mc, var(--amber)); transform: rotate(var(--ang, 0deg)); }
+.marker .lbl { font-size: 15px; font-weight: 700; margin-top: 6px; color: var(--mc, var(--amber)); text-shadow: 0 1px 6px #000; }
+
+/* Equipped gadget badge (left edge, clear of the controls help) */
+#hud-gadget { left: 18px; top: 44%; display: flex; gap: 10px; align-items: center; padding: 8px 12px 8px 8px; border-radius: 12px;
+  background: rgba(10, 13, 22, 0.72); border: 1px solid color-mix(in srgb, var(--gc, #fff) 45%, transparent); }
+#hud-gadget[hidden] { display: none; }
+#hud-gadget .g-icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; color: #0a0d16;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--gc, #fff) 55%, color-mix(in srgb, var(--gc, #fff) 50%, #000)); opacity: 0.55; }
+#hud-gadget.ready .g-icon { opacity: 1; box-shadow: 0 0 16px var(--gc, #fff); }
+#hud-gadget .g-name { font-weight: 700; font-size: 15px; }
+#hud-gadget .g-state { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+#hud-gadget.ready .g-state { color: var(--gc, #fff); font-weight: 700; }
+#hud-gadget .g-bar { width: 110px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); margin-top: 4px; overflow: hidden; }
+#hud-gadget .g-bar > div { height: 100%; width: 100%; background: var(--gc, #fff); }
+body.touch-mode #hud-gadget { left: auto; right: calc(20px + env(safe-area-inset-right, 0px)); top: 150px; transform: scale(0.85); transform-origin: right top; }
+
+/* Gadget shop */
+.shop-cash { font-size: 20px; margin: 0 0 4px; }
+.shop-cash b { color: var(--safe); font-family: var(--display); font-size: 30px; font-weight: 400; }
+.shop-grid { display: grid; gap: 10px; margin-bottom: 8px; }
+.gadget { display: flex; gap: 14px; align-items: flex-start; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04);
+  border: 1px solid color-mix(in srgb, var(--gc) 35%, transparent); }
+.gadget.on { background: color-mix(in srgb, var(--gc) 12%, transparent); border-color: var(--gc); box-shadow: 0 0 18px color-mix(in srgb, var(--gc) 35%, transparent); }
+.gadget .g-orb { flex: 0 0 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 28px; color: #0a0d16;
+  background: radial-gradient(circle at 35% 30%, #fff, var(--gc) 55%, color-mix(in srgb, var(--gc) 45%, #000));
+  box-shadow: 0 0 16px color-mix(in srgb, var(--gc) 70%, transparent), inset 0 -4px 8px rgba(0, 0, 0, 0.35); }
+.gadget:not(.have) .g-orb { filter: saturate(0.6) brightness(0.85); }
+.gadget .g-body { display: flex; flex-direction: column; gap: 3px; }
+.gadget .g-body b { font-size: 18px; color: var(--gc); }
+.gadget .g-body span { font-size: 14px; color: var(--ink); line-height: 1.35; }
+.gadget .g-body small { font-size: 12px; color: var(--muted); }
+.gadget .g-act { margin-top: 6px; }
+.gadget .chip.buy { border-color: var(--safe); }
+.gadget .chip:disabled { opacity: 0.4; cursor: not-allowed; }
+.gadget .owned { font-weight: 700; font-size: 14px; color: var(--gc); }
+
+/* Big city map */
+#bigmap { position: fixed; inset: 0; z-index: 25; display: flex; align-items: center; justify-content: center; background: rgba(4, 6, 12, 0.72); padding: 12px; touch-action: none; }
+#bigmap[hidden] { display: none; }
+#bigmap .bm-panel { background: var(--panel); border-left: 4px solid #ff5ad0; border-radius: 4px 14px 14px 4px; padding: 14px 16px; max-height: 100%; display: flex; flex-direction: column; gap: 8px; }
+#bigmap .bm-head { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; }
+#bigmap .bm-head b { font-family: var(--display); font-size: 28px; font-weight: 400; }
+#bigmap .bm-head span { color: var(--muted); font-size: 15px; }
+#bigmap canvas { width: min(70vh, 86vw); height: min(70vh, 86vw); border-radius: 8px; cursor: crosshair; background: #07090f; }
+#bigmap .bm-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 14px; font-weight: 700; }
+@media (max-height: 520px) {
+  #bigmap canvas { width: min(62vh, 60vw); height: min(62vh, 60vw); }
+  #bigmap .bm-panel { flex-direction: row; flex-wrap: wrap; align-items: center; }
+}
 
 #toast { position: fixed; left: 50%; top: 22%; transform: translate(-50%, -8px); z-index: 6; pointer-events: none; width: min(520px, 88vw); text-align: center; opacity: 0; transition: opacity 0.3s, transform 0.3s; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
@@ -142,6 +189,8 @@ html, body {
 .suspect .against { color: var(--muted); }
 .accuse-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
 .accuse-grid .btn { display: flex; gap: 12px; align-items: center; }
+.accuse-grid .btn.cleared { opacity: 0.4; text-decoration: line-through; border-color: #ffd27a; }
+.accuse-grid .btn.cleared small { text-decoration: none; color: #ffd27a; }
 .accuse-grid .badge { flex: 0 0 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-family: var(--display); font-size: 22px; color: #111; }
 .verdict-good { color: var(--safe); } .verdict-bad { color: var(--red); }
 .clue.herring strong::after { content: ' (red herring)'; color: var(--red); font-weight: 500; }
@@ -168,6 +217,8 @@ html, body {
 #touch button.on { background: rgba(255, 176, 32, 0.5); }
 #touch .t-pause { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(210px + env(safe-area-inset-right, 0px)); width: 46px; height: 46px; pointer-events: auto; }
 body.touch-mode #hud-controls { display: none; }
+#touch .t-gadget { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(200px + env(safe-area-inset-bottom, 0px));
+  width: 60px; height: 60px; font-size: 12px; pointer-events: auto; border-color: rgba(255, 176, 32, 0.7); }
 /* Touch: the speedometer sits between the joystick and the buttons */
 body.touch-mode #hud-speedo { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 150px; text-align: center; }
 body.touch-mode #hud-speed { font-size: 44px; }
@@ -205,6 +256,7 @@ body.touch-mode #hud-speed { font-size: 44px; }
   #touch button.t-main { width: 76px; height: 76px; }
   #touch button.t-small { width: 48px; height: 48px; }
   #touch .t-ghost { width: 60px; height: 34px; top: 38%; }
+  #touch .t-gadget { width: 50px; height: 50px; bottom: calc(160px + env(safe-area-inset-bottom, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); }
   .btn { font-size: 16px; padding: 8px 14px; }
   .btn small { font-size: 12px; }
   .btns { gap: 8px; margin-top: 4px; }

@@ -46,7 +46,7 @@ export const CHAPTER1 = {
       title: 'The rooftops',
       lines: [
         'Follow the orange arrows and the blue checkpoint lights to the car. Keep out of the helicopter\'s spotlight.',
-        'Four clues are hidden on the roofs: look for the tall amber light beams. Two are on the main path, two a little off it.',
+        'Three clues are hidden on the roofs: look for the tall amber light beams. Two are right on your path; the third is off to the side.',
       ],
     },
   ],
@@ -70,8 +70,7 @@ export const CHAPTER1 = {
       kicker: 'How to play',
       title: 'The drive',
       lines: [
-        'Break line of sight until the police start SEARCHING (parks, alleys and the elevated railway help), then pull up at the green light.',
-        'One more clue is in the park in the middle of town. It\'s the amber dot on your minimap.',
+        'Break line of sight until the police start SEARCHING (parks, alleys, the elevated railway and parking garages help), then pull up at the green light.',
       ],
     },
   ],
@@ -100,11 +99,19 @@ export const CHAPTER1 = {
   ],
 
   clues: {
+    // Three clues: two on the main route that point at the traitor, and one
+    // red herring on the harder detour.
     phone: {
       name: 'Burner phone',
-      text: 'Dropped by a lookout. One unread text: "Back door unlocked at 12:05. Don\'t be late. - V". The police came in through the back door at 12:05.',
+      text: 'Dropped by a police lookout. One text: "Back door unlocked at 12:05. Don\'t be late. - V". The police came in through the back door at exactly 12:05. The call log shows one call at 11:30, from the payphone at The Anchor (Vince\'s bar) to Det. Hale\'s direct line.',
       pointsTo: 'vince',
-      explain: 'Only the planner knew the back-door timing, and the text is signed "V". Vince told the police how to get in.',
+      explain: 'Only the planner knew the back-door timing, the text is signed "V", and the call to Hale came from Vince\'s own bar half an hour before the job. Vince told the police how to get in.',
+    },
+    earpiece: {
+      name: 'Dex\'s earpiece',
+      text: 'Dex\'s radio earpiece, switched off at 11:58, a minute before the sirens. The radio log on it shows why: at 11:57 the planner\'s handset (Vince\'s) ordered Dex to "switch to channel 9 and stay quiet".',
+      pointsTo: 'vince',
+      explain: 'Dex didn\'t run: Vince ordered him off the radio a minute before the police arrived, so nobody could warn you.',
     },
     floorplan: {
       name: 'Torn floor plan',
@@ -112,25 +119,6 @@ export const CHAPTER1 = {
       pointsTo: 'marla',
       redHerring: true,
       explain: 'A plant. The ink was still wet, but Marla never left the radio. Someone wanted you to blame her.',
-    },
-    earpiece: {
-      name: 'Dex\'s earpiece',
-      text: 'Dex\'s radio earpiece, switched off at 11:58, a minute before the sirens. Did he run, or did someone tell him to go dark?',
-      pointsTo: 'dex',
-      redHerring: true,
-      explain: 'Dex went dark because he was told to: the order to switch channels came from the planner. He showed up later to help you drive out.',
-    },
-    keycard: {
-      name: 'Police keycard',
-      text: 'Dropped at a police checkpoint, signed out to Det. Hale. Clipped to it: a receipt from The Anchor, Vince\'s bar, for two drinks at 11:30 tonight.',
-      pointsTo: 'vince',
-      explain: 'Det. Hale was drinking at The Anchor half an hour before the job. Hale didn\'t need a tip from the street: Hale got it from the bar owner.',
-    },
-    matchbook: {
-      name: 'Anchor matchbook',
-      text: 'A matchbook from The Anchor, Vince\'s bar. Written inside the flap: a phone number. It\'s Det. Hale\'s direct line.',
-      pointsTo: 'vince',
-      explain: 'Vince keeps the detective\'s private number in his own bar\'s matchbook. They\'ve talked before.',
     },
   },
 
@@ -178,7 +166,6 @@ export const CHAPTER1 = {
         city: { seed: 1947, blocks: 8, forceKinds: { '4,3': 'park', '7,0': 'safehouse', '1,6': 'buildings', '2,6': 'alley' } },
         start: { node: [1, 7], offset: [2.3, 25], heading: Math.PI },
         goal: { type: 'safehouse', block: '7,0', label: 'Safehouse', loseCops: true },
-        clue: { id: 'keycard', park: '4,3', offset: [12, 0] },
         heat: { start: 2, max: 3, riseEvery: 60 },
         doneTitle: 'Safe. For now.',
         doneText: 'You pull into the safehouse with the cash. Now to work out who sold you out.',

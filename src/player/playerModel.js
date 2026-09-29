@@ -210,6 +210,7 @@ export class PlayerModel {
         t.lean = 0.1;
         break;
       }
+      case 'grapple': // hanging from the grapple cable, same as a zip line
       case 'zip': {
         // Hanging from the cable: both arms up, legs dangling.
         t.shL = t.shR = -3.0;

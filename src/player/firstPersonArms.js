@@ -68,7 +68,7 @@ export class FirstPersonArms {
         // Hand over hand up the rungs
         const c = Math.sin((pc.climbPhase || 0) + (s > 0 ? Math.PI : 0));
         x = s * 0.2; y = 0.05 + c * 0.12; z = -0.35; rx = 1.2;
-      } else if (pc.state === 'zip') {
+      } else if (pc.state === 'zip' || pc.state === 'grapple') {
         // Both hands up on the zip line handle
         x = s * 0.12; y = 0.18; z = -0.35; rx = 1.4;
       } else if (pc.state === 'slide') {

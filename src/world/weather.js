@@ -19,7 +19,7 @@ const BOX = { x: 70, y: 40, z: 70 };
 const FALL_SPEED = 28;          // m/s
 const WIND = [3.5, 0, 1.5];     // m/s sideways drift
 const STREAK = 0.9;             // length of a rain streak (m)
-const DROPS = { low: 700, medium: 1800, high: 3200 };
+const DROPS = { low: 600, medium: 1200, high: 2400 };
 
 export class Weather {
   /**
@@ -40,7 +40,8 @@ export class Weather {
     if (kind === 'clear') return;
 
     lighting.setStorm(kind === 'storm' ? 1 : 0.55);
-    this._makeWet(post?.renderer, lighting);
+    // Shiny wet surfaces cost more to draw: only on high graphics.
+    if (quality === 'high') this._makeWet(post?.renderer, lighting);
     const n = DROPS[quality] ?? DROPS.medium;
     this.count = n;
     // Each drop is a line: 2 points. We store the drop's position once and

@@ -27,7 +27,7 @@ Handy URL options for testing:
 
 Press **F3** (or **`**) in game for an FPS / debug readout.
 
-**Controls:** keyboard + mouse, any standard gamepad (Xbox layout: sticks, A jump/handbrake, RB nitro/sprint, RT/LT gas/brake, Y view, Menu pause; the d-pad and A/B drive menus), or touch (virtual joystick + buttons appear on the first touch). See *Controls* on the title screen.
+**Controls:** keyboard + mouse (driving: Shift drift, Space nitro, M map; F gadget; scroll to zoom), any standard gamepad (Xbox layout: sticks, A jump/handbrake, RB nitro/sprint, LB gadget, RT/LT gas/brake, Y view, Menu pause; the d-pad and A/B drive menus), or touch (virtual joystick + buttons appear on the first touch). See *Controls* on the title screen.
 
 **Settings** (title screen or pause menu): master/music/effects volume, look sensitivity, invert Y, first-person view, graphics quality (low / medium / high), weather (story / rain / off), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
 
@@ -43,8 +43,8 @@ The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in
 
 ## Modes
 
-* **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight.
-* **Street Chase**: endless driving survival. Points for every second you stay free (more when fast or drifting). Heat rises every 35 s and when you ram cops. Shift = nitro (recharges while drifting, jumping and on near misses). Lose the cops by breaking line of sight; parks, alleys and driving under the elevated railway help. Once lost, the cops sweep a widening search area (red circle on the minimap). From heat 4, roadblocks and spike strips appear on the road ahead.
+* **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight: stay hidden a moment and the helicopters search further away.
+* **Street Chase**: endless driving survival. Points for every second you stay free (more when fast or drifting). Heat rises every 35 s and when you ram cops. Space = nitro, Shift = drift; blue canisters on the road refill nitro (so do drifting, jumps and near misses). Only the two nearest cops chase you up close; the rest patrol nearby junctions. Lose the cops by breaking line of sight; parks, alleys and driving under the elevated railway help. Once lost, the cops sweep a widening search area (red circle on the minimap). From heat 4, roadblocks and spike strips appear on the road ahead.
 * **Free Run**: rooftops with no helicopters, for practising moves.
 * **Story: Chapter 1, Part 1**: a hand-built rooftop route from the Harbor Trust bank to the getaway car on the Pier Street garage. Checkpoints, one police helicopter (caught = back to the last checkpoint), 4 clues (2 on the main path, 2 behind harder shortcuts), and a bronze/silver/gold rating.
 * **Story: Chapter 1, Part 2**: drive the getaway car from the garage to the crew's safehouse (green light). You must lose the cops before you pull up, or you'd lead them straight there. A fifth clue is hidden in the park in the middle of town (amber dot on the minimap).
@@ -56,6 +56,10 @@ The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in
 * **Ladders**: every building has a yellow ladder. Fall to the street and you're no longer sent back: walk into a ladder and hold forward to climb back up (a marker points to the nearest one). Only falling into the harbour sends you back.
 * **Hiding spots**: on foot, stand in a stairwell hut or under a water tower (green floor patch) to hide from the helicopter and the officers. Driving, pull into a parking garage (blue P on the minimap): the cops can't see you from the street and lose you in a few seconds.
 * **Safehouse**: you can pull in mid-chase as long as no cop can see you and none is within about a block.
+* **Big map** (driving): press M or tap the minimap. Click anywhere to set a pink waypoint (shown on the minimap, as a light beam and an on-screen pointer).
+* **Zoom**: scroll wheel (or pinch on a phone) zooms the camera, on foot and in the car.
+* **Clues**: three per chapter, all on the route; two point at the traitor, one is a red herring. There are no clues in the car chases.
+* **Gadget Shop** (title screen): earn cash from clues, finished parts, solved chapters, cash bags/drops and survival scores, and buy gadgets. Equip one for on foot and one for the car, and press F to use it (LB on a gamepad, the Gadget button on a phone): Smoke Bomb, Holo-Decoy, Grapple Gun, Oil Slick, EMP Blast, Signal Jammer. Two are always on once owned: the Clue Scanner (marker to the nearest clue from anywhere) and the Lie Detector (clears one innocent suspect at each deduction). Code: `src/gadgets/`.
 * **Moves**: sprint + C to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
 * **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen.
 

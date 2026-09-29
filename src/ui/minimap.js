@@ -58,7 +58,7 @@ export class Minimap {
    * @param {{x:number,z:number,color:string}[]} dots
    * @param {{x:number,z:number}|null} target
    */
-  draw(player, dots, target, time, targetColor = '#4dffa6', search = null) {
+  draw(player, dots, target, time, targetColor = '#4dffa6', search = null, waypoint = null) {
     const g = this.ctx, S = this.size, scale = S / (VIEW_RADIUS * 2);
     g.save();
     g.clearRect(0, 0, S, S);
@@ -101,7 +101,29 @@ export class Minimap {
       g.arc(d.x, d.z, (4 * (d.size || 1)) / scale, 0, Math.PI * 2);
       g.fill();
     }
+    // Your waypoint (set on the big map): a pink diamond
+    if (waypoint) {
+      const s = 7 / scale;
+      g.fillStyle = '#ff5ad0';
+      g.beginPath();
+      g.moveTo(waypoint.x, waypoint.z - s); g.lineTo(waypoint.x + s, waypoint.z);
+      g.lineTo(waypoint.x, waypoint.z + s); g.lineTo(waypoint.x - s, waypoint.z);
+      g.fill();
+    }
     g.restore();
+
+    // Waypoint direction on the rim when it's off the minimap
+    if (waypoint) {
+      const dx = waypoint.x - player.x, dz = waypoint.z - player.z;
+      if (Math.hypot(dx, dz) > VIEW_RADIUS * 0.9) {
+        const ang = Math.atan2(dx, dz) - player.heading;
+        const r = S / 2 - 10;
+        g.fillStyle = '#ff5ad0';
+        g.beginPath();
+        g.arc(S / 2 - Math.sin(ang) * r, S / 2 - Math.cos(ang) * r, 5, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
 
     // Target direction arrow on the rim when off-map
     if (target) {

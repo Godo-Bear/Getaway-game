@@ -10,6 +10,7 @@ import { SUSPECTS } from '../../story/crew.js';
 import { getChapterRun } from '../../story/chapterRun.js';
 import { finishPart } from '../../story/chapterFlow.js';
 import { save } from '../../core/save.js';
+import { earn, owns } from '../../gadgets/gadgets.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
@@ -31,7 +32,8 @@ import { audio } from '../../core/audio.js';
 // turned it on.
 
 const CAR_RADIUS = 3.5;
-const PICKUP_RADIUS = 1.6;
+const PICKUP_RADIUS = 2.6;  // generous: running past a clue picks it up
+const CLUE_HINT = 30;       // the marker points at any clue closer than this (m)
 
 export class ChapterFootMode {
   constructor(state, params) {
@@ -301,7 +303,7 @@ export class ChapterFootMode {
       if (!c.group.visible) continue;
       c.gem.rotation.y += dt * 1.8;
       c.gem.position.y = 1.2 + Math.sin(t * 2.4 + c.pos.x) * 0.15;
-      if (Math.hypot(p.pos.x - c.pos.x, p.pos.z - c.pos.z) < PICKUP_RADIUS && Math.abs(p.pos.y - c.pos.y) < 1.5) {
+      if (Math.hypot(p.pos.x - c.pos.x, p.pos.z - c.pos.z) < PICKUP_RADIUS && p.pos.y - c.pos.y > -1 && p.pos.y - c.pos.y < 2.5) {
         if (this.ghost) this._ghostNotice('Found it! Turn ghost mode off, then come back here to pick it up.');
         else this._pickUpClue(c);
       }
@@ -317,10 +319,12 @@ export class ChapterFootMode {
         } else hud.toast('Police helicopter!', 'Stay out of the spotlight.', 'var(--red)');
       }
       const params = { spotSpeed: part.heli.spotSpeed + Math.min(1.2, t / 90), fill: part.heli.fill, lead: part.heli.lead };
-      this.heli.update(dt, p, params);
-      const lit = this.heli.isPlayerLit(p.pos);
-      this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.35), 0, 1);
-      hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : !this.heli.seesPlayer ? 'Hidden' : 'Spotted',
+      // Gadgets: a holo-decoy draws the spotlight away; smoke hides you.
+      this.heli.update(dt, s.policeTarget, params);
+      const lit = this.heli.isPlayerLit(p.pos) && !s.concealed;
+      this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.55), 0, 1);
+      const hiddenNow = !this.heli.seesPlayer || s.concealed || s.policeTarget !== p;
+      hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : hiddenNow ? 'Hidden' : 'Spotted',
         lit ? 'var(--red)' : '#8a8f9c');
       if (this.spotted >= 1) this._caught('The helicopter pinned you. Back to the last checkpoint.');
     }
@@ -331,7 +335,8 @@ export class ChapterFootMode {
         this.officersAnnounced = true;
         hud.toast('Officers on the roof!', 'They\'re slower than you when you sprint, but they don\'t give up. Zip lines lose them.', 'var(--red)', 5);
       }
-      const r = this.officers.update(dt, p, this.hidden);
+      const lure = s.policeTarget !== p ? s.policeTarget.pos : null;
+      const r = this.officers.update(dt, p, this.hidden || s.concealed || !!lure, lure);
       if (r === 'caught') this._caught('An officer tackled you. Back to the last checkpoint.');
     }
 
@@ -392,6 +397,18 @@ export class ChapterFootMode {
         return;
       }
     }
+    // A clue close by? Point at it so it's easy to grab on the way.
+    // (the Clue Scanner gadget points to the nearest clue from anywhere)
+    let near = null, nd = owns('scanner') ? Infinity : CLUE_HINT;
+    for (const c of this.clueObjs) {
+      if (!c.group.visible) continue;
+      const d = p.distanceTo(c.pos);
+      if (d < nd) { nd = d; near = c; }
+    }
+    if (near) {
+      hud.setMarker(near.pos.clone().setY(near.pos.y + 1.5), s.camera, 'Clue', 'var(--amber)', nd);
+      return;
+    }
     if (this.fugitive && !this.ghost) {
       const f = this.fugitive.pos;
       hud.setMarker(f.clone().setY(f.y + 2.2), s.camera, this.part.fugitive.name, SUSPECTS[this.part.fugitive.who].color, p.distanceTo(f));
@@ -425,7 +442,8 @@ export class ChapterFootMode {
     save.addClue(this.chapter.id, c.id);
     const info = this.chapter.clues[c.id];
     audio.sfx('clue');
-    this.state.game.hud.toast(`Clue: ${info.name}`, info.text, 'var(--amber)', 7);
+    const cash = earn(this.state.game, 100, '', { quiet: true });
+    this.state.game.hud.toast(`Clue: ${info.name}  (+$${cash})`, info.text, 'var(--amber)', 7);
   }
 
   _complete() {

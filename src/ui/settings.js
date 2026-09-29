@@ -38,6 +38,7 @@ export function showSettings(game, onBack) {
     <div class="setting"><span>Quality</span><div class="seg" id="set-quality">
       ${['low', 'medium', 'high'].map((q) => `<button class="chip${s.graphics === q ? ' on' : ''}" data-q="${q}">${q}</button>`).join('')}
     </div></div>
+    <label class="setting check" for="set-auto"><span>Lower graphics automatically if the game is slow</span><input type="checkbox" id="set-auto" ${s.autoGraphics !== false ? 'checked' : ''}></label>
     <p class="sub" style="font-size:14px">Low: no shadows, no glow effects, lower resolution, less traffic (best for older laptops). Medium and High add glowing lights (bloom). Shadow changes apply when the next level loads.</p>
     <div class="setting"><span>Weather</span><div class="seg" id="set-weather">
       ${[['auto', 'story'], ['rain', 'rain'], ['off', 'off']].map(([v, l]) => `<button class="chip${(s.weather || 'auto') === v ? ' on' : ''}" data-w="${v}">${l}</button>`).join('')}
@@ -58,6 +59,7 @@ export function showSettings(game, onBack) {
   bindSlider('set-sfx', 'sfxVolume', pct);
   bindSlider('set-sens', 'mouseSensitivity', (v) => `${Number(v).toFixed(2)}x`);
   document.getElementById('set-invert').addEventListener('change', (e) => { s.invertY = e.target.checked; apply(); });
+  document.getElementById('set-auto').addEventListener('change', (e) => { s.autoGraphics = e.target.checked; apply(); });
   document.getElementById('set-fp').addEventListener('change', (e) => { s.firstPerson = e.target.checked; apply(); });
   for (const b of document.querySelectorAll('#set-quality [data-q]')) {
     b.addEventListener('click', (e) => {

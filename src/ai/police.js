@@ -10,7 +10,8 @@ import { driveToward, handleStuck, makeAiState } from './driver.js';
 //
 // Each cruiser picks one of three behaviours every tick:
 //   PURSUE   - it can see you on the same street: drive straight at you
-//              (aiming a little ahead of where you're going)
+//              (aiming a little ahead of where you're going). Only the two
+//              nearest cruisers do this; the rest follow at a distance.
 //   NAVIGATE - it knows roughly where you are but can't see you: follow the
 //              road graph, at each intersection turning toward you
 //   SEARCH   - the trail has gone cold: cruise to random intersections
@@ -43,6 +44,9 @@ export class PoliceUnit {
 }
 
 const GARAGE_SIGHT = 14; // metres: how close a cop must be to spot you inside a garage
+const MAX_CLOSE = 2;     // at most this many cruisers chase you up close
+const HOLD_BACK = 30;    // metres: the others ease off inside this distance...
+const PATROL_START = 45; // ...and peel off to patrol nearby junctions inside this one
 
 export class PoliceForce {
   constructor(scene, city, rng) {
@@ -114,7 +118,6 @@ export class PoliceForce {
     // Snap the heading to the nearest road direction
     const snapped = Math.round(heading / (Math.PI / 2)) * (Math.PI / 2);
     unit.car.place(node.x, node.z, snapped);
-    unit.car.health = 1;
     unit.targetNode = null;
     unit.prevNode = node;
     unit.ai = makeAiState();
@@ -133,8 +136,10 @@ export class PoliceForce {
     this.anySees = false;
     // Inside a parking garage you can only be seen from right up close.
     const inGarage = this.city.isInGarage?.(player.pos.x, player.pos.z);
+    // Signal Jammer gadget: nobody can call you in while it runs.
+    this.jammed = Math.max(0, (this.jammed || 0) - dt);
     for (const u of this.units) {
-      u.seesPlayer = this.canSee(u.car.pos, player.pos) &&
+      u.seesPlayer = !(u.stunned > 0) && this.jammed <= 0 && this.canSee(u.car.pos, player.pos) &&
         (!inGarage || Math.hypot(u.car.pos.x - player.pos.x, u.car.pos.z - player.pos.z) < GARAGE_SIGHT);
       if (u.seesPlayer) this.anySees = true;
     }
@@ -148,10 +153,32 @@ export class PoliceForce {
       this.timeSinceSeen += dt;
     }
 
+    // Only the two nearest cruisers may close in on you. The others follow at
+    // a distance, so a big chase never turns into a wall of cop cars.
+    const close = this.units
+      .map((u) => ({ u, d: Math.hypot(player.pos.x - u.car.pos.x, player.pos.z - u.car.pos.z) }))
+      .sort((a, b) => a.d - b.d)
+      .slice(0, MAX_CLOSE)
+      .map((x) => x.u);
+
     for (const u of this.units) {
       const car = u.car;
       car.speedFactor = heat.speedFactor;
-      if (!this.searching && u.seesPlayer && Math.hypot(player.pos.x - car.pos.x, player.pos.z - car.pos.z) < 110) {
+      // Knocked out by a gadget (EMP: engine dead; oil: spinning out).
+      if (u.stunned > 0) {
+        u.stunned -= dt;
+        u.mode = 'stunned';
+        car.controls.throttle = 0;
+        car.controls.nitro = false;
+        car.controls.handbrake = true;
+        car.controls.steer = u.spinDir || 0;
+        u.ai.stuckTimer = 0;
+        if (u.stunned <= 0) { u.spinDir = 0; car.gripFactor = 1; }
+        continue;
+      }
+      const distToPlayer = Math.hypot(player.pos.x - car.pos.x, player.pos.z - car.pos.z);
+      const isClose = close.includes(u);
+      if (!this.searching && isClose && u.seesPlayer && distToPlayer < 110) {
         // --- PURSUE: aim a little ahead of the player
         u.mode = 'pursue';
         const dist = Math.hypot(player.pos.x - car.pos.x, player.pos.z - car.pos.z);
@@ -167,6 +194,14 @@ export class PoliceForce {
         // --- NAVIGATE (towards last known position) or SEARCH (random nearby)
         u.mode = this.searching ? 'search' : 'navigate';
         const graph = this.city.graph;
+        // Back-up cruisers (not one of the two closest) don't pile in: once
+        // they get near you they peel off to patrol a junction a block or two
+        // away, cutting off escape routes instead of blocking the road.
+        const backup = !isClose && !this.searching;
+        if (backup && !u.patrolGoal && distToPlayer < PATROL_START) u.patrolGoal = this._pickPatrolGoal(player);
+        if (u.patrolGoal && (!backup || distToPlayer > 120 ||
+            Math.hypot(u.patrolGoal.x - car.pos.x, u.patrolGoal.z - car.pos.z) < 12)) u.patrolGoal = null;
+        if (u.patrolGoal) u.mode = 'patrol';
         if (!u.targetNode) this._chooseFirstNode(u);
         const reached = Math.hypot(u.targetNode.x - car.pos.x, u.targetNode.z - car.pos.z) < 9;
         if (reached) {
@@ -178,6 +213,8 @@ export class PoliceForce {
             // the longer you stay hidden, so they fan out.
             if (!u.searchGoal || u.searchGoal === from) u.searchGoal = this._pickSearchGoal(from);
             next = graph.bestNeighbourToward(from, u.searchGoal.x, u.searchGoal.z, u.prevNode);
+          } else if (u.patrolGoal) {
+            next = graph.bestNeighbourToward(from, u.patrolGoal.x, u.patrolGoal.z, u.prevNode);
           } else {
             u.searchGoal = null;
             next = graph.bestNeighbourToward(from, this.lastKnown.x, this.lastKnown.z, u.prevNode);
@@ -191,11 +228,14 @@ export class PoliceForce {
         const dx = tn.x - car.pos.x, dz = tn.z - car.pos.z;
         const len = Math.hypot(dx, dz) || 1;
         const lane = len > 14 ? 3.2 : 0; // near the junction, aim at its centre to turn
-        driveToward(car, tn.x - (dz / len) * lane, tn.z + (dx / len) * lane, this.searching ? 16 : 45, { allowDrift: true });
+        // ...and if one still ends up close, it eases off and stays in its lane.
+        const holdBack = backup && distToPlayer < HOLD_BACK;
+        const speed = this.searching ? 16 : holdBack ? Math.max(6, player.speed * 0.7) : u.patrolGoal ? 30 : 45;
+        driveToward(car, tn.x - (dz / len) * lane, tn.z + (dx / len) * lane, speed, { allowDrift: true });
       }
 
       // A cop pressed up against you isn't stuck, it's boxing you in: hold position.
-      const pinning = Math.hypot(player.pos.x - car.pos.x, player.pos.z - car.pos.z) < 8 && !this.searching;
+      const pinning = isClose && distToPlayer < 8 && !this.searching;
       if (pinning) u.ai.stuckTimer = 0;
       else if (handleStuck(car, u.ai, dt)) this.respawn(u, player, camera);
 
@@ -204,6 +244,15 @@ export class PoliceForce {
       u.farTimer = far ? u.farTimer + dt : 0;
       if (u.farTimer > 3 && !this.searching) this.respawn(u, player, camera);
     }
+  }
+
+  /** A junction 70-150 m from the player for a back-up cruiser to patrol. */
+  _pickPatrolGoal(player) {
+    const nodes = this.city.graph.nodes.filter((n) => {
+      const d = Math.hypot(n.x - player.pos.x, n.z - player.pos.z);
+      return d > 70 && d < 150;
+    });
+    return nodes.length ? nodes[Math.floor(this.rng() * nodes.length)] : null;
   }
 
   /** Radius (m) of the area the cops are searching, centred on lastKnown. */
@@ -240,7 +289,8 @@ export class PoliceForce {
   syncMeshes(time) {
     for (const u of this.units) {
       u.car.syncMesh();
-      updateSirens(u.mesh, time + u.car.pos.x * 0.01, true);
+      // Sirens die while an EMP has knocked the car out
+      updateSirens(u.mesh, time + u.car.pos.x * 0.01, !(u.stunned > 0 && u.emp));
     }
   }
 }
