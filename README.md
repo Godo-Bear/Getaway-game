@@ -41,6 +41,31 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 One-time setup: in the repo go to **Settings > Pages > Build and deployment > Source** and pick **GitHub Actions**.
 The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in the Actions tab).
 
+## Online accounts (Firebase)
+
+The title screen has an **Account** button: players sign up / sign in with an email and password and their progress, cash and gadgets are saved online (a few seconds after every save), so clearing the browser doesn't lose anything and they can carry on on another device. Settings stay per device. If a device and the account both have progress, the player picks which to keep. Code: `src/core/cloud.js`, `src/ui/account.js`.
+
+It's off until you connect a free Firebase project (until then everything is saved in the browser only, like before):
+
+1. Go to https://console.firebase.google.com, **Create a project** (Google Analytics not needed).
+2. **Build > Authentication > Get started > Sign-in method > Email/Password > Enable > Save.**
+3. **Build > Firestore Database > Create database** (any location, start in **production mode**). Then open the **Rules** tab, replace everything with this and press **Publish**:
+
+   ```
+   rules_version = '2';
+   service cloud.firestore {
+     match /databases/{database}/documents {
+       match /saves/{userId} {
+         allow read, write: if request.auth != null && request.auth.uid == userId
+           && (request.resource == null || request.resource.data.json.size() < 500000);
+       }
+     }
+   }
+   ```
+
+   This is what keeps saves private: each player can only read and write their own.
+4. **Project settings (gear icon) > General > Your apps > the `</>` (web) icon**, give it any nickname, **Register app**. Copy the values from the `firebaseConfig` it shows into `src/core/cloudConfig.js` and push. (These values are meant to be public; the rules above protect the data.)
+
 ## Modes
 
 * **Rooftop Run**: endless parkour survival. Police helicopters hunt you with spotlights. Points tick up every second you're in the open; cash bags give bonuses. Every 30 s the wanted level rises (faster spotlights, more helicopters). Hide under water towers or inside stairwell huts to break line of sight: stay hidden a moment and the helicopters search further away.

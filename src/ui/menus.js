@@ -9,6 +9,7 @@ import { showCaseBoard } from './caseBoard.js';
 import { formatTime } from '../core/utils.js';
 import { showShop } from './shop.js';
 import { cash } from '../gadgets/gadgets.js';
+import { showAccount, accountSub } from './account.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -150,6 +151,7 @@ export function showTitle(actions) {
       { label: 'Street Chase', sub: `Driving survival: lose the cops, use nitro. Best: ${best.streetChase.toLocaleString('en-US')}`, onClick: actions.streetChase },
       { label: 'Free Run', sub: 'Practise parkour on the rooftops, no helicopters', onClick: actions.freeRun },
       { label: 'Gadget Shop', sub: `Smoke bombs, EMPs, grapple guns and more. Cash: $${cash().toLocaleString('en-US')}`, onClick: () => showShop(() => showTitle(actions)) },
+      { label: 'Account', sub: accountSub(), onClick: () => showAccount(() => showTitle(actions)) },
       { label: 'Settings', sub: 'Volume, controls, graphics, car colour', onClick: () => actions.settings(() => showTitle(actions)) },
       { label: 'Controls', onClick: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: () => showTitle(actions) }]) },
     ],

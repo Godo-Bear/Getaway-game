@@ -12,6 +12,7 @@ import { DeductionState } from './states/deductionState.js';
 import { startPart } from './story/chapterFlow.js';
 import { PostFx } from './world/postFx.js';
 import { AutoQuality } from './core/autoQuality.js';
+import { syncOnStart } from './core/cloud.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -123,6 +124,10 @@ function start(renderer) {
   else if (mode === 'drive1') startPart(game, 'chapter1', 1, { fresh: true });
   else if (/^deduce\d$/.test(mode || '')) game.sm.change('deduction', { chapterId: `chapter${mode.slice(-1)}` });
   else game.sm.change('title');
+
+  // Signed in? Fetch the online save (in case you played on another device)
+  // and redraw the title screen if it changed.
+  syncOnStart(() => { if (game.sm.currentName === 'title') game.sm.change('title'); });
 
   // ---------------- Game loop ----------------
   let last = performance.now();

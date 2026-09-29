@@ -61,16 +61,50 @@ try {
   // corrupted or unavailable - just use defaults
 }
 
+const writeListeners = [];
+
 export const save = {
   get data() {
     return data;
   },
   write() {
+    data.savedAt = Date.now();
     try {
       localStorage.setItem(KEY, JSON.stringify(data));
     } catch {
       // ignore - saving is a nice-to-have
     }
+    for (const fn of writeListeners) fn(data);
+  },
+  /** Call fn(data) after every save (the online account sync uses this). */
+  onWrite(fn) {
+    writeListeners.push(fn);
+  },
+  /**
+   * Replace the saved progress (e.g. with the copy from your online account).
+   * Settings stay as they are on this device (a phone and a laptop usually
+   * want different graphics), and the same settings object is kept because
+   * the game holds on to it.
+   */
+  replaceAll(newData) {
+    const settings = data.settings;
+    data = deepMerge(DEFAULTS, newData);
+    data.settings = settings;
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch { /* ignore */ }
+  },
+  /** Is this save basically empty (never played)? */
+  isFresh(d = data) {
+    const p = d.progress || {};
+    return !(Object.keys(p.solved || {}).length || Object.keys(p.bestTimes || {}).length ||
+      (d.best?.rooftopRun || 0) + (d.best?.streetChase || 0) > 0 || (d.shop?.owned || []).length);
+  },
+  /** One line describing a save, for choosing between two of them. */
+  describe(d = data) {
+    const solved = Object.keys(d.progress?.solved || {}).length;
+    const cash = d.shop?.cash ?? 0;
+    const gadgets = (d.shop?.owned || []).length;
+    const when = d.savedAt ? new Date(d.savedAt).toLocaleString() : 'unknown time';
+    return `${solved} chapter${solved === 1 ? '' : 's'} solved · $${cash} · ${gadgets} gadget${gadgets === 1 ? '' : 's'} · saved ${when}`;
   },
   /** Remember that a clue has been found (ever). */
   addClue(chapterId, clueId) {

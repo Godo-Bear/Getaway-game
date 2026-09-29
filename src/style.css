@@ -284,3 +284,11 @@ body.touch-mode #hud-speed { font-size: 44px; }
 .swatch:disabled { opacity: 0.25; cursor: not-allowed; }
 .chip:focus-visible, .swatch:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 @media (max-width: 520px) { .setting { grid-template-columns: 1fr 110px 44px; } }
+
+/* ---------- Account ---------- */
+.acct-form { display: grid; gap: 12px; margin: 4px 0 8px; }
+.acct-form label { display: grid; gap: 5px; font-size: 15px; font-weight: 700; color: var(--muted); }
+.acct-form input { font: inherit; font-size: 17px; padding: 10px 12px; border-radius: 6px; border: 2px solid rgba(255, 255, 255, 0.25); background: rgba(0, 0, 0, 0.35); color: var(--ink); user-select: text; -webkit-user-select: text; touch-action: manipulation; }
+.acct-form input:focus { outline: none; border-color: var(--amber); }
+.acct-form small { font-weight: 400; font-size: 13px; }
+.acct-msg { min-height: 1.4em; color: var(--amber); font-size: 15px !important; font-weight: 700; }
