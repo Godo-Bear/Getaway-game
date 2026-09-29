@@ -28,6 +28,9 @@ try { session = JSON.parse(localStorage.getItem(SESSION_KEY)) || null; } catch {
 let syncTimer = 0;
 let dirty = false;
 let lastSynced = 0; // Date.now() of the last successful upload / download
+// Automatic uploads only start once we've seen what's online (so a failed
+// download can never lead to an older/empty save overwriting the online one).
+let verified = false;
 const listeners = [];
 
 function storeSession(s) {
@@ -132,7 +135,8 @@ export const cloud = {
   },
   /** Sign out. The save stays on this device too. */
   async signOut() {
-    if (dirty) await this.push().catch(() => {});
+    if (dirty && verified) await this.push().catch(() => {});
+    verified = false;
     storeSession(null);
   },
 
@@ -140,6 +144,7 @@ export const cloud = {
   async pull() {
     const token = await idToken();
     const doc = await call(docUrl(), null, { token, method: 'GET' });
+    verified = true;
     if (!doc?.fields?.json?.stringValue) return null;
     let data;
     try { data = JSON.parse(doc.fields.json.stringValue); } catch { return null; }
@@ -162,6 +167,7 @@ export const cloud = {
       dirty = true;
       throw e;
     }
+    verified = true;
     lastSynced = Date.now();
   },
 
@@ -177,7 +183,7 @@ export const cloud = {
 // the page is hidden or closed.
 function flush() {
   clearTimeout(syncTimer);
-  if (cloud.user && dirty) cloud.push().catch(() => {});
+  if (cloud.user && dirty && verified) cloud.push().catch(() => {});
 }
 if (ready) {
   save.onWrite(() => {

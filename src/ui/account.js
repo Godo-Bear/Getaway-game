@@ -99,7 +99,15 @@ function showForm(onBack, note = '', email = '') {
 /** Signed in: work out which save to keep. */
 async function afterSignIn(onBack, isNew) {
   let remote = null;
-  try { remote = isNew ? null : await cloud.pull(); } catch { /* treat as none; the next save uploads */ }
+  if (!isNew) {
+    try {
+      remote = await cloud.pull();
+    } catch (e) {
+      // Don't upload anything: we don't know what's online yet.
+      showSignedIn(onBack, `Signed in, but couldn't load your online save: ${esc(e.message)} It will try again next time you open the game.`);
+      return;
+    }
+  }
   const done = (note) => showSignedIn(onBack, note);
   if (!remote || save.isFresh(remote.data)) {
     await cloud.push().catch(() => {});

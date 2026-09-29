@@ -56,8 +56,9 @@ It's off until you connect a free Firebase project (until then everything is sav
    service cloud.firestore {
      match /databases/{database}/documents {
        match /saves/{userId} {
-         allow read, write: if request.auth != null && request.auth.uid == userId
-           && (request.resource == null || request.resource.data.json.size() < 500000);
+         allow read, delete: if request.auth != null && request.auth.uid == userId;
+         allow create, update: if request.auth != null && request.auth.uid == userId
+           && request.resource.data.json.size() < 500000;
        }
      }
    }
@@ -65,6 +66,8 @@ It's off until you connect a free Firebase project (until then everything is sav
 
    This is what keeps saves private: each player can only read and write their own.
 4. **Project settings (gear icon) > General > Your apps > the `</>` (web) icon**, give it any nickname, **Register app**. Copy the values from the `firebaseConfig` it shows into `src/core/cloudConfig.js` and push. (These values are meant to be public; the rules above protect the data.)
+
+This repo is already connected to the `getaway-game-50249` project.
 
 ## Modes
 

@@ -11,14 +11,13 @@
 // security rules (see the setup steps in README.md): a player can only ever
 // read or change their own save.
 //
-// Leave apiKey empty and the game works exactly as before, saving only in
-// this browser.
+// With apiKey empty the game saves only in the browser (no accounts).
 
 export const FIREBASE_CONFIG = {
-  apiKey: '',
-  authDomain: '',
-  projectId: '',
-  storageBucket: '',
-  messagingSenderId: '',
-  appId: '',
+  apiKey: 'AIzaSyASrSnGhf01fhEGmLy-hUGuMSdr7w7lP7o',
+  authDomain: 'getaway-game-50249.firebaseapp.com',
+  projectId: 'getaway-game-50249',
+  storageBucket: 'getaway-game-50249.firebasestorage.app',
+  messagingSenderId: '545033776644',
+  appId: '1:545033776644:web:22bc2674ffb54ebe0c8f51',
 };
