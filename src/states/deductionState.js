@@ -41,7 +41,8 @@ export class DeductionState {
 
   enter({ chapterId = 'chapter1' } = {}) {
     this.chapter = CHAPTERS[chapterId];
-    this.order = suspectsOf(this.chapter); // who's on the board this chapter
+    // who's on the board this chapter (a no-mole chapter shows the crew instead)
+    this.order = this.chapter.noDeduction ? (this.chapter.crew || []) : suspectsOf(this.chapter);
     this.run = getChapterRun(this.game, chapterId);
     // Evidence = clues found this run plus anything found before (e.g. in a clue hunt).
     this.evidence = knownClues(this.game, chapterId);
@@ -57,7 +58,9 @@ export class DeductionState {
     this.time = 0;
     this.game.hud.hideAll();
     this._buildScene();
-    this._askWho();
+    // A chapter with no mole (Chapter 6 on): no accusing anyone, just the results.
+    if (this.chapter.noDeduction) this._solved(null, this.chapter.jobDone);
+    else this._askWho();
   }
 
   exit() {
@@ -173,7 +176,7 @@ export class DeductionState {
         g.fillStyle = '#2a2a2a';
         g.font = 'bold 40px "Barlow Semi Condensed", Arial, sans-serif';
         g.textAlign = 'center';
-        g.fillText('No evidence found...', w / 2, 78);
+        g.fillText(this.chapter.noDeduction ? 'The crew. All of it.' : 'No evidence found...', w / 2, 78, w - 30);
       });
       const note = new THREE.Mesh(new THREE.PlaneGeometry(2, 0.5), new THREE.MeshLambertMaterial({ map: tex }));
       note.position.set(0, 0.9, 0.06);
@@ -285,7 +288,7 @@ export class DeductionState {
 
   _solved(id, verdict) {
     audio.sfx('win');
-    this._highlight(id, 0x4dffa6);
+    if (id) this._highlight(id, 0x4dffa6);
     const chapter = this.chapter;
     const run = this.run;
     const ids = Object.keys(chapter.clues);
@@ -323,23 +326,22 @@ export class DeductionState {
     }).join('');
 
     showCard(`
-      <p class="sub kicker">Case closed</p>
+      <p class="sub kicker">${chapter.noDeduction ? 'Job done' : 'Case closed'}</p>
       <h2 class="verdict-good">${verdict.title}</h2>
       <p>${verdict.text}</p>
       <span class="rank ${rating}">CHAPTER RATING: ${rating.toUpperCase()} · ${diff().name.toUpperCase()}</span>
       <div class="stat-grid">
         <div><span>Chapter time</span><b>${complete ? formatTime(time) : '-'}</b></div>
         <div><span>Best time (${diff().name})</span><b>${save.bestTime(`${chapter.id}.total`) != null ? formatTime(save.bestTime(`${chapter.id}.total`)) : '-'}</b></div>
-        <div><span>Clues found</span><b>${found}/${total}</b></div>
-        <div><span>Caught / wrong guesses</span><b>${run.caught} / ${this.wrong}</b></div>
+        ${total ? `<div><span>Clues found</span><b>${found}/${total}</b></div>
+        <div><span>Caught / wrong guesses</span><b>${run.caught} / ${this.wrong}</b></div>` : `<div><span>Times caught</span><b>${run.caught}</b></div>`}
         <div><span>Cash earned</span><b style="color:var(--safe)">+$${cash}</b></div>
       </div>
       ${isBest ? '<p class="new-best">New best chapter time!</p>' : ''}
       ${newColour ? '<p class="new-best">Gold rating! New car colour unlocked.</p>' : ''}
-      <p class="sub" style="margin-top:8px">How the clues fit</p>
-      ${clueHtml}
-      <p style="margin-top:14px">${chapter.resultOutro}</p>
-      <p class="sub">Gold: the whole chapter in under ${formatTime(chapter.rating?.gold ?? 300).replace(/\.0$/, '')}, at least ${total - 1} clues (not bought), never caught, right first time. Each difficulty keeps its own rating.</p>`,
+      ${total ? `<p class="sub" style="margin-top:8px">How the clues fit</p>${clueHtml}` : ''}
+      ${chapter.resultOutro ? `<p style="margin-top:14px">${chapter.resultOutro}</p>` : ''}
+      <p class="sub">Gold: the whole chapter in under ${formatTime(chapter.rating?.gold ?? 300).replace(/\.0$/, '')}${total ? `, at least ${total - 1} clues (not bought)` : ''}, never caught${total ? ', right first time' : ''}. Each difficulty keeps its own rating.</p>`,
     [
       chapter.nextChapter
         ? { label: `Continue: ${CHAPTERS[chapter.nextChapter].title}`, primary: true, onClick: () => startPart(this.game, chapter.nextChapter, 0, { fresh: true }) }

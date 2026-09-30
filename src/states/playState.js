@@ -83,7 +83,7 @@ export class PlayState {
     const resume = () => this.resume();
     const back = () => { this.paused = false; this.pause(); };
     const run = this.game.chapterRun;
-    const chapter = run && this.isStory ? CHAPTERS[run.chapterId] : null;
+    const chapter = run && this.isStory && Object.keys(CHAPTERS[run.chapterId]?.clues || {}).length ? CHAPTERS[run.chapterId] : null; // (no Case Board without clues)
     const ghostOn = !!this.mode?.ghost;
     showCard(`<p class="sub kicker">${this.game.speedrun ? `Speedrun · ${formatRun(this.game.speedrun.t)}` : 'Game paused'} · ${diff().name}</p><h2>Paused</h2>`, [
       { label: 'Resume', primary: true, onClick: resume },
@@ -137,6 +137,7 @@ export class PlayState {
   openCaseBoard() {
     const run = this.game.chapterRun;
     if (!this.isStory || !run || this.over || this.inCard || this.paused) return;
+    if (!Object.keys(CHAPTERS[run.chapterId]?.clues || {}).length) return; // (a chapter with no clues)
     this.pause();
     showCaseBoard(CHAPTERS[run.chapterId], run.clues, () => { this.paused = false; this.pause(); }, 'clues', false, this._buyOpts());
   }

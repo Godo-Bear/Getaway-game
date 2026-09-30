@@ -15,7 +15,7 @@ Handy URL options for testing:
 
 | URL | What it does |
 | --- | --- |
-| `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2` to `chapter5`) |
+| `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2` to `chapter6`) |
 | `/?mode=speedrun` | Start a Chapter 1 speedrun |
 | `/?mode=freecar` | Free Run, starting in the car |
 | `/?mode=editor` | The Level Editor (add `&level=GW1-...` to open a level code) |
@@ -123,6 +123,7 @@ service cloud.firestore {
 * **Story: Chapter 3, Headquarters**: zip-line onto the police HQ roof, find Det. Hale's ledger while officers chase you out of the stairwells (and the helicopter joins later), zip down to the car, then race the clock to the last ferry through heat-5 roadblocks. The final deduction reveals who planned everything.
 * **Story: Chapter 4, Last Flight**: a thunderstorm at dawn. Chase Marla's car through the wet streets to the rail yard by the airfield, then chase her on foot across the freight trains (crossing plates between tracks, a signal gantry to climb, hangar roofs and a zip line) before she reaches her plane. The deduction: who warned her you were coming?
 * **Story: Chapter 5, The Lucky Star**: six months later, with a brand new crew and only **one** mole among them. Part 1 (a sunny afternoon, down on the street): meet Nova (hacker) at a pavement cafe, Mags (safecracker) outside a pawn shop and Theo (inside man) at a bus stop (follow the coloured beams; Nova and Mags test you first with a mini-game), then Ricky (driver) and his car. Police officers walk the pavements with vision cones: blend into the crowd (walk right next to people), crouch behind parked cars, take the roofs, or knock one out from behind. Part 2: plan the job, then rob the Lucky Star casino (see the new mechanics below). Part 3: drive the cash down the rainy Strip to Ricky's garage. The deduction only has the new crew as suspects.
+* **Story: Chapter 6, The Iron Line** (no mole, no deduction: a breakout). Ricky is locked up in Blackwater, the island prison. Part 1: race across the city to the freight yard before the prison's supply train leaves. Part 2: on top of the moving train at night: jump the gaps between wagons, duck (C / hold Slide) under low bridges or get knocked off, avoid or knock out the two guards with torches, grab the guards' payroll bags, and hide under the tarp in the coal wagon before the train crosses the sea bridge and reaches the gate. Part 3: break Ricky out: four searchlight towers sweep the yard (keep cover between you and the tower), guards patrol with torches, a guard uniform in the dock office, hack Ricky's cell keypad, then the alarm and a lockdown countdown while Ricky follows you up the east wall stairs and down Mags's zip line to her boat. The chapter ends with a "Job done" results screen.
 * **Casino heist mechanics** (Chapter 5): **guards** patrol with yellow vision cones (seen for a moment = back to the checkpoint; the Flashbang stuns them). **Crouch** (C, or hold Slide on a phone) behind card tables to hide from them. **Lasers**: some pulse on and off, some are low (jump or crouch-walk past). **Mini-games**: hacking (stop the cursor in the green zone) and safe-cracking (stop the needle on the notch); press Jump / Space or tap the panel, C to back out. The **alarm**: someone switches the cameras back on once you have the cash, the guards go on alert and the exit shutter opens: run for the garage. Gold chip stacks are bonus cash.
 * **Heist planning board** (before the casino): pick a way in (Theo's staff door, Nova's roof vent straight into the security office but the guards start on alert, or Mags's front door already in disguise) and one thing to bring (easier mini-games, slower to be noticed, or 50% more time after the alarm). Change the plan every time you start the part.
 * **Disguises**: a staff uniform (on a rail in the casino lounge, or from the front-door plan). In uniform, guards only notice you close up, or if you run or crouch, and cameras ignore you; it doesn't work in staff-only rooms (security office, vault corridor), and you lose it if you're caught.
@@ -163,6 +164,6 @@ src/
   story/               chapter data (parts, story text, clues, verdicts), chapter flow, the crew
   world/levels/        hand-built story levels
   states/              title, on-foot state, driving state (+ shared PlayState base)
-  states/modes/        Free Run (rooftops + car), Rooftop Run, Street Chase, the bank heist, the casino heist, chapter on-foot parts (+ crew meetings, street patrols), chapter driving parts, your own levels
+  states/modes/        Free Run (rooftops + car), Rooftop Run, Street Chase, the bank heist, the casino heist, the moving train, the prison breakout, chapter on-foot parts (+ crew meetings, street patrols), chapter driving parts, your own levels
 reference/getaway.html the original single-file prototype (for reference only)
 ```

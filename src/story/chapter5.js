@@ -21,7 +21,7 @@ export const CHAPTER5 = {
   short: 'The Lucky Star',
   traitor: 'nova',
   suspects: ['nova', 'mags', 'theo', 'ricky'],
-  nextChapter: null,
+  nextChapter: 'chapter6',
   rating: { gold: 600, silver: 900 },
   deduction: { question: 'Who on the new crew is working for the Lucky Star?' },
 

@@ -35,7 +35,8 @@ export class GuardSquad {
    * @param {{route:number[][]}[]} defs - route = [[x, z], ...] (a loop)
    * @param {{sight?:number}} opts - sight multiplies the view range (difficulty)
    */
-  constructor(parent, world, defs, { sight = 1, look = null, range = RANGE, alertRange = ALERT_RANGE } = {}) {
+  constructor(parent, world, defs, { sight = 1, look = null, range = RANGE, alertRange = ALERT_RANGE, groundFrom = 1.2 } = {}) {
+    this.groundFrom = groundFrom; // (how high to look for the floor: raise it for guards on train roofs)
     this.parent = parent;
     this.world = world;
     this.sight = sight;
@@ -69,7 +70,7 @@ export class GuardSquad {
 
   /** Floor height under a point (0 indoors; the pavement outside). */
   _y(x, z) {
-    const g = this.world.groundHeight(x, z, 1.2);
+    const g = this.world.groundHeight(x, z, this.groundFrom);
     return Number.isFinite(g) && g > -1 ? g : 0;
   }
 

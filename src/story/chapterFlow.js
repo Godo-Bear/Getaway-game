@@ -46,8 +46,9 @@ export function finishPart(state, mode) {
   const toNext = () => {
     if (next) startPart(game, chapter.id, partIndex + 1);
     else {
-      // Last part: the outro scene, then the deduction.
-      state.showStoryCards(chapter.outro, 'Open the Case Board', () => {
+      // Last part: the outro scene, then the deduction (or, in a chapter
+      // with no mole, straight to the results).
+      state.showStoryCards(chapter.outro, chapter.noDeduction ? 'See how you did' : 'Open the Case Board', () => {
         game.sm.change('deduction', { chapterId: chapter.id });
       });
     }
@@ -61,12 +62,12 @@ export function finishPart(state, mode) {
     <p>${part.doneText}</p>
     <div class="stat-grid">
       <div><span>Time</span><b>${formatTime(state.time)}</b></div>
-      <div><span>Clues this run</span><b>${found.length}/${clueTotal}</b></div>
+      ${clueTotal ? `<div><span>Clues this run</span><b>${found.length}/${clueTotal}</b></div>` : ''}
       <div><span>Times caught</span><b>${run.caught}</b></div>
       <div><span>Cash earned</span><b style="color:var(--safe)">+$${cash}</b></div>
     </div>`,
   [{
-    label: next ? `Continue: Part ${partIndex + 2}, ${next.title}` : 'Continue: the deduction',
+    label: next ? `Continue: Part ${partIndex + 2}, ${next.title}` : chapter.noDeduction ? 'Continue' : 'Continue: the deduction',
     primary: true, onClick: () => { state.over = false; state.inCard = false; toNext(); },
   }], { retryLabel: `Replay ${part.title}`, extraFirst: true });
 }

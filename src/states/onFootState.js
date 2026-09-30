@@ -19,6 +19,8 @@ import { ChapterFootMode } from './modes/chapterFootMode.js';
 import { BankHeistMode } from './modes/bankHeistMode.js';
 import { CasinoHeistMode } from './modes/casinoHeistMode.js';
 import { CustomLevelMode } from './modes/customLevelMode.js';
+import { TrainMode } from './modes/trainMode.js';
+import { PrisonMode } from './modes/prisonMode.js';
 
 // On-foot game state: everything the on-foot modes have in common.
 //   - the player (physics + animated model) and the third-person camera
@@ -41,7 +43,7 @@ import { CustomLevelMode } from './modes/customLevelMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {

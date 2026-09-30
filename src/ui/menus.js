@@ -252,8 +252,8 @@ export function showChapterSelect(actions) {
       const cur = d.id === diff().id ? ' cur' : '';
       return r ? `<em class="tag ${r}${cur}">${d.name}: ${r}</em>` : `<em class="tag rank-none${cur}">${d.name}: -</em>`;
     }).join('');
-    const tags = !unlocked ? '<em class="tag">Locked: solve the previous chapter</em>'
-      : [p.solved?.[c.id] ? '<em class="tag ok">Solved ✓</em>' : '<em class="tag">Not solved yet</em>',
+    const tags = !unlocked ? '<em class="tag">Locked: finish the previous chapter</em>'
+      : [p.solved?.[c.id] ? `<em class="tag ok">${c.noDeduction ? 'Done' : 'Solved'} ✓</em>` : `<em class="tag">${c.noDeduction ? 'Not done yet' : 'Not solved yet'}</em>`,
         ranks,
         best != null ? `<em class="tag">Best ${formatTime(best)} (${diff().name})</em>` : ''].join('');
     return {
@@ -263,7 +263,7 @@ export function showChapterSelect(actions) {
     };
   });
   buttons.push({ label: 'Back', onClick: () => showTitle(actions) });
-  showCard(`<p class="sub kicker">Story</p><h2>Chapters</h2><p class="sub">Each chapter: pull off the job, lose the police, then work out who betrayed you.</p>
+  showCard(`<p class="sub kicker">Story</p><h2>Chapters</h2><p class="sub">Pull off the job, lose the police, and get away. (Chapters 1 to 5: work out who on the crew betrayed you.)</p>
     <p class="sub setting-head" style="margin-top:4px !important">Difficulty</p>${difficultyPickerHtml()}
     <p class="sub fine">Each difficulty keeps its own ranks and best times.</p>`, buttons, { list: true });
   bindDifficultyPicker(() => showChapterSelect(actions)); // redraw: ranks and times for that difficulty
@@ -286,9 +286,9 @@ function showChapterParts(chapterId, actions, back) {
   showCard(`<p class="sub kicker">${chapter.title.replace(/:.*/, '')}</p><h2>${chapter.short}</h2>
     <p class="sub fine">A chapter rating needs a full run from Part 1. Want to look around without the police? Press G (or use the pause menu) for ghost mode: nothing counts while it's on.</p>`, [
     ...parts,
-    { label: `Case Board <small>Every clue you have found: ${found.size} of ${total}</small>`,
+    ...(total ? [{ label: `Case Board <small>Every clue you have found: ${found.size} of ${total}</small>`,
       onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back), 'clues', false,
-        { onBuy: (id) => buyClue(actions.game, chapterId, id) }) },
+        { onBuy: (id) => buyClue(actions.game, chapterId, id) }) }] : []),
     { label: 'Back', onClick: back },
   ], { list: true });
 }
