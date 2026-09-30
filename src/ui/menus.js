@@ -63,7 +63,7 @@ export const CONTROLS = {
   onFoot: `
     <kbd>Mouse</kbd> look around &nbsp; <kbd>W A S D</kbd> move<br>
     <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
-    Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it.
+    Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it, either way (even uphill): hold <kbd>S</kbd> to turn round, <kbd>Space</kbd> to let go.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
     <kbd>E</kbd> action when one shows on screen (knock out a guard from behind)<br>

@@ -226,18 +226,16 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
           else setMsg(`That's the most cash bags (${MAX_CASH}).`);
         } else if (tool === 'zip') {
           if (!zipFrom) {
-            const existing = L.zips.findIndex((z) => same(z));
+            const existing = L.zips.findIndex((z) => same(z) || same(z.slice(2)));
             if (existing >= 0) { L.zips.splice(existing, 1); setMsg('Zip line removed.'); }
-            else if (L.cells[k] < 2) { undo.pop(); setMsg('A zip line starts on top of a building: tap a building (not the street).'); }
             else if (L.zips.length >= MAX_ZIPS) { undo.pop(); setMsg(`That's the most zip lines (${MAX_ZIPS}).`); }
-            else { undo.pop(); zipFrom = [i, j]; setMsg('Good! Now tap a LOWER building (or the same height) up to 15 squares away, where the zip line ends.'); }
+            else { undo.pop(); zipFrom = [i, j]; setMsg('Good! Now tap another building, up to 15 squares away, for the other end.'); }
           } else {
-            const [a, b] = zipFrom, ha = cellHeight(L.cells[b * GRID + a]), hb = cellHeight(L.cells[k]);
+            const [a, b] = zipFrom;
             const len = Math.hypot(i - a, j - b) * CELL;
             if (same(zipFrom)) setMsg('Tap a different building for the end.');
-            else if (hb > ha) setMsg('That building is taller: zip lines only go downhill. Tap a lower one.');
             else if (len > 45 || len < 6) setMsg('Too far or too close: pick a building 2 to 15 squares away.');
-            else { L.zips.push([a, b, i, j]); setMsg('Zip line added! Jump into the cable at the start to ride it.'); }
+            else { L.zips.push([a, b, i, j]); setMsg('Zip line added! Jump into the cable at either end and ride it either way (press back to turn round).'); }
             if (!(L.zips.length && same(L.zips[L.zips.length - 1].slice(2)))) undo.pop();
             zipFrom = null;
           }
@@ -389,7 +387,7 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       <p class="sub">The map is a city seen from above, like a drawing. Each square is 3 m.</p>
       <div class="ed-steps">
         <div><span>1</span><b>Paint buildings</b><small>Pick a size (Small, Medium, Tall...) and drag on the map. The number on a building is how tall it is: you can climb from a building onto one that is <b>one number higher</b> (2 → 3), and jump down from any height. Every building has a ladder from the street.</small></div>
-        <div><span>2</span><b>Place things</b><small>Tap <b>Start</b> then tap the map where you begin. Do the same for the <b>Finish</b> and some <b>$ Cash</b> bags. For a <b>Zip line</b>, tap a tall building, then a lower one.</small></div>
+        <div><span>2</span><b>Place things</b><small>Tap <b>Start</b> then tap the map where you begin. Do the same for the <b>Finish</b> and some <b>$ Cash</b> bags. For a <b>Zip line</b>, tap one building, then another. You can ride it both ways, even uphill.</small></div>
         <div><span>3</span><b>Play it!</b><small>Grab every cash bag, then reach the finish, as fast as you can. The checklist under the map tells you if something can't be reached (it's circled in red).</small></div>
       </div>
       <p class="sub">Not sure where to begin? Press <b>Examples</b> and change one of those.</p>`,
@@ -432,7 +430,7 @@ function helpText(tool, zipFrom) {
   if (tool === 'start') return 'Tap the map where you want to start.';
   if (tool === 'finish') return 'Tap the map where the finish goes.';
   if (tool === 'cash') return 'Tap the map to add a cash bag (tap it again to remove it).';
-  return zipFrom ? 'Now tap a lower building where it ends.' : 'Tap a tall building where the zip line starts. (Tap a zip line\'s start to remove it.)';
+  return zipFrom ? 'Now tap the building for the other end.' : 'Tap a building for one end of the zip line, then another for the other end. (Tap a zip line\'s end to remove it.)';
 }
 
 function escapeHtml(s) {

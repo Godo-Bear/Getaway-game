@@ -124,11 +124,11 @@ export function buildCustomLevel(L) {
       else kit.building(x0, z0, x1, z1, h, { lips: false, tint: tints[(i * 7 + j * 3) % tints.length], windows: h >= 5 });
     }
   }
-  // Zip lines: from 2.3 m above one roof to 2.2 m above another
+  // Zip lines: 2.3 m above a roof at each end (ride them either way)
   for (const [i0, j0, i1, j1] of L.zips) {
     const [ax, az] = cellPos(i0, j0), [bx, bz] = cellPos(i1, j1);
     const ha = cellHeight(v(i0, j0)), hb = cellHeight(v(i1, j1));
-    kit.zipLine(ax, ha + 2.3, az, bx, Math.min(hb + 2.2, ha + 2.3 - 0.5), bz, { startRoof: ha, endRoof: hb });
+    kit.zipLine(ax, ha + 2.3, az, bx, hb + 2.3, bz, { startRoof: ha, endRoof: hb }); // (ride it either way)
   }
   const group = kit.finish();
 

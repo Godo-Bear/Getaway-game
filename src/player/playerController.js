@@ -17,7 +17,7 @@ import { clamp, damp, easeOutCubic, easeInOut, dampAngle } from '../core/utils.j
 //   ground -> slide (crouch while sprinting: shorter body, slips under pipes)
 //   ground -> crouch (crouch while slow, or stuck under something low)
 //   air -> wallrun (jump alongside a tall wall: run along it, jump off it)
-//   any -> zip (jump into a zip line cable: ride it down)
+//   any -> zip (jump into a zip line cable: ride it either way, like Fortnite)
 //   ground -> ladder (walk into a ladder on a building: climb up to the roof)
 
 /** All the numbers that define how movement feels. Tweak these! */
@@ -67,7 +67,7 @@ export const TUNING = {
 
   zipGrab: 1.1,        // how close your hands must be to the cable
   zipHang: 2.0,        // feet hang this far below the cable
-  zipMinSpeed: 7,
+  zipMinSpeed: 9,       // the cable pulls you along, even uphill
   zipMaxSpeed: 20,
 
   ladderSpeed: 3.6,    // m/s climbing (faster while sprinting)
@@ -108,7 +108,7 @@ export class PlayerController {
     this.canRocket = false; // Rocket Boots (admin): jump again in mid-air, any number of times
     this.gliding = false;
     this.zipLines = [];     // set by the level: [{ a: Vector3, b: Vector3 }] (a = high end)
-    this.zip = null;        // { line, t, speed } while riding a zip line
+    this.zip = null;        // { line, t, len, speed, dir } while riding a zip line (dir +1 = towards b)
     this.zipCooldown = 0;
     this.wallRun = null;    // { normal, tangent, speed } while wall-running
     this.usedWallNormal = null; // can't wall-run the same wall twice in one jump
@@ -701,12 +701,19 @@ export class PlayerController {
       const dx = line.b.x - ax, dy = line.b.y - ay, dz = line.b.z - az;
       const len2 = dx * dx + dy * dy + dz * dz;
       const t = clamp(((hx - ax) * dx + (hy - ay) * dy + (hz - az) * dz) / len2, 0, 1);
-      if (t > 0.9) continue;
       const cx = ax + dx * t, cy = ay + dy * t, cz = az + dz * t;
       if (Math.hypot(hx - cx, hy - cy, hz - cz) > T.zipGrab) continue;
       const len = Math.sqrt(len2);
-      const along = (this.vel.x * dx + this.vel.y * dy + this.vel.z * dz) / len;
-      this.zip = { line, t, len, speed: Math.max(T.zipMinSpeed, along) };
+      // Which way? Away from the end you're standing at; otherwise the way
+      // you're facing (or moving).
+      const flat = Math.hypot(dx, dz) || 1;
+      const face = (Math.sin(this.facing) * dx + Math.cos(this.facing) * dz) / flat;
+      const move = (this.vel.x * dx + this.vel.z * dz) / flat;
+      let dir = Math.abs(move) > 2 ? Math.sign(move) : face >= 0 ? 1 : -1;
+      if (t < 0.04) dir = 1;
+      else if (t > 0.96) dir = -1;
+      const along = Math.abs((this.vel.x * dx + this.vel.y * dy + this.vel.z * dz) / len);
+      this.zip = { line, t, len, dir, speed: Math.max(T.zipMinSpeed, Math.min(along, T.zipMaxSpeed)), turnLatch: true };
       this.grounded = false;
       this.jumpBufferTimer = 0;
       this._setState('zip');
@@ -718,18 +725,24 @@ export class PlayerController {
 
   _updateZip(dt, ctl) {
     const z = this.zip, l = z.line;
-    const dx = (l.b.x - l.a.x) / z.len, dy = (l.b.y - l.a.y) / z.len, dz = (l.b.z - l.a.z) / z.len;
-    // Speed builds up going downhill (dy < 0), with a little drag.
+    // Pull back (S / stick down) to turn round on the cable
+    const back = ctl.moveZ < -0.6;
+    if (back && !z.turnLatch) { z.dir = -z.dir; z.speed = T.zipMinSpeed; this.events.push({ type: 'zip' }); }
+    z.turnLatch = back;
+    const dx = ((l.b.x - l.a.x) / z.len) * z.dir, dy = ((l.b.y - l.a.y) / z.len) * z.dir, dz = ((l.b.z - l.a.z) / z.len) * z.dir;
+    // The cable pulls you along either way; going downhill builds extra speed, uphill slows you to the pull speed.
     z.speed = clamp(z.speed + (-dy * 20 - 0.02 * z.speed * z.speed * 0.2) * dt, T.zipMinSpeed, T.zipMaxSpeed);
-    z.t += (z.speed * dt) / z.len;
-    const done = z.t >= 1;
-    z.t = Math.min(1, z.t);
+    z.t += (z.speed * dt * z.dir) / z.len;
+    const done = z.t >= 1 || z.t <= 0;
+    z.t = clamp(z.t, 0, 1);
     this.pos.set(l.a.x + (l.b.x - l.a.x) * z.t, l.a.y + (l.b.y - l.a.y) * z.t - T.zipHang, l.a.z + (l.b.z - l.a.z) * z.t);
     this.vel.set(dx * z.speed, dy * z.speed, dz * z.speed);
     this.facing = Math.atan2(dx, dz);
     if (done || ctl.jumpPressed) {
-      // Let go: keep the momentum (a little hop if you let go early).
+      // Let go: keep the momentum (a little hop if you let go early). At the
+      // end, step off onto the roof gently.
       if (!done) this.vel.y += 3;
+      else this.vel.multiplyScalar(0.35).setY(Math.max(this.vel.y, 0) + 1.5);
       this.zip = null;
       this.zipCooldown = 0.5;
       this._setState('air');

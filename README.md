@@ -140,7 +140,7 @@ service cloud.firestore {
   * Getaways: Smoke Screen (car), Turbo Tank (more nitro), Garage Keycard (garages lose the cops in 1 second).
   * Mole: Clue Scanner, Clue Magnet (pick up clues from further away), Forensics Kit (Case Board marks red herrings), Lie Detector.
 * **Crosshair**: on foot (aim the Grapple Gun with it). SPRINT shows under it while sprint is on.
-* **Moves**: Shift switches sprint on (and off again); sprint + C to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it (it drops you at the far end).
+* **Moves**: Shift switches sprint on (and off again); sprint + C to slide under low ducts (C while standing = crouch). Jump alongside a tall wall to wall-run. Jump into a zip-line cable to ride it, Fortnite-style: grab it anywhere (from either end), it takes you the way you're facing, even uphill; pull back (S) to turn round, jump to let go.
 * **Case Board**: press Tab (or use the pause menu) during a chapter to review clues and suspects. Also on the chapter select screen and at the deduction. Missed a clue? Buy it there for $100: it counts for the deduction (and is kept), but not for your chapter rating.
 
 ## Project layout

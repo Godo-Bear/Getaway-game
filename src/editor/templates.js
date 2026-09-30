@@ -76,7 +76,7 @@ export function randomLevel() {
  * Which cells you can get to from the start (a rough copy of the parkour
  * rules): walk onto anything up to one step (2.7 m) higher, drop down any
  * height, climb a building's ladder from the street, jump a one-cell gap to
- * a roof no higher than yours, and ride zip lines.
+ * a roof no higher than yours, and ride zip lines (either way).
  * @returns {Uint8Array} 1 = reachable
  */
 export function reachable(L) {
@@ -85,7 +85,8 @@ export function reachable(L) {
   const queue = [L.start];
   seen[L.start[1] * GRID + L.start[0]] = 1;
   const zipsFrom = new Map();
-  for (const [a, b, c, d] of L.zips) zipsFrom.set(b * GRID + a, [...(zipsFrom.get(b * GRID + a) || []), [c, d]]);
+  const link = (k, to) => zipsFrom.set(k, [...(zipsFrom.get(k) || []), to]);
+  for (const [a, b, c, d] of L.zips) { link(b * GRID + a, [c, d]); link(d * GRID + c, [a, b]); }
   const go = (i, j) => {
     if (i < 0 || j < 0 || i >= GRID || j >= GRID || seen[j * GRID + i]) return;
     seen[j * GRID + i] = 1;

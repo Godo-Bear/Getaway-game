@@ -293,10 +293,12 @@ export class RooftopKit {
     cable.position.copy(a).add(b).multiplyScalar(0.5);
     cable.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), b.clone().sub(a).normalize());
     this.extra.add(cable);
-    // A yellow handle hanging at the start, so it's easy to spot
-    const handle = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.08), new THREE.MeshBasicMaterial({ color: 0xffd040, toneMapped: false }));
-    handle.position.set(ax, ay - 0.35, az);
-    this.extra.add(handle);
+    // Yellow handles hanging at both ends (you can ride either way)
+    for (const [hx, hy, hz] of [[ax, ay, az], [bx, by, bz]]) {
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.08, 0.08), new THREE.MeshBasicMaterial({ color: 0xffd040, toneMapped: false }));
+      handle.position.set(hx, hy - 0.35, hz);
+      this.extra.add(handle);
+    }
   }
 
   /**
