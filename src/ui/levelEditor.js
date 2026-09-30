@@ -4,7 +4,7 @@
 //  - A short "How it works" guide the first time (and on the ? button).
 //  - Start from an example map (or an empty one, or a random one).
 //  - Building sizes have names (Small / Medium / Tall...) and each building's
-//    height number is written on the map. A big brush paints 3 x 3 at once.
+//    height number is written on the map. Brush sizes 1, 3, 5 and 7 squares.
 //  - A live checklist: have you placed a start and a finish, and can you
 //    actually reach the finish and every cash bag? Things you can't reach
 //    are circled in red on the map.
@@ -17,7 +17,7 @@
 
 import { showCard } from './menus.js';
 import { save } from '../core/save.js';
-import { GRID, CELL, MAX_CASH, MAX_ZIPS, encodeLevel, decodeLevel, cellHeight, levelId } from '../editor/customLevel.js';
+import { GRID, CELL, MAX_CASH, MAX_ZIPS, MAX_GLIDERS, MAX_BEAMS, MAX_PROPS, beamHeight, encodeLevel, decodeLevel, cellHeight, levelId } from '../editor/customLevel.js';
 import { TEMPLATES, reachable } from '../editor/templates.js';
 import { formatTime } from '../core/utils.js';
 
@@ -36,7 +36,18 @@ const TOOLS = [
   { id: 'finish', label: 'F  Finish', color: '#ffb020' },
   { id: 'cash', label: '$  Cash', color: '#7dff8a' },
   { id: 'zip', label: 'Zip line', color: '#ffd040' },
+  { id: 'glider', label: 'Glider', color: '#39e6ff' },
 ];
+const BRUSHES = [1, 3, 5, 7]; // squares across
+// Parkour pieces (like the story levels)
+const PIECES = [
+  { id: 'beam', label: 'Beam', color: '#ff8a3d', icon: '' },
+  { id: 'duct', label: 'Duct (slide under)', color: '#b8c0cc', icon: 'D' },
+  { id: 'crate', label: 'Crate', color: '#c8955a', icon: 'C' },
+  { id: 'hut', label: 'Hideout hut', color: '#4dffa6', icon: 'H' },
+  { id: 'tower', label: 'Water tower', color: '#8ab4ff', icon: 'T' },
+];
+const PROP = Object.fromEntries(PIECES.filter((p) => p.icon).map((p) => [p.id, p]));
 const TIMES = ['night', 'dawn', 'day', 'dusk'];
 const MAX_LEVELS = 12;
 
@@ -48,9 +59,9 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
   const draft = level || decodeLevel(save.data.levels.draft || '');
   let L = draft || TEMPLATES[1].make();
   let tool = 4;          // a number = paint that height; a string = a TOOLS id
-  let big = true;        // big brush (3 x 3)
+  let brush = 3;         // brush size: squares across (1, 3, 5 or 7)
   let moreHeights = false;
-  let zipFrom = null;    // first end of a zip line being placed
+  let zipFrom = null;    // first end of a zip line (or beam) being placed
   let msg = '';
   const undo = [];
   const snapshot = () => { undo.push(JSON.stringify(L)); if (undo.length > 40) undo.shift(); };
@@ -65,7 +76,7 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       <div class="ed-tools">
         ${paints.map((p) => `<button class="ed-h${tool === p.v ? ' on' : ''}" data-h="${p.v}" style="--c:${HEIGHT_COLORS[p.v]}"><b>${p.name}</b><small>${p.sub}</small></button>`).join('')}
         <button class="ed-t" data-act="more" style="--c:var(--muted)">${moreHeights ? 'Fewer' : 'More heights'}</button>
-        <button class="ed-t${big ? ' on' : ''}" data-act="brush" style="--c:var(--ink)">Brush: ${big ? 'big' : 'small'}</button>
+        <span class="ed-brush">Brush ${BRUSHES.map((b) => `<button class="ed-t${brush === b ? ' on' : ''}" data-brush="${b}" style="--c:var(--ink)" title="${b} x ${b} squares">${b}x${b}</button>`).join('')}</span>
       </div>
       <p class="ed-label">2. Place things <span>(tap the map)</span></p>
       <div class="ed-tools">
@@ -73,11 +84,15 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
         <button class="ed-t${L.heli ? ' on' : ''}" data-act="heli" style="--c:#ff3346">Police chopper: ${L.heli ? 'on' : 'off'}</button>
         <button class="ed-t" data-act="time" style="--c:#39e6ff">Time: ${L.time}</button>
       </div>
+      <p class="ed-label">3. Parkour pieces <span>(tap the map)</span></p>
+      <div class="ed-tools">
+        ${PIECES.map((t) => `<button class="ed-t${tool === t.id ? ' on' : ''}" data-t="${t.id}" style="--c:${t.color}">${t.label}</button>`).join('')}
+      </div>
       <canvas id="ed-canvas" class="ed-canvas"></canvas>
       <p class="sub ed-msg" id="ed-msg">${msg || helpText(tool, zipFrom)}</p>
       <div class="ed-check" id="ed-check"></div>`,
     [
-      { label: '3. Play it!', primary: true, onClick: play },
+      { label: 'Play it!', primary: true, onClick: play },
       { label: 'Undo', disabled: !undo.length, onClick: () => { if (undo.length) { L = JSON.parse(undo.pop()); zipFrom = null; msg = 'Undone.'; keepDraft(); render(); } } },
       { label: 'Examples', onClick: examples },
       { label: 'Share / load', onClick: shareMenu },
@@ -92,7 +107,7 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
     on('[data-h]', (b) => { tool = +b.dataset.h; zipFrom = null; msg = ''; render(); });
     on('[data-t]', (b) => { tool = b.dataset.t; zipFrom = null; msg = ''; render(); });
     on('[data-act="more"]', () => { moreHeights = !moreHeights; render(); });
-    on('[data-act="brush"]', () => { big = !big; msg = big ? 'Big brush: paints 3 x 3 squares at once.' : 'Small brush: one square at a time.'; render(); });
+    on('[data-brush]', (b) => { brush = +b.dataset.brush; msg = brush === 1 ? 'Brush 1 x 1: one square at a time (for small details).' : `Brush ${brush} x ${brush}: paints ${brush * brush} squares at once.`; if (typeof tool !== 'number') tool = 4; render(); });
     on('[data-act="heli"]', () => { snapshot(); L.heli = !L.heli; keepDraft(); render(); });
     on('[data-act="time"]', () => { snapshot(); L.time = TIMES[(TIMES.indexOf(L.time) + 1) % TIMES.length]; keepDraft(); render(); });
     on('[data-act="help"]', () => guide(render));
@@ -162,6 +177,26 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
         g.lineTo(bx - Math.cos(a + 0.5) * cs * 0.8, by - Math.sin(a + 0.5) * cs * 0.8);
         g.fill();
       }
+      // Beams: thick orange bars; parkour pieces: little labelled squares
+      g.lineWidth = Math.max(3, cs * 0.35);
+      g.strokeStyle = '#ff8a3d';
+      for (const bm of L.beams || []) {
+        const [ax, ay] = mid(bm.slice(0, 2)), [bx, by] = mid(bm.slice(2, 4));
+        g.beginPath(); g.moveTo(ax, ay); g.lineTo(bx, by); g.stroke();
+      }
+      for (const [i, j, type] of L.props || []) {
+        const P = PROP[type];
+        g.fillStyle = P.color;
+        if (type === 'duct') {
+          g.fillRect(i * cs + 1, j * cs + cs * 0.3, cs - 2, cs * 0.4);
+        } else {
+          g.beginPath(); g.roundRect?.(i * cs + cs * 0.15, j * cs + cs * 0.15, cs * 0.7, cs * 0.7, cs * 0.15) ?? g.rect(i * cs + cs * 0.15, j * cs + cs * 0.15, cs * 0.7, cs * 0.7); g.fill();
+        }
+        g.fillStyle = '#111';
+        g.font = `bold ${Math.round(cs * 0.5)}px sans-serif`;
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(P.icon, (i + 0.5) * cs, (j + 0.5) * cs + 1);
+      }
       const mark = (p, color, text, ok = true) => {
         const [x, y] = mid(p);
         g.fillStyle = color;
@@ -177,12 +212,13 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       };
       const ok = ([i, j]) => !!reach[j * GRID + i];
       for (const c of L.cash) mark(c, '#7dff8a', '$', ok(c));
+      for (const c of L.gliders || []) mark(c, '#39e6ff', 'G', ok(c));
       mark(L.start, '#4dffa6', 'S');
       mark(L.finish, '#ffb020', 'F', ok(L.finish));
-      if (zipFrom) mark(zipFrom, '#ffd040', 'Z');
+      if (zipFrom) mark(zipFrom, tool === 'beam' ? '#ff8a3d' : '#ffd040', tool === 'beam' ? 'B' : 'Z');
       // Where the brush will paint
       if (hover && typeof tool === 'number') {
-        const r0 = big ? 1 : 0;
+        const r0 = (brush - 1) / 2;
         g.strokeStyle = 'rgba(255,176,32,0.9)'; g.lineWidth = 2;
         g.strokeRect((hover[0] - r0) * cs, (hover[1] - r0) * cs, (r0 * 2 + 1) * cs, (r0 * 2 + 1) * cs);
       }
@@ -196,7 +232,7 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       return i >= 0 && j >= 0 && i < GRID && j < GRID ? [i, j] : null;
     };
     const paintAt = (i, j) => {
-      const r0 = big ? 1 : 0;
+      const r0 = (brush - 1) / 2;
       for (let di = -r0; di <= r0; di++) for (let dj = -r0; dj <= r0; dj++) {
         const a = i + di, b = j + dj;
         if (a < 0 || b < 0 || a >= GRID || b >= GRID) continue;
@@ -205,8 +241,25 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
           const same = (p) => p[0] === a && p[1] === b;
           L.cash = L.cash.filter((p) => !same(p));
           L.zips = L.zips.filter((z) => !same(z) && !same(z.slice(2)));
+          L.gliders = (L.gliders || []).filter((p) => !same(p));
+          L.props = (L.props || []).filter((p) => !same(p));
+          L.beams = (L.beams || []).filter((z) => !same(z) && !same(z.slice(2)));
         }
       }
+    };
+    const placeProp = (i, j, type, dragging) => {
+      L.props ||= [];
+      const at = L.props.findIndex((p) => p[0] === i && p[1] === j);
+      if (at >= 0 && L.props[at][2] === type) { if (!dragging) { L.props.splice(at, 1); setMsg(`${PROP[type].label} removed.`); } return; }
+      if (at >= 0) L.props.splice(at, 1);
+      if (L.props.length >= MAX_PROPS) { setMsg(`That's the most pieces (${MAX_PROPS}).`); return; }
+      L.props.push([i, j, type]);
+      setMsg({
+        duct: 'Duct added: a pipe you can only get under by sliding (sprint + C) or crouching. Drag to make a long one.',
+        crate: 'Crate added: a box to climb on.',
+        hut: 'Hideout hut added: step inside to hide from the helicopter.',
+        tower: 'Water tower added: stand under it to hide from the helicopter.',
+      }[type]);
     };
     const apply = (c, first) => {
       if (!c) return;
@@ -214,6 +267,8 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       if (typeof tool === 'number') {
         if (first) snapshot();
         paintAt(i, j);
+      } else if (tool === 'duct' && !first) {
+        placeProp(i, j, 'duct', true); // ducts can be dragged out in a line
       } else if (!first) {
         return; // things are placed with one tap, not dragged
       } else {
@@ -224,6 +279,40 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
           if (L.cash.some(same)) { L.cash = L.cash.filter((p) => !same(p)); setMsg('Cash bag removed.'); }
           else if (L.cash.length < MAX_CASH) { L.cash.push([i, j]); setMsg(`Cash bag added (${L.cash.length}). Tap it again to remove it.`); }
           else setMsg(`That's the most cash bags (${MAX_CASH}).`);
+        } else if (PROP[tool]) {
+          placeProp(i, j, tool, false);
+        } else if (tool === 'beam') {
+          if (!zipFrom) {
+            const existing = (L.beams || []).findIndex((z) => same(z) || same(z.slice(2)));
+            if (existing >= 0) { L.beams.splice(existing, 1); setMsg('Beam removed.'); }
+            else if (L.cells[k] < 2) { undo.pop(); setMsg('A beam goes from the edge of one building to another: tap a building.'); }
+            else if ((L.beams || []).length >= MAX_BEAMS) { undo.pop(); setMsg(`That's the most beams (${MAX_BEAMS}).`); }
+            else { undo.pop(); zipFrom = [i, j]; setMsg('Now tap another building in a straight line (same row or column) across the gap.'); }
+          } else {
+            const [a, b] = zipFrom;
+            const ha = cellHeight(L.cells[b * GRID + a]), hb = cellHeight(L.cells[k]);
+            const len = Math.abs(i - a) + Math.abs(j - b);
+            const y = beamHeight(ha, hb);
+            let blocked = false;
+            if (a === i || b === j) for (let s = 1; s < len; s++) {
+              const ci = a + Math.sign(i - a) * s, cj = b + Math.sign(j - b) * s;
+              if (cellHeight(L.cells[cj * GRID + ci]) > y - 0.3) blocked = true;
+            }
+            if (same(zipFrom)) setMsg('Tap a different building for the other end.');
+            else if (a !== i && b !== j) setMsg('Beams go in a straight line: tap a building in the same row or column.');
+            else if (L.cells[k] < 2) setMsg('The other end needs to be a building too.');
+            else if (Math.abs(ha - hb) > 5.1) setMsg('Those buildings are too different in height (2 numbers apart at most).');
+            else if (len < 2 || len > 10) setMsg('A beam crosses a gap of 1 to 9 squares.');
+            else if (blocked) setMsg('Something taller is in the way. Pick buildings with a lower gap between them.');
+            else { (L.beams ||= []).push([a, b, i, j]); setMsg('Beam added: walk across it (it\'s narrow, so go carefully).'); }
+            if (!(L.beams?.length && same(L.beams[L.beams.length - 1].slice(2)))) undo.pop();
+            zipFrom = null;
+          }
+        } else if (tool === 'glider') {
+          L.gliders ||= [];
+          if (L.gliders.some(same)) { L.gliders = L.gliders.filter((p) => !same(p)); setMsg('Glider removed.'); }
+          else if (L.gliders.length < MAX_GLIDERS) { L.gliders.push([i, j]); setMsg('Glider added! Pick it up in the game, then jump off something high, jump again in mid-air and hold to glide.'); }
+          else setMsg(`That's the most gliders (${MAX_GLIDERS}).`);
         } else if (tool === 'zip') {
           if (!zipFrom) {
             const existing = L.zips.findIndex((z) => same(z) || same(z.slice(2)));
@@ -386,9 +475,10 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       <h2>How it works</h2>
       <p class="sub">The map is a city seen from above, like a drawing. Each square is 3 m.</p>
       <div class="ed-steps">
-        <div><span>1</span><b>Paint buildings</b><small>Pick a size (Small, Medium, Tall...) and drag on the map. The number on a building is how tall it is: you can climb from a building onto one that is <b>one number higher</b> (2 → 3), and jump down from any height. Every building has a ladder from the street.</small></div>
-        <div><span>2</span><b>Place things</b><small>Tap <b>Start</b> then tap the map where you begin. Do the same for the <b>Finish</b> and some <b>$ Cash</b> bags. For a <b>Zip line</b>, tap one building, then another. You can ride it both ways, even uphill.</small></div>
-        <div><span>3</span><b>Play it!</b><small>Grab every cash bag, then reach the finish, as fast as you can. The checklist under the map tells you if something can't be reached (it's circled in red).</small></div>
+        <div><span>1</span><b>Paint buildings</b><small>Pick a size (Small, Medium, Tall...) and a brush size (1x1 up to 7x7), then drag on the map. The number on a building is how tall it is: you can climb from a building onto one that is <b>one number higher</b> (2 → 3), and jump down from any height. Every building has a ladder from the street.</small></div>
+        <div><span>2</span><b>Place things</b><small>Tap <b>Start</b> then tap the map where you begin. Do the same for the <b>Finish</b> and some <b>$ Cash</b> bags. For a <b>Zip line</b>, tap one building, then another. You can ride it both ways, even uphill. A <b>Glider</b> lets you glide once you pick it up.</small></div>
+        <div><span>3</span><b>Parkour pieces</b><small>Just like the story levels: <b>Beams</b> to walk across between buildings (tap one building, then another in the same row), <b>Ducts</b> to slide under, <b>Crates</b> to climb, and <b>huts</b> and <b>water towers</b> to hide in from the helicopter.</small></div>
+        <div><span>4</span><b>Play it!</b><small>Grab every cash bag, then reach the finish, as fast as you can. The checklist under the map tells you if something can't be reached (it's circled in red).</small></div>
       </div>
       <p class="sub">Not sure where to begin? Press <b>Examples</b> and change one of those.</p>`,
     [{ label: 'Got it', primary: true, onClick: () => { save.data.levels.seenGuide = true; save.write(); then(); } }]);
@@ -430,6 +520,12 @@ function helpText(tool, zipFrom) {
   if (tool === 'start') return 'Tap the map where you want to start.';
   if (tool === 'finish') return 'Tap the map where the finish goes.';
   if (tool === 'cash') return 'Tap the map to add a cash bag (tap it again to remove it).';
+  if (tool === 'beam') return zipFrom ? 'Now tap another building in the same row or column.' : 'Tap a building, then another one across a gap (same row or column), to lay a beam you can walk across.';
+  if (tool === 'duct') return 'Tap or drag to put ducts on the roof: pipes you slide under (sprint + C) or crouch under.';
+  if (tool === 'crate') return 'Tap to add a crate to climb on (tap again to remove it).';
+  if (tool === 'hut') return 'Tap to add a stairwell hut: step inside to hide from the helicopter.';
+  if (tool === 'tower') return 'Tap to add a water tower: stand under it to hide from the helicopter.';
+  if (tool === 'glider') return 'Tap the map to put a glider there (tap it again to remove it). Pick it up to glide: jump, then jump again in mid-air and hold.';
   return zipFrom ? 'Now tap the building for the other end.' : 'Tap a building for one end of the zip line, then another for the other end. (Tap a zip line\'s end to remove it.)';
 }
 

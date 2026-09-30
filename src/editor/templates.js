@@ -27,7 +27,7 @@ export const TEMPLATES = [
     },
   },
   {
-    id: 'zips', name: 'Zip line city', text: 'Start on a tall roof and ride zip lines down across the city.',
+    id: 'zips', name: 'Zip line city', text: 'Start on a tall roof with a glider, and ride zip lines across the city.',
     make: () => {
       const c = blankCells();
       rect(c, 3, 3, 8, 8, 8); rect(c, 14, 4, 18, 9, 6); rect(c, 23, 5, 27, 10, 4);
@@ -35,7 +35,7 @@ export const TEMPLATES = [
       return {
         v: 1, name: 'Zip line city', cells: c, start: [4, 4], finish: [6, 24],
         cash: [[16, 6], [25, 7], [24, 20], [14, 22]],
-        zips: [[7, 6, 15, 6], [17, 7, 24, 7], [25, 9, 25, 19], [23, 21, 16, 22]], heli: false, time: 'night',
+        zips: [[7, 6, 15, 6], [17, 7, 24, 7], [25, 9, 25, 19], [23, 21, 16, 22]], gliders: [[5, 7]], heli: false, time: 'night',
       };
     },
   },
@@ -76,17 +76,29 @@ export function randomLevel() {
  * Which cells you can get to from the start (a rough copy of the parkour
  * rules): walk onto anything up to one step (2.7 m) higher, drop down any
  * height, climb a building's ladder from the street, jump a one-cell gap to
- * a roof no higher than yours, and ride zip lines (either way).
+ * a roof no higher than yours, walk across beams, ride zip lines (either
+ * way), and glide once you've picked up a glider.
  * @returns {Uint8Array} 1 = reachable
  */
 export function reachable(L) {
+  const first = spread(L, [L.start], false);
+  // Picked up a glider on the way? Then you can also glide down across gaps.
+  const glider = (L.gliders || []).some(([i, j]) => first[j * GRID + i]);
+  if (!glider) return first;
+  const from = [];
+  for (let k = 0; k < GRID * GRID; k++) if (first[k]) from.push([k % GRID, Math.floor(k / GRID)]);
+  return spread(L, from, true);
+}
+
+function spread(L, starts, glide) {
   const h = (i, j) => cellHeight(L.cells[j * GRID + i]);
   const seen = new Uint8Array(GRID * GRID);
-  const queue = [L.start];
-  seen[L.start[1] * GRID + L.start[0]] = 1;
+  const queue = [];
+  for (const [i, j] of starts) if (!seen[j * GRID + i]) { seen[j * GRID + i] = 1; queue.push([i, j]); }
   const zipsFrom = new Map();
   const link = (k, to) => zipsFrom.set(k, [...(zipsFrom.get(k) || []), to]);
   for (const [a, b, c, d] of L.zips) { link(b * GRID + a, [c, d]); link(d * GRID + c, [a, b]); }
+  for (const [a, b, c, d] of L.beams || []) { link(b * GRID + a, [c, d]); link(d * GRID + c, [a, b]); } // (walk across)
   const go = (i, j) => {
     if (i < 0 || j < 0 || i >= GRID || j >= GRID || seen[j * GRID + i]) return;
     seen[j * GRID + i] = 1;
@@ -103,6 +115,15 @@ export function reachable(L) {
       // Jump a one-cell gap to a roof that's no higher
       const fi = i + di * 2, fj = j + dj * 2;
       if (here >= 2.5 && there < here - 1 && fi >= 0 && fj >= 0 && fi < GRID && fj < GRID && h(fi, fj) <= here + 0.3) go(fi, fj);
+      // Gliding: about 5 m forward for every metre down (plus the jump)
+      if (glide && here >= 2.5) {
+        for (let d = 2; d <= 12; d++) {
+          const gi = i + di * d, gj = j + dj * d;
+          if (gi < 0 || gj < 0 || gi >= GRID || gj >= GRID) break;
+          const drop = here - h(gi, gj);
+          if (drop >= 0 && d * 3 <= drop * 5 + 4) go(gi, gj);
+        }
+      }
     }
     for (const [ti, tj] of zipsFrom.get(j * GRID + i) || []) go(ti, tj);
   }

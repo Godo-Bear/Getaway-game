@@ -7,7 +7,11 @@ import { makeGlowMaterial } from '../world/materials.js';
 // A level is a square grid of cells seen from above. Each cell has a height:
 //   0 = street, 1 = a low wall (1 m, vault over it), 2-9 = a building, each
 //   step 2.5 m taller than the last (so you can always climb one step up).
-// Plus a start, a finish, cash bags, zip lines (roof to roof), an optional
+// Plus a start, a finish, cash bags, zip lines (roof to roof), gliders
+// (pick one up to glide: jump again in mid-air and hold), beams to walk
+// across between buildings, and parkour pieces on single squares: ducts to
+// slide under, crates to climb, stairwell huts and water towers to hide in
+// from the helicopter. Plus an optional
 // police helicopter and a time of day.
 //
 // SHARE CODES: the level as compact JSON (runs of equal cells squashed),
@@ -17,6 +21,11 @@ export const GRID = 32;          // cells per side
 export const CELL = 3;           // metres per cell
 export const MAX_CASH = 20;
 export const MAX_ZIPS = 6;
+export const MAX_GLIDERS = 6;
+export const MAX_BEAMS = 12;
+export const MAX_PROPS = 60;
+/** Parkour pieces that sit on one square (on a roof or the street). */
+export const PROP_TYPES = ['duct', 'crate', 'hut', 'tower'];
 const PREFIX = 'GW1-';
 
 /** Height of a cell value, in metres. */
@@ -33,7 +42,7 @@ export function newLevel(name = 'My level') {
   rect(16, 12, 20, 19, 4);
   rect(22, 13, 26, 18, 5);
   rect(12, 21, 13, 21, 1);
-  return { v: 1, name, cells, start: [5, 15], finish: [25, 15], cash: [[12, 15], [18, 16]], zips: [], heli: false, time: 'night' };
+  return { v: 1, name, cells, start: [5, 15], finish: [25, 15], cash: [[12, 15], [18, 16]], zips: [], gliders: [], beams: [], props: [], heli: false, time: 'night' };
 }
 
 // ------------------------------------------------------------------ share codes
@@ -46,7 +55,7 @@ export function encodeLevel(L) {
     runs.push(n > 1 ? `${L.cells[k]}x${n}` : `${L.cells[k]}`);
     k += n;
   }
-  const json = JSON.stringify({ v: 1, n: L.name.slice(0, 40), c: runs.join('.'), s: L.start, f: L.finish, $: L.cash, z: L.zips, h: L.heli ? 1 : 0, t: L.time });
+  const json = JSON.stringify({ v: 1, n: L.name.slice(0, 40), c: runs.join('.'), s: L.start, f: L.finish, $: L.cash, z: L.zips, g: L.gliders || [], b: L.beams || [], p: L.props || [], h: L.heli ? 1 : 0, t: L.time });
   const b64 = btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   return PREFIX + b64;
 }
@@ -72,11 +81,22 @@ export function decodeLevel(code) {
       start: cellOk(o.s) ? o.s : [1, 1], finish: cellOk(o.f) ? o.f : [GRID - 2, GRID - 2],
       cash: (Array.isArray(o.$) ? o.$ : []).filter(cellOk).slice(0, MAX_CASH),
       zips: (Array.isArray(o.z) ? o.z : []).filter((z) => cellOk(z.slice(0, 2)) && cellOk(z.slice(2, 4))).slice(0, MAX_ZIPS),
+      gliders: (Array.isArray(o.g) ? o.g : []).filter(cellOk).slice(0, MAX_GLIDERS),
+      beams: (Array.isArray(o.b) ? o.b : []).filter((b) => cellOk(b.slice(0, 2)) && cellOk(b.slice(2, 4)) && (b[0] === b[2] || b[1] === b[3])).slice(0, MAX_BEAMS),
+      props: (Array.isArray(o.p) ? o.p : []).filter((p) => cellOk(p.slice(0, 2)) && PROP_TYPES.includes(p[2])).slice(0, MAX_PROPS),
       heli: !!o.h, time: ['night', 'dawn', 'day', 'dusk'].includes(o.t) ? o.t : 'night',
     };
   } catch {
     return null;
   }
+}
+
+/** Walking height of a beam between two roofs (at most 2.2 m to climb at either end). */
+export function beamHeight(ha, hb) {
+  const low = Math.min(ha, hb), high = Math.max(ha, hb);
+  let y = Math.max(low, high - 2.2);
+  if (y - low > 2.2) y = (low + high) / 2;
+  return Math.max(0.3, y);
 }
 
 /** A short id for a level's layout (best times are saved per layout). */
@@ -130,6 +150,21 @@ export function buildCustomLevel(L) {
     const ha = cellHeight(v(i0, j0)), hb = cellHeight(v(i1, j1));
     kit.zipLine(ax, ha + 2.3, az, bx, hb + 2.3, bz, { startRoof: ha, endRoof: hb }); // (ride it either way)
   }
+  // Beams between buildings (in a straight line), at a height you can step onto from both ends
+  for (const [i0, j0, i1, j1] of L.beams || []) {
+    const y = beamHeight(cellHeight(v(i0, j0)), cellHeight(v(i1, j1)));
+    const [ax, az] = cellPos(i0, j0), [bx, bz] = cellPos(i1, j1);
+    if (j0 === j1) kit.beam('x', ax, bx, az, y, 1.0, 'crane');
+    else kit.beam('z', az, bz, ax, y, 1.0, 'crane');
+  }
+  // Parkour pieces on single squares
+  for (const [i, j, type] of L.props || []) {
+    const [x, z] = cellPos(i, j), h = cellHeight(v(i, j));
+    if (type === 'duct') kit.duct(x - CELL / 2, z - CELL / 2, x + CELL / 2, z + CELL / 2, h);
+    else if (type === 'crate') kit.crate(x, h, z);
+    else if (type === 'hut') kit.hut(x, h, z, 0, 2.8);
+    else if (type === 'tower') kit.waterTower(x, h, z);
+  }
   const group = kit.finish();
 
   const at = ([i, j], lift = 0.05) => { const [x, z] = cellPos(i, j); return new THREE.Vector3(x, cellHeight(v(i, j)) + lift, z); };
@@ -145,7 +180,7 @@ export function buildCustomLevel(L) {
 
   return {
     group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, zipLines: kit.zipLines,
-    spawn, goalPos, finishRing: ring, cash: L.cash.map((c) => at(c, 0.05)),
+    spawn, goalPos, finishRing: ring, cash: L.cash.map((c) => at(c, 0.05)), gliders: (L.gliders || []).map((c) => at(c, 0.05)),
     checkpoints: [{ name: 'Start', spawn: spawn.clone(), yaw: 0 }],
   };
 }

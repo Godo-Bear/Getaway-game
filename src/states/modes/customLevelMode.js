@@ -7,6 +7,7 @@ import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
+import { owns } from '../../gadgets/gadgets.js';
 
 // Playing a level from the Level Editor (on foot): grab every cash bag,
 // then reach the finish, as fast as you can. Optional police helicopter
@@ -44,6 +45,25 @@ export class CustomLevelMode {
       L.group.add(g);
       return { pos, group: g, bag, taken: false };
     });
+    // Gliders: a little blue wing on a stand. Pick one up to glide.
+    const wingMat = new THREE.MeshBasicMaterial({ color: 0x39e6ff, toneMapped: false, side: THREE.DoubleSide });
+    this.gliders = L.gliders.map((pos) => {
+      const g = new THREE.Group();
+      const wing = new THREE.Group();
+      const left = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.3), new THREE.Vector3(-1.1, 0.15, -0.2), new THREE.Vector3(0, 0, -0.35)]), wingMat);
+      const right = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0.3), new THREE.Vector3(0, 0, -0.35), new THREE.Vector3(1.1, 0.15, -0.2)]), wingMat);
+      wing.add(left, right);
+      wing.position.y = 1.2;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.0, 28), makeGlowMaterial(0x39e6ff, 0.8));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.05;
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 24, 10, 1, true), makeGlowMaterial(0x39e6ff, 0.14));
+      beam.position.y = 12;
+      g.add(wing, ring, beam);
+      g.position.copy(pos);
+      L.group.add(g);
+      return { pos, group: g, wing, taken: false };
+    });
     return L;
   }
 
@@ -57,6 +77,8 @@ export class CustomLevelMode {
     this.spotted = 0;
     this.caught = 0;
     for (const b of this.bags) { b.taken = false; b.group.visible = true; }
+    for (const gl of this.gliders) { gl.taken = false; gl.group.visible = true; }
+    s.player.canGlide = owns('glider'); // (a glider in the level lends you one)
     this.heli?.dispose();
     this.heli = this.data.heli ? new Helicopter(s.scene, s.world, { id: 0, startPos: this.level.spawn.clone().add(new THREE.Vector3(-50, 0, 40)) }) : null;
     hud.setPhase(`Your level · ${this.data.name}`);
@@ -89,14 +111,29 @@ export class CustomLevelMode {
         hud.toast(left ? `Cash! ${left} to go` : 'All the cash!', left ? '' : 'Now get to the finish.', 'var(--safe)', 1.5);
       }
     }
+    // Gliders
+    for (const gl of this.gliders) {
+      if (gl.taken) continue;
+      gl.wing.rotation.y += dt * 1.8;
+      gl.wing.position.y = 1.2 + Math.sin(t * 2.5) * 0.12;
+      if (Math.hypot(p.pos.x - gl.pos.x, p.pos.z - gl.pos.z) < PICKUP_R && Math.abs(p.pos.y - gl.pos.y) < 2.2) {
+        gl.taken = true;
+        gl.group.visible = false;
+        p.canGlide = true;
+        audio.sfx('clue', { vol: 0.7 });
+        hud.toast('Glider!', 'Jump off something high, then jump again in mid-air and HOLD jump to glide.', 'var(--cyan)', 5);
+      }
+    }
     // Helicopter (after a few seconds)
     if (this.heli && t > 6) {
       const d = diff();
       const params = { spotSpeed: (5.4 + Math.min(1.5, t / 80)) * d.spot, fill: 0.45 * d.fill, lead: 0.2 };
       this.heli.update(dt, s.policeTarget, params);
-      const lit = this.heli.isPlayerLit(p.pos) && !s.concealed;
+      // (inside a hideout hut or under a water tower: hidden)
+      const hidden = (this.level.hideSpots || []).some((h) => Math.hypot(h.x - p.pos.x, h.z - p.pos.z) < 1.5 && Math.abs(h.y - p.pos.y) < 1);
+      const lit = this.heli.isPlayerLit(p.pos) && !s.concealed && !hidden;
       this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.55), 0, 1);
-      hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : 'Hidden', lit ? 'var(--red)' : '#8a8f9c');
+      hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : hidden ? 'Hiding' : 'Hidden', lit ? 'var(--red)' : '#8a8f9c');
       if (this.spotted >= 1 && !admin.flag('god')) {
         this.caught++;
         this.spotted = 0;
