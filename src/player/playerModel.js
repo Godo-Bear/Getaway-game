@@ -131,6 +131,23 @@ export class PlayerModel {
     };
     this.runPhase = 0;
     this.time = 0;
+    // Remember each part's original colour, so outfits can be swapped (disguises)
+    this._colors = C;
+    this.root.traverse((o) => { if (o.isMesh) o.userData.baseHex = o.material.color.getHex(); });
+  }
+
+  /**
+   * Wear different clothes: any of hoodie, trousers, mask, gloves...
+   * (e.g. a casino staff uniform). null = back to the original outfit.
+   */
+  setOutfit(colors = null) {
+    this.root.traverse((o) => {
+      if (!o.isMesh) return;
+      const base = o.userData.baseHex;
+      let hex = base;
+      if (colors) for (const [k, v] of Object.entries(colors)) if (this._colors[k] === base) hex = v;
+      o.material.color.setHex(hex);
+    });
   }
 
   /**

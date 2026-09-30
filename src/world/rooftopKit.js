@@ -522,6 +522,7 @@ export class RooftopKit {
     this.batch.addBox({ x: x - 1.6, y: h, z: z - 0.5 }, { x: x + 1.6, y: h + 1.2, z: z + 0.5 }, { side: 'plain', top: 'plain', color: 0x2a2c30 });
     this.batch.addBox({ x: x - 1.5, y: h + 0.1, z: z - 0.52 }, { x: x + 1.5, y: h + 1.1, z: z + 0.52 }, { side: 'glow', top: null, color: 0xfff4dc });
     const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xfff0d0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.8 }));
+    glow.material.userData.nightGlow = true;
     glow.position.set(x, h + 0.6, z);
     glow.scale.setScalar(9);
     this.extra.add(glow);
@@ -636,11 +637,13 @@ export function buildStreetLamps(lamps) {
     map: getGlowTexture(), color: 0xff9a3a, transparent: true, opacity: 0.55,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   });
+  poolMat.userData.nightGlow = true; // (fades out in daylight)
   const pools = new THREE.InstancedMesh(poolGeo, poolMat, n);
   const haloGeo = new THREE.PlaneGeometry(2.4, 2.4);
   haloGeo.rotateX(-Math.PI / 2);
   haloGeo.translate(0, 5.85, 0);
   const halos = new THREE.InstancedMesh(haloGeo, poolMat.clone(), n);
+  halos.material.userData.nightGlow = true;
   halos.material.opacity = 0.9;
   lamps.forEach(([x, z], i) => {
     m.makeTranslation(x, 0, z);

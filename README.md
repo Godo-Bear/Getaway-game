@@ -18,6 +18,7 @@ Handy URL options for testing:
 | `/?mode=chapter1` | Jump straight into Story Chapter 1 (also `chapter2` to `chapter5`) |
 | `/?mode=speedrun` | Start a Chapter 1 speedrun |
 | `/?mode=freecar` | Free Run, starting in the car |
+| `/?mode=editor` | The Level Editor (add `&level=GW1-...` to open a level code) |
 | `/?mode=chapter2&part=1` | Jump into a later part of a chapter (parts count from 0) |
 | `/?mode=chapter3&ghost` | Jump into a chapter with ghost mode switched on |
 | `/?mode=drive1` | Jump straight into Story Chapter 1, Part 3 (the drive) |
@@ -114,11 +115,17 @@ service cloud.firestore {
 * **Story: Chapter 1, Part 2**: a hand-built rooftop route from the Harbor Trust bank roof to the getaway car on the Pier Street garage. Checkpoints, one police helicopter (caught = back to the last checkpoint), 4 clues (2 on the main path, 2 behind harder shortcuts), and a bronze/silver/gold rating.
 * **Story: Chapter 1, Part 3**: drive the getaway car from the garage to the crew's safehouse (green light). You must lose the cops before you pull up, or you'd lead them straight there. A fifth clue is hidden in the park in the middle of town (amber dot on the minimap).
 * **Story: Chapter 1, the deduction**: Your clues are pinned to a corkboard in the safehouse; accuse Vince, Marla, Dex or Det. Hale. The result explains how each clue fits (and which were red herrings) and gives your chapter rating. Solving it unlocks Chapter 2.
-* **Story: Chapter 2, The Ferry**: chase Vince's car across town before he reaches the ferry terminal (heat 3-4, roadblocks and spike strips), then chase him on foot across the docks: warehouse roofs, container stacks, a wall-run, a duct to slide under and a zip line down to the pier.
+* **Story: Chapter 2, The Ferry** (the next afternoon, in daylight): chase Vince's car across town before he reaches the ferry terminal (heat 3-4, roadblocks and spike strips), then chase him on foot across the docks: warehouse roofs, container stacks, a wall-run, a duct to slide under and a zip line down to the pier.
 * **Story: Chapter 3, Headquarters**: zip-line onto the police HQ roof, find Det. Hale's ledger while officers chase you out of the stairwells (and the helicopter joins later), zip down to the car, then race the clock to the last ferry through heat-5 roadblocks. The final deduction reveals who planned everything.
-* **Story: Chapter 4, Last Flight**: a thunderstorm. Chase Marla's car through the wet streets to the rail yard by the airfield, then chase her on foot across the freight trains (crossing plates between tracks, a signal gantry to climb, hangar roofs and a zip line) before she reaches her plane. The deduction: who warned her you were coming?
-* **Story: Chapter 5, The Lucky Star**: six months later, with a brand new crew and only **one** mole among them. Part 1: meet Nova (hacker), Mags (safecracker) and Theo (inside man) on three rooftops (follow the coloured beams; Nova and Mags test you first with a mini-game), then get down to Ricky (driver) and his car on the street. Part 2: rob the Lucky Star casino (see the new mechanics below). Part 3: drive the cash down the rainy Strip to Ricky's garage. The deduction only has the new crew as suspects.
+* **Story: Chapter 4, Last Flight**: a thunderstorm at dawn. Chase Marla's car through the wet streets to the rail yard by the airfield, then chase her on foot across the freight trains (crossing plates between tracks, a signal gantry to climb, hangar roofs and a zip line) before she reaches her plane. The deduction: who warned her you were coming?
+* **Story: Chapter 5, The Lucky Star**: six months later, with a brand new crew and only **one** mole among them. Part 1 (a sunny afternoon, down on the street): meet Nova (hacker) at a pavement cafe, Mags (safecracker) outside a pawn shop and Theo (inside man) at a bus stop (follow the coloured beams; Nova and Mags test you first with a mini-game), then Ricky (driver) and his car. Police officers walk the pavements with vision cones: blend into the crowd (walk right next to people), crouch behind parked cars, take the roofs, or knock one out from behind. Part 2: plan the job, then rob the Lucky Star casino (see the new mechanics below). Part 3: drive the cash down the rainy Strip to Ricky's garage. The deduction only has the new crew as suspects.
 * **Casino heist mechanics** (Chapter 5): **guards** patrol with yellow vision cones (seen for a moment = back to the checkpoint; the Flashbang stuns them). **Crouch** (C, or hold Slide on a phone) behind card tables to hide from them. **Lasers**: some pulse on and off, some are low (jump or crouch-walk past). **Mini-games**: hacking (stop the cursor in the green zone) and safe-cracking (stop the needle on the notch); press Jump / Space or tap the panel, C to back out. The **alarm**: someone switches the cameras back on once you have the cash, the guards go on alert and the exit shutter opens: run for the garage. Gold chip stacks are bonus cash.
+* **Heist planning board** (before the casino): pick a way in (Theo's staff door, Nova's roof vent straight into the security office but the guards start on alert, or Mags's front door already in disguise) and one thing to bring (easier mini-games, slower to be noticed, or 50% more time after the alarm). Change the plan every time you start the part.
+* **Disguises**: a staff uniform (on a rail in the casino lounge, or from the front-door plan). In uniform, guards only notice you close up, or if you run or crouch, and cameras ignore you; it doesn't work in staff-only rooms (security office, vault corridor), and you lose it if you're caught.
+* **Sneak takedowns**: walk up behind a guard or patrolling officer and press **E** (X on a gamepad, the Knock out button on a phone). They stay down, but if another one finds the body, they all go on alert (bigger cones, faster).
+* **Hack the city** (driving, any mode with police): just after you drive through a junction, press **E** (X / the Hack button): its lights go red and bollards shoot up on every side except the way you left, stopping the police behind you for a few seconds. Recharges in about 20 s.
+* **Time of day**: night, dawn, day or dusk, with the sky, sun, shadows, windows and street lamps to match (and cops see further in daylight). Story missions pick their own time; Settings → Time of day sets it for Rooftop Run, Street Chase and Free Run, including Random and Cycle (a whole day every 12 minutes).
+* **Level Editor** (title screen): draw a course from above on a 32 x 32 grid (3 m cells): street, low walls, buildings in 2.5 m steps (one step can always be climbed), start, finish, up to 20 cash bags, up to 6 zip lines, an optional police helicopter and the time of day. Play it (grab all the cash, then reach the finish; best times are saved), keep up to 12 levels, and share them with a code (`GW1-...`) that a friend pastes into Load code. Code: `src/editor/`, `src/ui/levelEditor.js`.
 * **Ghost mode** (story parts): press **G** (d-pad left on a gamepad, the Ghost button on the left edge of a touch screen, or the pause menu). The police, helicopter and officers vanish and the clock stops, so you can roam freely; on foot, a marker points at the nearest clue you haven't found. Nothing counts while it's on (no clues, checkpoints or finishing), and turning it off puts you back where you turned it on, with the police back on your case.
 * **Ladders**: every building has a yellow ladder. Fall to the street and you're no longer sent back: walk into a ladder and hold forward to climb back up (a marker points to the nearest one). Only falling into the harbour sends you back.
 * **Hiding spots**: on foot, stand in a stairwell hut or under a water tower (green floor patch) to hide from the helicopter and the officers. Driving, pull into a parking garage (blue P on the minimap): the cops can't see you from the street and lose you in a few seconds.
@@ -143,14 +150,15 @@ src/
   main.js              boot, renderer, game loop, state machine setup
   style.css            HUD and menu styles
   core/                input, collision world, camera, save system, utils, state machine
-  world/               rooftop city, street city, materials, lighting, mesh batching
+  world/               rooftop city, street city, materials, lighting (times of day), mesh batching
+  editor/              Level Editor levels: share codes and building them
   player/              on-foot controller (parkour physics) and box-character model
-  vehicles/            car physics, car models, traffic, particles
-  ai/                  helicopter, police, officers on foot, casino guards, fugitives, road graph, AI driving helpers
-  ui/                  HUD, menus, minimap, mini-games (hacking / safe-cracking)
+  vehicles/            car physics, car models, traffic, particles, hacking junctions
+  ai/                  helicopter, police, officers on foot, guards and street patrols (takedowns), crowds, fugitives, road graph, AI driving helpers
+  ui/                  HUD, menus, minimap, mini-games (hacking / safe-cracking), heist planning board, Level Editor
   story/               chapter data (parts, story text, clues, verdicts), chapter flow, the crew
   world/levels/        hand-built story levels
   states/              title, on-foot state, driving state (+ shared PlayState base)
-  states/modes/        Free Run (rooftops + car), Rooftop Run, Street Chase, the bank heist, the casino heist, chapter on-foot parts (+ crew meetings), chapter driving parts
+  states/modes/        Free Run (rooftops + car), Rooftop Run, Street Chase, the bank heist, the casino heist, chapter on-foot parts (+ crew meetings, street patrols), chapter driving parts, your own levels
 reference/getaway.html the original single-file prototype (for reference only)
 ```

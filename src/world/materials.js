@@ -38,6 +38,7 @@ export const FACADE_UV = [FACADE_COLS * WINDOW_SPACING, FACADE_ROWS * FLOOR_HEIG
  * Building facade: a grid of windows. Returns two textures:
  *  - map: what the wall looks like in any light (grey wall, dark glass)
  *  - emissive: only the LIT windows, which glow on their own at night
+ *  - dayMap: the same wall in daylight (the glass reflects the sky)
  */
 function makeFacadeTextures(seed) {
   const rng = makeRng(seed);
@@ -53,14 +54,26 @@ function makeFacadeTextures(seed) {
         ? `hsl(${34 + rng() * 14}, 90%, ${52 + rng() * 18}%)`
         : `hsl(${195 + rng() * 25}, 65%, ${58 + rng() * 14}%)`;
       const blind = rng() < 0.3 ? rng() * 0.5 : 0; // half-drawn blinds
-      lit.push({ x, y, on, col, blind });
+      lit.push({ x, y, on, col, blind, warm });
     }
   }
 
-  const drawWindows = (g, emissive) => {
+  const drawWindows = (g, emissive, day = false) => {
     for (const w of lit) {
       const wx = w.x * cw + cw * 0.27, ww = cw * 0.46;
       const wy = w.y * ch + ch * 0.25, wh = ch * 0.48;
+      if (day) {
+        // Sky reflected in the glass (lighter at the top), some with blinds
+        const grad = g.createLinearGradient(0, wy, 0, wy + wh);
+        grad.addColorStop(0, w.warm ? '#a9c6e2' : '#c4d8ea');
+        grad.addColorStop(1, '#4c6a88');
+        g.fillStyle = grad;
+        g.fillRect(wx, wy, ww, wh);
+        if (w.blind) { g.fillStyle = '#d8d2c2'; g.fillRect(wx, wy, ww, wh * w.blind); }
+        g.fillStyle = '#9a9a9a';
+        g.fillRect(wx - 2, wy + wh, ww + 4, 4);
+        continue;
+      }
       if (emissive) {
         if (!w.on) continue;
         g.fillStyle = w.col;
@@ -89,7 +102,15 @@ function makeFacadeTextures(seed) {
     g.fillRect(0, 0, size, size);
     drawWindows(g, true);
   });
-  return { map, emissive };
+  const dayMap = canvasTexture(size, (g) => {
+    g.fillStyle = '#b8b8b8';
+    g.fillRect(0, 0, size, size);
+    noise(g, size, 3000, ['#a9a9a9', '#c4c4c4', '#9f9f9f'], rng);
+    g.fillStyle = 'rgba(0,0,0,0.12)';
+    for (let y = 0; y < FACADE_ROWS; y++) g.fillRect(0, y * ch + ch - 6, size, 6);
+    drawWindows(g, false, true);
+  });
+  return { map, emissive, dayMap };
 }
 
 let cache = null;
@@ -147,6 +168,7 @@ export function getMaterials() {
       emissiveIntensity: 1.4,
       vertexColors: true,
     }),
+    facade, // (the lighting swaps wall.map to facade.dayMap in daylight)
     // Plain walls (stairwell huts, parapets, side walls without windows)
     concrete: lambert({ map: concreteTex, vertexColors: true }),
     roof: lambert({ map: roofTex, vertexColors: true }),

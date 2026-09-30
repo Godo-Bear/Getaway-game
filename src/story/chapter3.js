@@ -30,7 +30,7 @@ export const CHAPTER3 = {
       id: 'hq', kind: 'onFoot', title: 'Police HQ',
       level: 'ch3Headquarters',
       intro: [
-        { kicker: 'Across from police HQ, 2:10 a.m.', title: 'Into the lion\'s den',
+        { kicker: 'Across from police HQ, that night, 2:10 a.m.', title: 'Into the lion\'s den',
           lines: [
             'Dex\'s phone is somewhere inside. So is Det. Hale\'s office, and whatever Hale keeps in it.',
             'Zip across to the HQ roof, find Hale\'s ledger by the skylight over his office (east side), then zip down to the car on the garage behind.',

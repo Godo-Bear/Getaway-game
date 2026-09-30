@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { PlayState } from './playState.js';
-import { NightLighting, lightingForQuality } from '../world/lighting.js';
+import { NightLighting, lightingForQuality, pickTime } from '../world/lighting.js';
 import { Weather, pickWeather } from '../world/weather.js';
 import { generateStreetCity } from '../world/streetCity.js';
 import { makeGlowMaterial } from '../world/materials.js';
@@ -17,6 +17,7 @@ import { NitroPickups } from '../vehicles/nitroPickups.js';
 import { owns } from '../gadgets/gadgets.js';
 import { admin } from '../core/admin.js';
 import { diff } from '../core/difficulty.js';
+import { CityHack } from '../vehicles/cityHack.js';
 import { CarGadgets } from '../gadgets/carGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
@@ -109,12 +110,18 @@ export class DrivingState extends PlayState {
     game.hud.el.map.addEventListener('pointerdown', this._onMapTap);
     this.nitroPickups = new NitroPickups(this.scene, this.city, this.rng);
     this.carGadgets = new CarGadgets(this); // shop gadgets (F)
+    this.cityHack = new CityHack(this);     // hack a junction behind you (E)
     this.beacon = this._buildBeacon();
     // Pink light beam at your waypoint
     this.waypointBeam = new THREE.Mesh(new THREE.CylinderGeometry(0.9, 0.9, 70, 16, 1, true), makeGlowMaterial(0xff5ad0, 0.28));
     this.waypointBeam.visible = false;
     this.scene.add(this.waypointBeam);
     this.mode.build?.();
+    // Time of day (the story part decides; otherwise the Time of day setting)
+    const tod = pickTime(game.settings, this.mode.time);
+    this.lighting.setTime(tod.hour);
+    this.timeCycle = tod.cycle;
+    this.police.sightScale = 1 + 0.3 * this.lighting.daylight; // cops see further in daylight
     // Rain / storm (the story part decides; the Weather setting can override)
     this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
 
@@ -172,6 +179,7 @@ export class DrivingState extends PlayState {
     this.traffic.scatter(this.player);
     this.nitroPickups.scatter(this.player);
     this.carGadgets.reset();
+    this.cityHack.reset();
     this.setWaypoint(null);
     this._syncCamera(1, true);
   }
@@ -197,6 +205,7 @@ export class DrivingState extends PlayState {
     if (input.wasPressed('respawn')) this._unstick();
     if (input.wasPressed('map')) this.openMap();
     if (input.wasPressed('gadget')) this.carGadgets.use();
+    if (input.wasPressed('interact')) this.cityHack.trigger();
     const zoom = input.consumeZoom();
     if (zoom) {
       const st = this.game.settings;
@@ -357,6 +366,7 @@ export class DrivingState extends PlayState {
         hud.toast('Waypoint reached', '', '#ff5ad0', 2);
       }
       this.carGadgets.update(dt);
+      this.setAction(this.cityHack.update(dt) && !this.mode.ghost ? 'Hack junction' : null);
       this.mode.update(dt);
       this._updateEffects();
     }
@@ -373,6 +383,7 @@ export class DrivingState extends PlayState {
 
     this._syncCamera(dt, false);
     this.lighting.follow(p.pos);
+    if (!frozen) this.tickTimeOfDay(dt);
     if (!frozen) this.weather.update(dt, this.camera.position);
     this.particles.update(frozen ? 0 : dt);
 
@@ -583,6 +594,7 @@ export class DrivingState extends PlayState {
     this.game.hud.el.map.removeEventListener('pointerdown', this._onMapTap);
     this.nitroPickups?.clear();
     this.carGadgets?.dispose();
+    this.cityHack?.dispose();
     this.roadblocks?.clear();
     this.police?.clear();
     this.traffic?.clear();

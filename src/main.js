@@ -1,3 +1,4 @@
+import { decodeLevel } from './editor/customLevel.js';
 import * as THREE from 'three';
 import { Input } from './core/input.js';
 import { StateMachine } from './core/stateMachine.js';
@@ -113,6 +114,7 @@ function start(renderer) {
   // URL options for testing:
   //   ?mode=chapter1..chapter4 [&part=N] [&ghost]  - a story part (N from 0)
   //   ?mode=deduce1..deduce5 | rooftop | free | chase  - jump straight into a mode
+  //   ?mode=editor [&level=GW1-...]  - the Level Editor (optionally with a level code)
   //   ?nolock                       - play without mouse lock (A/D turn, drag to look)
   const params = new URLSearchParams(location.search);
   if (params.has('nolock')) game.input.pointerLockFailed = game.input.lockDisabled = true;
@@ -127,6 +129,7 @@ function start(renderer) {
   else if (mode === 'chase') game.sm.change('driving', { mode: 'survival' });
   else if (mode === 'drive1') startPart(game, 'chapter1', 2, { fresh: true });
   else if (/^deduce\d$/.test(mode || '')) game.sm.change('deduction', { chapterId: `chapter${mode.slice(-1)}` });
+  else if (mode === 'editor') game.sm.change('title', { editor: decodeLevel(params.get('level') || '') || null });
   else game.sm.change('title');
 
   // Signed in? Fetch the online save (in case you played on another device)

@@ -30,6 +30,7 @@ export const BINDINGS = {
   nitro: ['Space'],         // driving: nitro boost
   map: ['KeyM'],            // driving: big city map (set a waypoint)
   gadget: ['KeyF'],         // use your equipped gadget
+  interact: ['KeyE', 'KeyX'], // the action shown on screen (knock out a guard, hack a traffic light...)
   pause: ['KeyP', 'Escape'],
   help: ['KeyH'],
   debug: ['F3', 'Backquote'],
@@ -49,6 +50,7 @@ export const PAD_BINDINGS = {
   nitro: [5, 10],     // RB or left stick click: nitro
   map: [15],          // d-pad right: big map
   gadget: [4],        // LB: use gadget
+  interact: [2, 11],  // X (or right stick click): the action shown on screen
   caseBoard: [8],     // View / Back
   pause: [9],         // Menu / Start
   help: [12],         // d-pad up

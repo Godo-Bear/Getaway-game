@@ -17,6 +17,12 @@ export class Hud {
       controls: $('hud-controls'), debug: $('hud-debug'), marker: $('hud-marker'), waypoint: $('hud-waypoint'),
       toast: $('toast'), fade: $('fade'), cross: $('hud-cross'), run: $('hud-run'),
     };
+    // Action prompt ("E  Knock out"): shown while an action is possible
+    this.el.prompt = document.createElement('div');
+    this.el.prompt.id = 'hud-prompt';
+    this.el.prompt.className = 'hud';
+    this.el.prompt.hidden = true;
+    document.body.appendChild(this.el.prompt);
     this._cache = new Map();
     this._toastTimer = 0;
     this._controlsTimer = 0;
@@ -39,7 +45,15 @@ export class Hud {
     this.el.waypoint.style.display = 'none'; // shown again by a driving state that has one
   }
 
+  /** The action you can do right now (null hides it). */
+  setPrompt(label) {
+    const html = label ? `<kbd>E</kbd> ${label}` : '';
+    this._set(this.el.prompt, 'prompt', html, true);
+    if (this.el.prompt.hidden !== !label) this.el.prompt.hidden = !label;
+  }
+
   hideAll() {
+    this.setPrompt(null);
     this.show([]);
     this.setRun(null);
     this.setDebug('');

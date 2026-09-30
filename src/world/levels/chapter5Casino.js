@@ -123,6 +123,9 @@ export function buildChapter5Casino() {
   block(2.5, 0, 19.5, 3.2, 1.0, 1.1, M.sofa);
   block(-10, 0, 12.1, 1.1, 1.0, 3.2, M.sofa);
   block(3, 0, 12.4, 3, 1.0, 1, M.sofa);
+  // A clothes rail with staff uniforms (the disguise)
+  block(-10.6, 0, 22.9, 2.2, 0.08, 0.5, M.steel, false).position.y = 1.9;
+  for (let i = 0; i < 4; i++) block(-11.4 + i * 0.5, 0.75, 22.9, 0.42, 1.05, 0.3, mat(0x7a1f2e), false);
 
   // ------------------------------------------------------------------ security office
   block(-22, 0, 22.8, 10, 1, 1.4, M.dark); // desk under the monitor wall
@@ -294,11 +297,13 @@ export function buildChapter5Casino() {
     keycard: new THREE.Vector3(27, 0, -20),
     corridor: new THREE.Vector3(11, 0, -14.6),
     dial: new THREE.Vector3(-14.8, 0, -20),
+    uniform: new THREE.Vector3(-10.6, 0, 21.6),
     exit: new THREE.Vector3(-30.8, 0, -4),
   };
   // Where you respawn after getting caught (the last one you reached)
   const checkpoints = [
     { name: 'Staff room', spawn: new THREE.Vector3(26, 0.05, 19), yaw: Math.PI / 2 },
+    // (checkpoint 0 changes with the heist plan's way in: see ENTRIES below)
     { name: 'Security office', spawn: new THREE.Vector3(-18, 0.05, 16), yaw: Math.PI },
     { name: 'Cashier\'s cage', spawn: new THREE.Vector3(26, 0.05, -21), yaw: 0 },
     { name: 'Vault corridor', spawn: new THREE.Vector3(11.5, 0.05, -20), yaw: Math.PI / 2 },
@@ -312,8 +317,15 @@ export function buildChapter5Casino() {
     [[18, -13.5], [2, -13.5]],                                    // by the cage and vault doors
   ];
 
+  // The heist plan's ways in (checkpoint 0)
+  const entries = {
+    staff: checkpoints[0],
+    vent: { name: 'Security office', spawn: new THREE.Vector3(-27, 0.05, 17.5), yaw: -Math.PI / 2 },
+    front: { name: 'Casino floor', spawn: new THREE.Vector3(-24, 0.05, 0.7), yaw: -Math.PI / 2 },
+  };
+
   return {
-    group, world, spawn: checkpoints[0].spawn, checkpoints, buildings: [], ladders: [], hideSpots: [],
+    group, world, spawn: checkpoints[0].spawn, checkpoints, entries, buildings: [], ladders: [], hideSpots: [],
     cams, lasers, chips, cashPiles, spots, guardRoutes, lights, alarmLight, monitors, terminal, dialMesh, wheel,
     keycardDoor, keycardDoorBox, shutter, shutterBox, vaultDoorPivot, vaultDoorBox,
     clues: [{ id: 'badge', pos: new THREE.Vector3(-24, 0.05, 20.2) }],

@@ -19,8 +19,9 @@ import { audio } from '../core/audio.js';
 const ROUNDS = 3;
 
 export class MiniGame {
-  constructor({ type = 'hack', title = 'Hacking...', hint = '' } = {}) {
+  constructor({ type = 'hack', title = 'Hacking...', hint = '', ease = 1 } = {}) {
     this.type = type;
+    this.ease = ease; // > 1 = easier (bigger target, slower): the heist plan's toolkit
     this.hits = 0;
     this.t = 0;
     this.pos = 0;        // hack: 0..1 along the bar; safe: needle angle (radians)
@@ -46,10 +47,10 @@ export class MiniGame {
 
   /** Size of the target: shrinks each round; bigger on Easy. */
   get _zone() {
-    const d = diff();
+    const d = diff(), k = d.miniZone * this.ease;
     return this.type === 'hack'
-      ? Math.max(0.1, (0.24 - this.hits * 0.035) * d.miniZone)
-      : Math.max(0.16, (0.42 - this.hits * 0.06) * d.miniZone); // radians either side... (half-width)
+      ? Math.max(0.1, (0.24 - this.hits * 0.035) * k)
+      : Math.max(0.16, (0.42 - this.hits * 0.06) * k); // radians either side... (half-width)
   }
 
   _newTarget() {
@@ -72,11 +73,11 @@ export class MiniGame {
     this.t += dt;
     this.flash = Math.max(0, this.flash - dt);
     if (this.type === 'hack') {
-      this.pos += this.dir * dt * (0.9 + this.hits * 0.18) * d.miniSpeed;
+      this.pos += this.dir * dt * (0.9 + this.hits * 0.18) * d.miniSpeed / Math.sqrt(this.ease);
       if (this.pos > 1) { this.pos = 1; this.dir = -1; }
       if (this.pos < 0) { this.pos = 0; this.dir = 1; }
     } else {
-      this.pos += this.dir * dt * (1.9 + this.hits * 0.35) * d.miniSpeed;
+      this.pos += this.dir * dt * (1.9 + this.hits * 0.35) * d.miniSpeed / Math.sqrt(this.ease);
     }
     let result = null;
     if (pressed || this.tapped) {

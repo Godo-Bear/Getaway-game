@@ -6,7 +6,7 @@ import { FirstPersonArms } from '../player/firstPersonArms.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
-import { NightLighting, lightingForQuality } from '../world/lighting.js';
+import { NightLighting, lightingForQuality, pickTime } from '../world/lighting.js';
 import { Weather, pickWeather } from '../world/weather.js';
 import { FootGadgets } from '../gadgets/footGadgets.js';
 import { owns } from '../gadgets/gadgets.js';
@@ -18,6 +18,7 @@ import { RooftopRunMode } from './modes/rooftopRunMode.js';
 import { ChapterFootMode } from './modes/chapterFootMode.js';
 import { BankHeistMode } from './modes/bankHeistMode.js';
 import { CasinoHeistMode } from './modes/casinoHeistMode.js';
+import { CustomLevelMode } from './modes/customLevelMode.js';
 
 // On-foot game state: everything the on-foot modes have in common.
 //   - the player (physics + animated model) and the third-person camera
@@ -40,7 +41,7 @@ import { CasinoHeistMode } from './modes/casinoHeistMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {
@@ -75,6 +76,10 @@ export class OnFootState extends PlayState {
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
     this.gadgets = new FootGadgets(this); // shop gadgets (F)
+    // Time of day (the story part decides; otherwise the Time of day setting)
+    const tod = pickTime(game.settings, this.mode.time);
+    this.lighting.setTime(tod.hour);
+    this.timeCycle = tod.cycle;
     // Rain / storm (the story part decides; the Weather setting can override)
     this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
     this.cam = new ThirdPersonCamera(this.camera, this.world);
@@ -259,6 +264,7 @@ export class OnFootState extends PlayState {
     this.cam.update(dt, p.pos, p.horizontalSpeed);
     this.arms.update(frozen ? 0 : dt, p, this.model.runPhase);
     this.lighting.follow(p.pos);
+    if (!frozen) this.tickTimeOfDay(dt);
     if (!frozen) this.weather.update(dt, this.camera.position);
 
     if (this.game.showDebug) {

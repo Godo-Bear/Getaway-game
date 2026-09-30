@@ -28,9 +28,9 @@ export const CHAPTER4 = {
   parts: [
     {
       id: 'storm', kind: 'drive', title: 'The storm',
-      weather: 'storm',
+      weather: 'storm', time: 'dawn',
       intro: [
-        { kicker: 'Off the ferry, 3:05 a.m.', title: 'Last flight',
+        { kicker: 'Off the ferry, 5:20 a.m.', title: 'Last flight',
           lines: [
             'The storm hits as you roll off the ferry. Your phone buzzes: a number you know.',
           ] },
@@ -57,9 +57,9 @@ export const CHAPTER4 = {
     {
       id: 'railyard', kind: 'onFoot', title: 'The rail yard',
       level: 'ch4Railyard',
-      weather: 'storm',
+      weather: 'storm', time: 'dawn',
       intro: [
-        { kicker: 'North rail yard, 3:18 a.m.', title: 'End of the line',
+        { kicker: 'North rail yard, 5:33 a.m.', title: 'End of the line',
           lines: [
             'Rain hammers the boxcars. Marla is already up on the trains, running for the hangars. Past them, a private jet is warming its engines on the apron.',
             'Follow her across the train roofs, up and over the signal gantry, and onto the hangars. Fall to the ground and you can climb back up any ladder.',
@@ -76,7 +76,7 @@ export const CHAPTER4 = {
   ],
 
   outro: [
-    { kicker: 'Hangar 2 roof, 3:26 a.m.', who: 'marla',
+    { kicker: 'Hangar 2 roof, 5:41 a.m.', who: 'marla',
       lines: ['"You think you beat me? I was ten minutes from gone. Ten minutes."'] },
     { kicker: 'Hangar 2 roof', who: 'marla',
       lines: ['"Somebody called me an hour ago. Told me you were coming. Told me which gate to use. I thought they were helping me."'] },

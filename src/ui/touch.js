@@ -40,6 +40,7 @@ export class TouchControls {
       </div>
       <button data-b="e" class="t-gadget"></button>
       <button class="t-pause" aria-label="Pause">II</button>
+      <button class="t-act" hidden></button>
       <button class="t-ghost" hidden>Ghost</button>`;
     document.body.appendChild(this.root);
     this.stick = this.root.querySelector('.t-stick');
@@ -77,6 +78,13 @@ export class TouchControls {
     if (this._latch?.[key] === on) return;
     (this._latch ||= {})[key] = on;
     this.root.querySelector(`[data-b="${key}"]`)?.classList.toggle('latched', on);
+  }
+
+  /** A big contextual button for the action you can do right now (null hides it). */
+  setAction(label) {
+    const b = this.actBtn || (this.actBtn = this.root.querySelector('.t-act'));
+    if (b.hidden !== !label) b.hidden = !label;
+    if (label && b.textContent !== label) b.textContent = label;
   }
 
   /** Show/hide the ghost mode button and light it up while ghost mode is on. */
@@ -165,6 +173,10 @@ export class TouchControls {
       btn.addEventListener('pointercancel', off);
       btn.addEventListener('lostpointercapture', off);
     }
+    this.root.querySelector('.t-act').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      this.input.touch.pressed.add('interact');
+    });
     this.root.querySelector('.t-pause').addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.input.touch.pressed.add('pause');

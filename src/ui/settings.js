@@ -50,6 +50,10 @@ export function showSettings(game, onBack) {
       ${[['auto', 'story'], ['rain', 'rain'], ['off', 'off']].map(([v, l]) => `<button class="chip${(s.weather || 'auto') === v ? ' on' : ''}" data-w="${v}">${l}</button>`).join('')}
     </div></div>
     <p class="sub" style="font-size:14px">Story: storms where the story has them. Rain: rain in every mode. Off: always clear. Applies when the next level loads.</p>
+    <div class="setting"><span>Time of day</span><div class="seg wrap" id="set-time">
+      ${[['night', 'night'], ['dawn', 'dawn'], ['day', 'day'], ['dusk', 'dusk'], ['random', 'random'], ['cycle', 'cycle']].map(([v, l]) => `<button class="chip${(s.timeOfDay || 'night') === v ? ' on' : ''}" data-t="${v}">${l}</button>`).join('')}
+    </div></div>
+    <p class="sub" style="font-size:14px">For Rooftop Run, Street Chase and Free Run (story missions and your own levels pick their own time). Cycle: a whole day passes every 12 minutes.</p>
     <p class="sub setting-head">Getaway car</p>
     <div class="swatches">${colours}</div>
     <p class="sub" id="set-colour-name" style="font-size:14px"></p>
@@ -86,6 +90,14 @@ export function showSettings(game, onBack) {
       e.stopPropagation();
       s.weather = b.dataset.w;
       document.querySelectorAll('#set-weather [data-w]').forEach((x) => x.classList.toggle('on', x === b));
+      apply();
+    });
+  }
+  for (const b of document.querySelectorAll('#set-time [data-t]')) {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      s.timeOfDay = b.dataset.t;
+      document.querySelectorAll('#set-time [data-t]').forEach((x) => x.classList.toggle('on', x === b));
       apply();
     });
   }

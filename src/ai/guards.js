@@ -14,11 +14,18 @@ import { makeGlowMaterial } from '../world/materials.js';
 //
 // A guard also looks like an "officer" to the gadgets: it has .pc.pos and
 // .stunned (Flashbang), so the same gadget code works on it.
+//
+// SNEAK TAKEDOWNS: walk up behind a guard (outside their cone) and press
+// the action key to knock them out. They stay down, but if another guard
+// sees the body, the squad reports it (bodyFound) and the mode can raise the
+// alarm. The same squad is used for police patrols in the street (uniform
+// colours, and they stand on the pavement: y follows the ground).
 
 const WALK = 1.9, ALERT_WALK = 3.2;   // m/s
 const HALF_ANGLE = 0.5;               // radians either side (about 57 degrees wide)
 const RANGE = 9, ALERT_RANGE = 12.5;  // metres
 const PAUSE = 1.3;                    // seconds at each waypoint
+const DISGUISE_RANGE = 3.2;           // in disguise, they only recognise you this close
 const _from = new THREE.Vector3(), _dir = new THREE.Vector3();
 
 export class GuardSquad {
@@ -28,16 +35,20 @@ export class GuardSquad {
    * @param {{route:number[][]}[]} defs - route = [[x, z], ...] (a loop)
    * @param {{sight?:number}} opts - sight multiplies the view range (difficulty)
    */
-  constructor(parent, world, defs, { sight = 1 } = {}) {
+  constructor(parent, world, defs, { sight = 1, look = null, range = RANGE, alertRange = ALERT_RANGE } = {}) {
     this.parent = parent;
     this.world = world;
     this.sight = sight;
+    this.look = look;
+    this.baseRange = range;
+    this.alertRange = alertRange;
     this.alert = false;
+    this.bodyFound = null;
     this.units = defs.map((d, i) => this._make(d, i));
   }
 
   _make(def, i) {
-    const model = new PlayerModel({ hoodie: 0x1c1f28, trousers: 0x14161c, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1c1f28, shoes: 0x0a0a0a }, { bag: false });
+    const model = new PlayerModel(this.look || { hoodie: 0x1c1f28, trousers: 0x14161c, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1c1f28, shoes: 0x0a0a0a }, { bag: false });
     this.parent.add(model.root);
     // Vision cone on the floor (a fan)
     const geo = new THREE.CircleGeometry(1, 24, -HALF_ANGLE, HALF_ANGLE * 2);
@@ -48,7 +59,7 @@ export class GuardSquad {
     this.parent.add(cone);
     const [x, z] = def.route[0];
     const body = {
-      pos: new THREE.Vector3(x, 0, z), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0,
+      pos: new THREE.Vector3(x, this._y(x, z), z), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0,
       mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null,
     };
     const [nx, nz] = def.route[1 % def.route.length];
@@ -56,12 +67,22 @@ export class GuardSquad {
     return { route: def.route, leg: 0, wait: PAUSE * (i % 2), look: 0, baseFacing: body.facing, model, cone, pc: body, stunned: 0, waitTimer: 0, seesPlayer: false };
   }
 
-  /** Back to their starting posts (after a restart). */
+  /** Floor height under a point (0 indoors; the pavement outside). */
+  _y(x, z) {
+    const g = this.world.groundHeight(x, z, 1.2);
+    return Number.isFinite(g) && g > -1 ? g : 0;
+  }
+
+  /** Back to their starting posts (after a restart). Knocked-out guards get up. */
   reset() {
     this.alert = false;
+    this.bodyFound = null;
     this.units.forEach((u, i) => {
       const [x, z] = u.route[0];
-      u.pc.pos.set(x, 0, z);
+      u.pc.pos.set(x, this._y(x, z), z);
+      u.down = false;
+      u.found = false;
+      u.model.root.rotation.set(0, 0, 0);
       const [nx, nz] = u.route[1 % u.route.length];
       u.pc.facing = u.baseFacing = Math.atan2(nx - x, nz - z);
       u.leg = 0;
@@ -77,19 +98,53 @@ export class GuardSquad {
   }
 
   get range() {
-    return (this.alert ? ALERT_RANGE : RANGE) * this.sight;
+    return (this.alert ? this.alertRange : this.baseRange) * this.sight;
   }
+
+  /**
+   * The guard you could knock out right now: close, standing, not stunned,
+   * and you're behind them (outside their view). Or null.
+   */
+  takedownTarget(player) {
+    const p = player.pos;
+    for (const u of this.units) {
+      if (u.down) continue;
+      const b = u.pc, dx = p.x - b.pos.x, dz = p.z - b.pos.z, d = Math.hypot(dx, dz);
+      if (d > 1.9 || Math.abs(p.y - b.pos.y) > 1.2) continue;
+      let a = Math.atan2(dx, dz) - b.facing;
+      while (a > Math.PI) a -= Math.PI * 2;
+      while (a < -Math.PI) a += Math.PI * 2;
+      if (Math.abs(a) > 1.9 || u.stunned > 0) return u; // behind them (or dazed by a flashbang)
+    }
+    return null;
+  }
+
+  /** Knock a guard out: they drop and stay down until the level restarts. */
+  takedown(u) {
+    u.down = true;
+    u.seesPlayer = false;
+    u.cone.visible = false;
+    u.pc.horizontalSpeed = 0;
+    u.model.update(0, u.pc);
+    u.model.root.rotation.x = -Math.PI / 2; // (lying on the floor)
+    u.model.root.position.y = u.pc.pos.y + 0.25;
+  }
+
+  get downCount() { return this.units.filter((u) => u.down).length; }
 
   /**
    * Move everyone along their routes and check who can see the target.
    * @param {object} player - the PlayerController (pos, height)
    * @param {boolean} hidden - smoke bomb / invisibility: nobody can see
+   * @param {{closeOnly?:boolean}} opts - closeOnly: you're in disguise, so
+   *   they only notice you close up (they know every face on the staff)
    * @returns {boolean} true if any guard sees the player
    */
-  update(dt, player, hidden = false) {
+  update(dt, player, hidden = false, { closeOnly = false } = {}) {
     let seen = false;
     for (const u of this.units) {
       const b = u.pc;
+      if (u.down) continue;
       if (u.stunned > 0) {
         // Dazed by a flashbang: stand still, cone off
         u.stunned -= dt;
@@ -110,7 +165,7 @@ export class GuardSquad {
         const dx = next[0] - b.pos.x, dz = next[1] - b.pos.z, d = Math.hypot(dx, dz);
         const step = (this.alert ? ALERT_WALK : WALK) * dt;
         if (d <= step) {
-          b.pos.set(next[0], 0, next[1]);
+          b.pos.set(next[0], this._y(next[0], next[1]), next[1]);
           u.leg = (u.leg + 1) % u.route.length;
           u.wait = this.alert ? PAUSE * 0.4 : PAUSE;
           u.look = 0;
@@ -118,18 +173,23 @@ export class GuardSquad {
         } else {
           b.pos.x += (dx / d) * step;
           b.pos.z += (dz / d) * step;
+          b.pos.y = this._y(b.pos.x, b.pos.z);
           b.facing = Math.atan2(dx, dz);
           u.baseFacing = b.facing;
         }
         b.horizontalSpeed = this.alert ? ALERT_WALK : WALK;
       }
       u.model.update(dt, b);
-      u.cone.position.set(b.pos.x, 0.04, b.pos.z);
+      u.cone.position.set(b.pos.x, b.pos.y + 0.04, b.pos.z);
       u.cone.rotation.y = b.facing;
       const r = this.range;
       u.cone.scale.setScalar(r);
-      u.seesPlayer = !hidden && this._sees(u, player, r);
+      u.seesPlayer = !hidden && this._sees(u, player, closeOnly ? Math.min(r, DISGUISE_RANGE) : r);
       if (u.seesPlayer) seen = true;
+      // Spotting a knocked-out colleague
+      for (const o of this.units) {
+        if (o.down && !o.found && this._sees(u, { pos: o.pc.pos, height: 0.5 }, r)) { o.found = true; this.bodyFound = o; }
+      }
     }
     return seen;
   }
@@ -147,7 +207,7 @@ export class GuardSquad {
     // Line of sight from the guard's eyes to your chest - or your head if
     // you're crouching, which is how low cover (card tables) hides you.
     const crouched = player.height < 1.3;
-    _from.set(b.pos.x, 1.65, b.pos.z);
+    _from.set(b.pos.x, b.pos.y + 1.65, b.pos.z);
     _dir.set(p.x, p.y + (crouched ? 0.75 : 1.3), p.z).sub(_from);
     const len = _dir.length();
     _dir.divideScalar(len);

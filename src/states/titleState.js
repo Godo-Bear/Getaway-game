@@ -7,6 +7,7 @@ import { audio } from '../core/audio.js';
 import { startPart } from '../story/chapterFlow.js';
 import { showSpeedrunMenu } from '../story/speedrun.js';
 import { startFreeRoam } from './modes/freeRoam.js';
+import { showLevelEditor } from '../ui/levelEditor.js';
 
 // Title screen: the menu card on the left, and behind it a slow camera
 // fly-around of the night-time rooftops.
@@ -17,7 +18,7 @@ export class TitleState {
     this.time = 0;
   }
 
-  enter() {
+  enter(params = {}) {
     if (!this.scene) {
       // Built once and kept, so returning to the title is instant.
       this.scene = new THREE.Scene();
@@ -29,7 +30,7 @@ export class TitleState {
     this.game.hud.hideAll();
     this.game.speedrun = null;
     this.game.freeRoam = null;
-    showTitle({
+    const actions = {
       game: this.game,
       settings: (back) => showSettings(this.game, back),
       speedrun: (back) => showSpeedrunMenu(this.game, back),
@@ -37,7 +38,14 @@ export class TitleState {
       rooftopRun: () => this.game.sm.change('onFoot', { mode: 'survival' }),
       freeRun: (opts) => startFreeRoam(this.game, opts),
       streetChase: () => this.game.sm.change('driving', { mode: 'survival' }),
-    });
+      editor: (level = null) => showLevelEditor(this.game, {
+        level,
+        onPlay: (L) => this.game.sm.change('onFoot', { mode: 'custom', custom: L, fromEditor: true }),
+        onBack: () => showTitle(actions),
+      }),
+    };
+    if ('editor' in params) actions.editor(params.editor || null);
+    else showTitle(actions);
   }
 
   exit() {

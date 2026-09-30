@@ -40,6 +40,7 @@ export class ChapterDriveMode {
     this.ghost = false;
     this.ghostSnap = null;
     this.weather = this.part.weather || 'clear'; // 'clear' | 'rain' | 'storm'
+    this.time = this.part.time || 'night';       // 'night' | 'dawn' | 'day' | 'afternoon' | 'dusk' (or an hour)
     this.hudSections = ['tl', 'map', 'speedo', 'meter', 'controls', 'marker'];
     this.heat = this.part.heat?.start ?? 2;
     this.fugitive = null;

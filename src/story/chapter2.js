@@ -27,13 +27,14 @@ export const CHAPTER2 = {
   parts: [
     {
       id: 'chase', kind: 'drive', title: 'The chase',
+      time: 'afternoon',
       intro: [
-        { kicker: 'Outside The Anchor, 1:32 a.m.', who: 'marla',
-          lines: ['"That\'s Vince\'s car outside The Anchor. He has a bag of cash and a ticket for the 2 am ferry."'] },
+        { kicker: 'The next afternoon, 4:32 p.m.', who: 'marla',
+          lines: ['"Vince has been hiding in The Anchor all day. That\'s his car outside, and he has a bag of cash and a ticket for the 5 pm ferry."'] },
         { kicker: 'How to play', title: 'Catch Vince',
           lines: [
             'Stay close to Vince\'s brown sedan (the spinning amber arrow) to fill the meter, or ram him. Don\'t let him reach the ferry terminal.',
-            'The police are out in force tonight: expect roadblocks and spike strips. Parking garages (blue P on the minimap) are good places to hide.',
+            'The police are out in force today (in broad daylight, they can see you from further away): expect roadblocks and spike strips. Parking garages (blue P on the minimap) are good places to hide.',
           ] },
       ],
       startLabel: 'Go after him',
@@ -51,8 +52,9 @@ export const CHAPTER2 = {
     {
       id: 'docks', kind: 'onFoot', title: 'The docks',
       level: 'ch2Docks',
+      time: 'afternoon',
       intro: [
-        { kicker: 'Pier 9, 1:41 a.m.', title: 'After him',
+        { kicker: 'Pier 9, 4:41 p.m.', title: 'After him',
           lines: [
             'Vince scrambles up onto the warehouse roofs, the cash bag bouncing on his back. The quay below is crawling with police: stay up high.',
             'New moves: sprint and press C to SLIDE under low ducts. Jump alongside a tall wall to WALL-RUN across gaps, and jump into a cable to ride a ZIP LINE.',
@@ -83,7 +85,7 @@ export const CHAPTER2 = {
     // point at the traitor; the IOU is a red herring.
     vinceIOU: {
       name: 'Vince\'s IOU',
-      text: 'Dropped by Vince as he ran: an IOU for $80,000, owed to a card game run out of the police social club. Stamped PAID tonight.',
+      text: 'Dropped by Vince as he ran: an IOU for $80,000, owed to a card game run out of the police social club. Stamped PAID last night.',
       pointsTo: 'vince',
       redHerring: true,
       explain: 'This is how Hale got his hooks into Vince. It explains Vince, but not who handed Hale the plan.',
@@ -96,7 +98,7 @@ export const CHAPTER2 = {
     },
     hqBadge: {
       name: 'Visitor badge',
-      text: 'A police HQ visitor badge in Dex\'s name, last scanned in at 11:50 tonight, eight minutes before he went off the radio. Folded behind it: a bank slip showing $50,000 paid to Dex yesterday by "HT Holdings", the company that owns Det. Hale\'s boat.',
+      text: 'A police HQ visitor badge in Dex\'s name, last scanned in at 11:50 last night, eight minutes before he went off the radio. Folded behind it: a bank slip showing $50,000 paid to Dex yesterday by "HT Holdings", the company that owns Det. Hale\'s boat.',
       pointsTo: 'dex',
       explain: 'Dex walked into police HQ just before he went silent, and Hale\'s company paid him fifty grand the day before. He wasn\'t missing: he was reporting in.',
     },
@@ -116,7 +118,7 @@ export const CHAPTER2 = {
     marla: {
       correct: false,
       title: 'Not Marla',
-      text: 'Nothing ties Marla to Hale tonight. She switched the cameras off at 12:05, exactly as planned, and stayed on the radio with you.',
+      text: 'Nothing ties Marla to Hale. She switched the cameras off at 12:05, exactly as planned, and stayed on the radio with you.',
     },
     hale: {
       correct: false,

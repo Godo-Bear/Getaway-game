@@ -35,6 +35,7 @@ export class BankHeistMode {
     this.part = this.chapter.parts[this.partIndex];
     this.hudSections = ['tl', 'meter', 'controls', 'marker'];
     this.weather = 'indoor';
+    this.time = 'night';
     this.indoors = true; // no "down on the street" ladder help in here
   }
 

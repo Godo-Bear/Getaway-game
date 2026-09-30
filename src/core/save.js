@@ -20,6 +20,7 @@ const DEFAULTS = {
     graphics: 'medium',
     autoGraphics: true, // lower the graphics setting by itself if the game runs slowly
     weather: 'auto',  // 'auto' (story decides) | 'rain' (rain everywhere) | 'off'
+    timeOfDay: 'night', // non-story modes: 'night' | 'dawn' | 'day' | 'dusk' | 'random' | 'cycle'
     masterVolume: 0.8,
     musicVolume: 0.6,
     sfxVolume: 0.9,
@@ -44,6 +45,12 @@ const DEFAULTS = {
   },
   // Abilities an admin gave this player online (same names as the admin cheats)
   perks: {},
+  // Level Editor (src/editor/): your levels as share codes, best times by layout
+  levels: {
+    mine: [],        // [{ name, code }]
+    best: {},        // level id -> best time (seconds)
+    draft: null,     // the level open in the editor (share code)
+  },
   // The gadget shop (src/gadgets/gadgets.js)
   shop: {
     cash: 500,       // spend it in the Shop; earned by playing

@@ -89,7 +89,7 @@ export class PoliceForce {
   canSee(from, to) {
     _dir.set(to.x - from.x, 0, to.z - from.z);
     const d = _dir.length();
-    if (d > SIGHT_RANGE) return false;
+    if (d > SIGHT_RANGE * (this.sightScale || 1)) return false; // (further in daylight)
     if (d < 0.01) return true;
     _dir.divideScalar(d);
     _v.set(from.x, from.y + 1.2, from.z);

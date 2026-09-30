@@ -66,10 +66,11 @@ export const CONTROLS = {
     Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
+    <kbd>E</kbd> action when one shows on screen (knock out a guard from behind)<br>
     <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
-    <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb<br>
+    <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>X</kbd> action (knock out)<br>
     <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
@@ -77,6 +78,7 @@ export const CONTROLS = {
     Blue canisters on the road, drifting and near-misses refill nitro. Keep moving: stopping near cops fills the Busted meter.<br>
     <kbd>Q</kbd> horn (traffic pulls aside) &nbsp; <kbd>C</kbd> camera &nbsp; <kbd>Scroll</kbd> zoom<br>
     <kbd>M</kbd> big map: click to set a waypoint &nbsp; <kbd>F</kbd> gadget<br>
+    <kbd>E</kbd> hack the junction you just drove through (red lights + bollards stop the cops behind you)<br>
     Hide from the cops in parking garages (blue P on the minimap).<br>
     <kbd>R</kbd> unstick (when stopped) &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
 };
@@ -191,6 +193,7 @@ export function showTitle(actions) {
       <button class="pill" data-go="account">${cloud.user ? '<span class="dot"></span>' : ''}Account</button>
       <button class="pill" data-go="settings">Settings</button>
       <button class="pill" data-go="controls">Controls</button>
+      <button class="pill" data-go="editor">Level Editor</button>
       ${admin.on ? '<button class="pill pill-admin" data-go="admin">Admin</button>' : ''}
     </div>`, [], { title: true });
   const go = {
@@ -204,6 +207,7 @@ export function showTitle(actions) {
     settings: () => actions.settings(back),
     controls: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]),
     admin: () => showAdminPanel(back),
+    editor: () => actions.editor(),
   };
   for (const el of card.querySelectorAll('[data-go]')) {
     el.addEventListener('click', (e) => { e.stopPropagation(); go[el.dataset.go](); });

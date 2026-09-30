@@ -1,88 +1,141 @@
 import * as THREE from 'three';
-import { generateRooftopCity, findClearRoofSpot } from '../rooftopCity.js';
+import { generateRooftopCity } from '../rooftopCity.js';
 import { makeCarMesh } from '../../vehicles/carModel.js';
 import { playerCarColour } from '../../vehicles/carColours.js';
-import { makeRng } from '../../core/utils.js';
+import { makeTextTexture } from '../materials.js';
 
 // ======================================================================
-//  Chapter 5, Part 1: a new crew.
-//  A rooftop city at night. Meet three people on three roofs (Nova, Mags
-//  and Theo), then drop down to the street where Ricky waits with the car.
-//  The meeting roofs double as checkpoints. A police helicopter patrols
-//  (you're a famous face now).
+//  Chapter 5, Part 1: a new crew. DAYTIME, ON THE GROUND.
+//  A sunny afternoon in the city. Walk the streets to meet three people:
+//  Nova at a pavement cafe, Mags outside a pawn shop and Theo at a bus
+//  stop, then Ricky with the car. You're a famous face now: police officers
+//  walk the pavements (yellow vision cones). Blend into the crowd (walk
+//  right next to people), crouch behind parked cars, or climb a ladder and
+//  take the roofs. If a cop gets a good look at you: back to the last
+//  checkpoint.
+//
+//  The blocks are 42 m wide with 13 m streets between them; the pavement
+//  runs round every block, 21-23.5 m from its centre.
 // ======================================================================
+
+const BLOCKS = 5;
+const PITCH = 55;
+const C = (i) => (i - (BLOCKS - 1) / 2) * PITCH;   // block centre
+const ST = (i) => C(i) + PITCH / 2;                // street centre (after block i)
+const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter5Recruit() {
-  const city = generateRooftopCity({ seed: 5150, blocks: 5 });
-  const rng = makeRng(77);
+  const city = generateRooftopCity({ seed: 5150, blocks: BLOCKS });
   const w = city.world;
-  const centre = (b) => new THREE.Vector3((b.minX + b.maxX) / 2, b.h, (b.minZ + b.maxZ) / 2);
-  const normal = city.buildings.filter((b) => !b.tower);
-  const sp = city.spawn;
-  const used = new Set();
-  /** The normal building nearest to a point (not one we already used). */
-  const nearest = (x, z) => {
-    let best = null, bd = Infinity;
-    for (const b of normal) {
-      if (used.has(b)) continue;
-      const c = centre(b), d = Math.hypot(c.x - x, c.z - z);
-      if (d < bd) { bd = d; best = b; }
-    }
-    used.add(best);
-    return best;
+  const g = city.group;
+  const lambert = (color) => new THREE.MeshLambertMaterial({ color });
+  const box = (x, y, z, sx, sy, sz, color, solid = true) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), lambert(color));
+    m.position.set(x, y + sy / 2, z);
+    m.castShadow = true;
+    g.add(m);
+    if (solid) w.addBlock(x, y, z, sx, sy, sz, { tag: 'prop' });
+    return m;
   };
-  const startB = nearest(sp.x, sp.z);
-  const spotOn = (b) => findClearRoofSpot(w, b, rng, 1.1) || centre(b).setY(b.h + 0.05);
+  const sign = (text, x, y, z, rotY, color, width = 5) => {
+    const mat = new THREE.MeshBasicMaterial({ map: makeTextTexture(text, { color, bg: 'rgba(12,14,22,0.92)', width: 512, height: 128 }), toneMapped: false });
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(width, width / 4), mat);
+    m.position.set(x, y, z);
+    m.rotation.y = rotY;
+    g.add(m);
+  };
+  const car = (x, z, heading, kind, color) => {
+    const m = makeCarMesh({ kind, color });
+    m.position.set(x, 0, z);
+    m.rotation.y = heading;
+    g.add(m);
+    const along = Math.abs(Math.sin(heading)) > 0.5;
+    w.addBlock(x, 0, z, along ? 4.4 : 2, 1.3, along ? 2 : 4.4, { tag: 'car' });
+    return m;
+  };
 
-  // The three meetings, heading east, then north, then north-west
-  const novaB = nearest(sp.x + 48, sp.z + 4);
-  const magsB = nearest(sp.x + 52, sp.z - 52);
-  const theoB = nearest(sp.x - 6, sp.z - 100);
-  const meetingSpots = { nova: spotOn(novaB), mags: spotOn(magsB), theo: spotOn(theoB) };
+  // --- The start: west side of the middle block row
+  const spawn = new THREE.Vector3(C(1) + PAV, 0.05, C(2) + 8);
 
-  // Clues on neighbouring roofs (a short detour from the meeting)
-  const laptopB = nearest(centre(novaB).x + 4, centre(novaB).z + 20);
-  const scheduleB = nearest(centre(theoB).x + 20, centre(theoB).z);
+  // --- Nova: a pavement cafe (south side of the centre block)
+  const cafe = { x: C(2) - 2, z: C(2) + PAV };
+  box(cafe.x, 3.4, C(2) + 21.9, 12, 0.18, 2.6, 0xd9493c, false);            // awning
+  sign('CAFE LUNA', cafe.x, 4.3, C(2) + 21.05, 0, '#ffd28a', 6);
+  for (const dx of [-4, 0, 4]) {
+    box(cafe.x + dx, 0, cafe.z, 0.9, 0.78, 0.9, 0xe8e2d6);                   // tables (low cover)
+    box(cafe.x + dx - 0.9, 0, cafe.z, 0.45, 0.5, 0.45, 0x3a3a40, false);
+  }
+  const laptopMesh = box(cafe.x + 4, 0.78, cafe.z, 0.4, 0.03, 0.3, 0x2a2e38, false);
+  laptopMesh.material = new THREE.MeshBasicMaterial({ color: 0x39e6ff });
+
+  // --- Mags: outside a pawn shop (north side of the block to the east)
+  const pawn = { x: C(3) + 4, z: C(2) - PAV };
+  sign('PAWN & LOAN', pawn.x, 4.2, C(2) - 21.05, Math.PI, '#ffb020', 6);
+  box(pawn.x + 1.6, 0, pawn.z - 0.2, 0.9, 1.1, 0.9, 0x4a4f58);               // the old safe
+
+  // --- Theo: a bus stop (west side of the block to the north-east)
+  const bus = { x: C(3) - PAV, z: C(1) + 2 };
+  box(bus.x - 0.2, 2.5, bus.z, 1.6, 0.12, 4.2, 0x2c3440, false);            // shelter roof
+  for (const dz of [-2, 2]) box(bus.x - 0.2, 0, bus.z + dz, 1.4, 2.5, 0.08, 0x9fc4dc, false);
+  box(bus.x + 0.3, 0, bus.z, 0.5, 0.45, 2.6, 0x5a3a28);                      // bench
+  sign('BUS 42', bus.x - 0.25, 3.1, bus.z, -Math.PI / 2, '#39e6ff', 3);
+
+  // --- Ricky's car: on the street north of the centre block
+  const carSpot = { x: C(2) + 6, z: ST(1) + 4 };
+  const ricky = car(carSpot.x, carSpot.z, Math.PI / 2, 'player', playerCarColour());
+  const goalPos = new THREE.Vector3(carSpot.x, 0, carSpot.z);
+
+  // Parked cars along the kerbs: cover to crouch behind
+  const civ = [0x8a2a2a, 0x2a5a8a, 0xd8d8d8, 0x3a3a3a, 0x6a8a3a, 0xc8a040];
+  [[C(2) + 12, C(2) + 25.2, Math.PI / 2], [C(2) - 14, C(2) + 25.2, Math.PI / 2], [C(3) - 10, C(2) - 25.2, Math.PI / 2],
+    [C(3) + 16, C(2) - 25.2, Math.PI / 2], [C(3) - 25.2, C(1) - 10, 0], [C(3) - 25.2, C(1) + 14, 0],
+    [C(2) - 8, ST(1) + 4, Math.PI / 2], [ST(2) - 3.2, C(2) + 2, 0], [ST(2) + 3.2, C(2) - 12, 0]]
+    .forEach(([x, z, h], i) => car(x, z, h, i % 4 === 3 ? 'van' : i % 5 === 2 ? 'taxi' : 'civilian', civ[i % civ.length]));
+
+  // --- Where people stand
+  const meetingSpots = {
+    nova: new THREE.Vector3(cafe.x + 4.9, 0.05, cafe.z),
+    mags: new THREE.Vector3(pawn.x, 0.05, pawn.z),
+    theo: new THREE.Vector3(bus.x + 0.6, 0.05, bus.z - 3),
+    ricky: new THREE.Vector3(carSpot.x, 0.05, carSpot.z - 1.8),
+  };
+
+  // --- Clues: a short detour from each meeting
   const clues = [
-    { id: 'laptop', pos: spotOn(laptopB) },
-    { id: 'schedule', pos: spotOn(scheduleB) },
+    { id: 'laptop', pos: new THREE.Vector3(ST(2) - 0.5, 0.05, C(2) + 16) },        // dropped in the street by the cafe
+    { id: 'schedule', pos: new THREE.Vector3(C(3) - PAV, 0.05, C(1) - 16) },        // blown along from the bus stop
   ];
 
-  // Ricky's car: parked on the street next to Theo's building
-  const tc = centre(theoB);
-  const streets = [];
-  for (let i = 0; i < city.blockCenters.length - 1; i++) {
-    const s = city.blockCenters[i] + city.pitch / 2;
-    streets.push({ x: s, z: tc.z, heading: 0 }, { x: tc.x, z: s, heading: Math.PI / 2 });
-  }
-  const clear = (s) => w.query(s.x - 1.6, 0.3, s.z - 2.6, s.x + 1.6, 3, s.z + 2.6, []).length === 0 && w.groundHeight(s.x, s.z, 3) < 1;
-  const carSpot = streets.filter(clear).sort((a, b) => Math.hypot(a.x - tc.x, a.z - tc.z) - Math.hypot(b.x - tc.x, b.z - tc.z))[0];
-  const car = makeCarMesh({ kind: 'player', color: playerCarColour() });
-  car.rotation.y = carSpot.heading;
-  const goalPos = new THREE.Vector3(carSpot.x, w.groundHeight(carSpot.x, carSpot.z, 3), carSpot.z);
-  car.position.copy(goalPos);
-  city.group.add(car);
-  w.addBlock(carSpot.x, goalPos.y, carSpot.z, carSpot.heading ? 4.4 : 2, 1.3, carSpot.heading ? 2 : 4.4, { tag: 'car' });
-  // Ricky stands by the driver's door
-  meetingSpots.ricky = goalPos.clone().add(new THREE.Vector3(carSpot.heading ? 0 : 1.8, 0.05, carSpot.heading ? 1.8 : 0));
-
-  const roof = (b) => ({ minX: b.minX, maxX: b.maxX, minZ: b.minZ, maxZ: b.maxZ, h: b.h });
-  const cpAt = (name, b, spot) => ({ name, spawn: spot.clone().add(new THREE.Vector3(1.6, 0, 0)).setY(b.h + 0.05), yaw: 0, roof: roof(b) });
+  // --- Checkpoints (ground rectangles around each meeting)
+  const area = (x, z, r = 5) => ({ minX: x - r, maxX: x + r, minZ: z - r, maxZ: z + r, h: 0 });
   const checkpoints = [
-    { name: 'The start', spawn: sp.clone(), yaw: 0, roof: roof(startB) },
-    cpAt('Nova\'s roof', novaB, meetingSpots.nova),
-    cpAt('Mags\'s roof', magsB, meetingSpots.mags),
-    cpAt('Theo\'s roof', theoB, meetingSpots.theo),
+    { name: 'The start', spawn: spawn.clone(), yaw: -Math.PI / 2, roof: area(spawn.x, spawn.z) },
+    { name: 'Cafe Luna', spawn: new THREE.Vector3(cafe.x - 6, 0.05, cafe.z), yaw: -Math.PI / 2, roof: area(cafe.x, cafe.z, 7) },
+    { name: 'The pawn shop', spawn: new THREE.Vector3(pawn.x - 4, 0.05, pawn.z), yaw: -Math.PI / 2, roof: area(pawn.x, pawn.z) },
+    { name: 'The bus stop', spawn: new THREE.Vector3(bus.x, 0.05, bus.z + 5), yaw: 0, roof: area(bus.x, bus.z) },
   ];
-  // (spawns must be clear roof: fall back to the meeting spot itself)
-  for (const cp of checkpoints.slice(1)) {
-    if (w.overlaps(cp.spawn.x - 0.4, cp.spawn.y + 0.1, cp.spawn.z - 0.4, cp.spawn.x + 0.4, cp.spawn.y + 1.8, cp.spawn.z + 0.4)) cp.spawn.x -= 1.6;
-  }
+
+  // --- Police on the beat (they walk these loops) and the crowd's pavements
+  const patrolRoutes = [
+    [[C(2) - 16, C(2) + 23], [C(2) + 14, C(2) + 23]],                                  // past the cafe
+    [[ST(2), C(2) + 20], [ST(2), C(2) - 20]],                                          // down the middle of the street
+    [[C(3) - 16, C(2) - 23], [C(3) + 16, C(2) - 23]],                                  // past the pawn shop
+    [[C(3) - 27, C(1) + 18], [C(3) - 27, C(1) - 18]],                                  // up the street past the bus stop
+    [[C(2) - 16, ST(1) - 1], [C(2) + 20, ST(1) - 1]],                                  // the street where Ricky waits
+  ];
+  const crowdLanes = [
+    { a: [C(1) + PAV, C(2) - 18], b: [C(1) + PAV, C(2) + 18] },
+    { a: [C(2) - 18, C(2) + PAV + 0.4], b: [C(2) + 18, C(2) + PAV + 0.4] },
+    { a: [C(2) + PAV, C(2) + 18], b: [C(2) + PAV, C(2) - 18] },
+    { a: [C(3) - 18, C(2) - PAV - 0.4], b: [C(3) + 18, C(2) - PAV - 0.4] },
+    { a: [C(3) - PAV - 0.4, C(1) + 18], b: [C(3) - PAV - 0.4, C(1) - 18] },
+    { a: [C(2) - 18, C(1) + PAV], b: [C(2) + 18, C(1) + PAV] },
+  ];
 
   return {
     ...city,
-    checkpoints, clues, goalPos, meetingSpots,
-    heliStart: new THREE.Vector3(sp.x - 60, 0, sp.z + 40),
+    groundLevel: true,       // played in the street (no "you fell" / ladder help)
+    spawn, checkpoints, clues, goalPos, meetingSpots, patrolRoutes, crowdLanes, rickyCar: ricky,
     meetingCheckpoint: { nova: 1, mags: 2, theo: 3 },
   };
 }

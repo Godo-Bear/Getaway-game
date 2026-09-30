@@ -502,6 +502,7 @@ function buildLamps(lamps) {
     map: getGlowTexture(), color: 0xff9a3a, transparent: true, opacity: 0.5,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   }), n);
+  pools.material.userData.nightGlow = true; // (fades out in daylight)
   const m = new THREE.Matrix4();
   lamps.forEach(([x, z, facing], i) => {
     // Lamps along X-roads lean over the road toward +Z or -Z

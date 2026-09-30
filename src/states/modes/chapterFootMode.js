@@ -5,6 +5,8 @@ import { updateSirens } from '../../vehicles/carModel.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { OfficerSquad } from '../../ai/officer.js';
 import { FugitiveRunner } from '../../ai/fugitive.js';
+import { GuardSquad } from '../../ai/guards.js';
+import { Crowd } from '../../ai/crowd.js';
 import { PlayerModel } from '../../player/playerModel.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
@@ -25,6 +27,9 @@ import { audio } from '../../core/audio.js';
 //   heli      - a police helicopter with a spotlight (caught = checkpoint)
 //   officers  - police officers who chase you across the roofs on foot
 //   fugitive  - someone running away along a path: catch them to win
+//   patrols   - police officers walking the pavements (the level's
+//               patrolRoutes) with vision cones; a crowd (crowdLanes) you
+//               can blend into. Sneak up behind one to knock them out (E).
 //   goal      - { type: 'reach' } get to the level's goal point (e.g. the car)
 //               { type: 'catch' } catch the fugitive
 //   requiredClue - a clue you must pick up before the goal counts
@@ -39,6 +44,7 @@ import { audio } from '../../core/audio.js';
 // turned it on.
 
 const CAR_RADIUS = 3.5;
+const COP_LOOK = { hoodie: 0x1d3566, trousers: 0x151d30, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1d3566, shoes: 0x0a0a0a };
 const PICKUP_RADIUS = 2.6;  // generous: running past a clue picks it up
 const CLUE_HINT = 30;       // the marker points at any clue closer than this (m)
 
@@ -52,6 +58,7 @@ export class ChapterFootMode {
     this.ghost = false;
     this.ghostSnap = null;
     this.weather = this.part.weather || 'clear'; // 'clear' | 'rain' | 'storm'
+    this.time = this.part.time || 'night';       // 'night' | 'dawn' | 'day' | 'afternoon' | 'dusk' (or an hour)
     this.hudSections = ['tl', 'meter', 'controls', 'marker'];
     this.heli = null;
     this.officers = null;
@@ -70,7 +77,13 @@ export class ChapterFootMode {
     this._buildClues();
     this._buildGuides();
     this._buildPeople();
+    this.crowd = level.crowdLanes ? new Crowd(level.group, level.world, level.crowdLanes, { perLane: 3, seed: 11 }) : null;
     return level;
+  }
+
+  /** Ground-level parts are played in the street: no "climb back up" help. */
+  get indoors() {
+    return !!this.level?.groundLevel;
   }
 
   /** People standing around to meet (the level says where, the part says what they say). */
@@ -215,6 +228,12 @@ export class ChapterFootMode {
       const o = part.officers;
       this.officers = new OfficerSquad(s.scene, s.world, this.level.officerSpawns, { ...o, speed: (o.speed ?? 0.86) * diff().officerSpeed });
     }
+    this.patrols?.dispose();
+    this.patrols = null;
+    if (part.patrols && this.level.patrolRoutes) {
+      this.patrols = new GuardSquad(s.scene, s.world, this.level.patrolRoutes.map((route) => ({ route })),
+        { sight: diff().guardSight, look: COP_LOOK, range: 11, alertRange: 15 });
+    }
   }
 
   /**
@@ -233,7 +252,9 @@ export class ChapterFootMode {
       this.ghost = true;
       this.heli?.dispose();
       this.officers?.dispose();
-      this.heli = this.officers = null;
+      this.patrols?.dispose();
+      this.heli = this.officers = this.patrols = null;
+      s.setAction(null);
       this.spotted = 0;
       hud.setMeter(0, '');
       hud.setObjective('Ghost mode: explore freely');
@@ -282,6 +303,7 @@ export class ChapterFootMode {
       this.heli.lastSeen.copy(this.heli.spot);
     }
     this.officers?.scatter(s.player.pos);
+    this.patrols?.reset();
     this.fugitive?.resetNear(cp.spawn);
   }
 
@@ -388,6 +410,11 @@ export class ChapterFootMode {
       if (r === 'caught') this._caught('An officer tackled you. Back to the last checkpoint.');
     }
 
+    // --- Police on the beat (and the crowd you can hide in)
+    this.crowd?.update(dt);
+    this.blending = false;
+    if (this.patrols) this._updatePatrols(dt);
+
     // --- People to meet (and their mini-game tests)
     if (this.npcs.length) this._updateMeetings(dt);
 
@@ -410,7 +437,8 @@ export class ChapterFootMode {
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span>` +
       `<span>Clues <b>${found}/${total}</b></span>` +
       (this.ghost ? '<span><b style="color:var(--cyan)">GHOST MODE</b></span>' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`) +
-      (this.hidden ? '<span><b style="color:var(--safe)">HIDDEN</b></span>' : ''));
+      (this.hidden ? '<span><b style="color:var(--safe)">HIDDEN</b></span>' : '') +
+      (this.blending ? '<span><b style="color:var(--safe)">IN THE CROWD</b></span>' : ''));
 
     // --- Reached the goal?
     if (part.goal.type === 'reach') {
@@ -431,6 +459,30 @@ export class ChapterFootMode {
           }
         } else this._complete();
       }
+    }
+  }
+
+  _updatePatrols(dt) {
+    const s = this.state, p = s.player, hud = s.game.hud;
+    // Walking (not sprinting) right next to people: you're just another face in the crowd
+    this.blending = !!this.crowd && p.horizontalSpeed < 4.6 && p.grounded && this.crowd.blendsIn(p.pos);
+    const seen = this.patrols.update(dt, p, this.hidden || s.concealed || !!this.mini || this.blending);
+    if (this.patrols.bodyFound && !this.patrols.alert) {
+      this.patrols.setAlert(true);
+      hud.toast('Officer down!', 'Another cop found the officer you knocked out. They\'re all on alert now: they see further and walk faster.', 'var(--red)', 6);
+    }
+    const d = diff();
+    this.spotted = clamp(this.spotted + (seen ? (dt / 0.9) * d.fill : -dt * 0.5), 0, 1);
+    hud.setMeter(this.spotted, seen ? 'SEEN! Get out of sight' : 'Keep a low profile', seen ? 'var(--red)' : '#8a8f9c');
+    if (this.spotted >= 1) { this._caught('A police officer recognised you. Back to the last checkpoint.'); return; }
+    // Sneak takedown: behind an officer, press E (X on a gamepad, the button on a phone)
+    const target = !this.mini ? this.patrols.takedownTarget(p) : null;
+    s.setAction(target ? 'Knock out' : null);
+    if (target && s.game.input.wasPressed('interact')) {
+      this.patrols.takedown(target);
+      s.setAction(null);
+      audio.sfx('land', { vol: 1 });
+      hud.toast('Knocked out', 'Keep moving: if another officer finds them, the whole squad goes on alert.', 'var(--amber)', 4);
     }
   }
 
@@ -577,6 +629,8 @@ export class ChapterFootMode {
     this.heli?.dispose();
     this.officers?.dispose();
     this.fugitive?.dispose();
-    this.heli = this.officers = this.fugitive = null;
+    this.patrols?.dispose();
+    this.crowd?.dispose();
+    this.heli = this.officers = this.fugitive = this.patrols = this.crowd = null;
   }
 }

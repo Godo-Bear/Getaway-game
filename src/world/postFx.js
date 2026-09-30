@@ -93,6 +93,7 @@ export class PostFx {
       this.composer.addPass(this.fxaa);
     }
     this.bloomScale = cfg.scale;
+    this.bloomBase = cfg.bloom[0];
   }
 
   setSize(w, h) {
@@ -113,11 +114,15 @@ export class PostFx {
    */
   render(scene, camera, dt = 1 / 60, { bloom = true } = {}) {
     this.flash = Math.max(0, this.flash - dt * 3.5);
+    // Time of day: daylight scenes are exposed a little darker and bloom less
+    const look = scene.userData.lighting;
+    this.renderer.toneMappingExposure = look?.exposure ?? 1.15;
     if (!this.composer) {
       this.renderer.render(scene, camera);
       return;
     }
     this.bloom.enabled = bloom;
+    this.bloom.strength = this.bloomBase * (look?.bloom ?? 1);
     this.renderPass.scene = scene;
     this.renderPass.camera = camera;
     this.grade.uniforms.flash.value = this.flash;

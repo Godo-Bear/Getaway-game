@@ -152,7 +152,7 @@ export class FootGadgets {
       h.lastSeen.set(p.x + Math.cos(a) * 35, p.y, p.z + Math.sin(a) * 35);
       blinded++;
     }
-    for (const u of mode.officers?.units || []) {
+    for (const u of [...(mode.officers?.units || []), ...(mode.patrols?.units || [])]) {
       if (u.waitTimer > 0) continue;
       if (admin.flag('infiniteRange') || u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = FLASH_BLIND; stunned++; }
     }

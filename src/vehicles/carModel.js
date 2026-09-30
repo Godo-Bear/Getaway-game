@@ -92,6 +92,7 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888 } = {}) {
     map: getGlowTexture(), color: 0xfff0c0, transparent: true, opacity: 0.35,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   }));
+  beam.material.userData.nightGlow = true;
   g.add(beam);
 
   // Police light bar

@@ -1,5 +1,6 @@
 import { showCard, hideCard, controlsHtml } from '../ui/menus.js';
 import { playStoryCards } from '../ui/storyCards.js';
+import { showPlanBoard } from '../ui/planBoard.js';
 import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
 import { buyClue } from '../story/chapterFlow.js';
@@ -51,6 +52,7 @@ export class PlayState {
     this.clickEl.hidden = true;
     this.game.input.exitPointerLock();
     hideCard();
+    this.setAction(null);
     this.teardown();
   }
 
@@ -150,6 +152,17 @@ export class PlayState {
     });
   }
 
+  /** The heist planning board (freezes the game until you pick a plan). */
+  showPlanBoard(plan, choice, onDone) {
+    // (after a story card closes, it grabs the mouse: open the board on the next tick)
+    setTimeout(() => {
+      this.inCard = true;
+      this.game.input.exitPointerLock();
+      this._updateClickPrompt();
+      showPlanBoard(plan, choice, (c) => { hideCard(); this.inCard = false; onDone(c); this._afterResume(); });
+    }, 0);
+  }
+
   /**
    * Show a story card that freezes the game until the player continues.
    * Clicking the button also grabs the mouse lock (browsers need a click).
@@ -228,6 +241,23 @@ export class PlayState {
     const rain = this.weather?.rainVolume ?? 0;
     if (frozen) audio.setMix({ music: 0.3, intensity: 0.1, rain: rain * 0.5 });
     else audio.setMix({ rain, ...(this.audioMix?.() ?? {}) });
+  }
+
+  /** Show (or hide, with null) the action the player can do right now: E / X / a touch button. */
+  setAction(label) {
+    if (this._action === label) return;
+    this._action = label;
+    this.game.hud.setPrompt(label);
+    this.game.touch?.setAction(label);
+  }
+
+  /** Free Run's day/night cycle (Time of day = Cycle): a full day every 12 minutes. */
+  tickTimeOfDay(dt) {
+    if (!this.timeCycle) return;
+    this._todDt = (this._todDt || 0) + dt;
+    if (this._todDt < 0.5) return;
+    this.lighting.setTime((this.lighting.hour + this._todDt * 24 / 720) % 24);
+    this._todDt = 0;
   }
 
   render(renderer) {
