@@ -112,7 +112,7 @@ function start(renderer) {
   window.game = game;
 
   // URL options for testing:
-  //   ?mode=chapter1..chapter4 [&part=N] [&ghost]  - a story part (N from 0)
+  //   ?mode=chapter1..chapter6 [&part=N] [&ghost]  - a story part (N from 0)
   //   ?mode=deduce1..deduce5 | rooftop | free | chase  - jump straight into a mode
   //   ?mode=editor [&level=GW1-...]  - the Level Editor (optionally with a level code)
   //   ?nolock                       - play without mouse lock (A/D turn, drag to look)
