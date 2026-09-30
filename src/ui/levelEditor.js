@@ -17,7 +17,7 @@
 
 import { showCard } from './menus.js';
 import { save } from '../core/save.js';
-import { GRID, CELL, MAX_CASH, MAX_ZIPS, MAX_GLIDERS, MAX_BEAMS, MAX_PROPS, beamHeight, encodeLevel, decodeLevel, cellHeight, levelId } from '../editor/customLevel.js';
+import { GRID, CELL, MAX_CASH, MAX_ZIPS, MAX_GLIDERS, MAX_BEAMS, MAX_PROPS, FLOORS, beamHeight, encodeLevel, decodeLevel, cellHeight, levelId } from '../editor/customLevel.js';
 import { TEMPLATES, reachable } from '../editor/templates.js';
 import { formatTime } from '../core/utils.js';
 
@@ -47,7 +47,20 @@ const PIECES = [
   { id: 'hut', label: 'Hideout hut', color: '#4dffa6', icon: 'H' },
   { id: 'tower', label: 'Water tower', color: '#8ab4ff', icon: 'T' },
 ];
-const PROP = Object.fromEntries(PIECES.filter((p) => p.icon).map((p) => [p.id, p]));
+// Floors (what the ground is made of), shown on the map in these colours
+const FLOOR_TOOLS = [
+  { id: 'street', label: 'Street', color: '#1b1f2a' },
+  { id: 'water', label: 'Water', color: '#1d5c8f' },
+  { id: 'grass', label: 'Grass', color: '#2f6b30' },
+  { id: 'sand', label: 'Sand', color: '#bfa56a' },
+  { id: 'vault', label: 'Vault floor', color: '#8f96a3' },
+  { id: 'carpet', label: 'Casino carpet', color: '#5a1a32' },
+];
+PIECES.push(
+  { id: 'gold', label: 'Gold bars', color: '#e8c040', icon: 'Au' },
+  { id: 'laser', label: 'Laser', color: '#ff3346', icon: '' },
+);
+const PROP = Object.fromEntries(PIECES.filter((p) => p.id !== 'beam').map((p) => [p.id, p]));
 const TIMES = ['night', 'dawn', 'day', 'dusk'];
 const MAX_LEVELS = 12;
 
@@ -78,6 +91,11 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
         <button class="ed-t" data-act="more" style="--c:var(--muted)">${moreHeights ? 'Fewer' : 'More heights'}</button>
         <span class="ed-brush">Brush ${BRUSHES.map((b) => `<button class="ed-t${brush === b ? ' on' : ''}" data-brush="${b}" style="--c:var(--ink)" title="${b} x ${b} squares">${b}x${b}</button>`).join('')}</span>
       </div>
+      <div class="ed-tools">
+        <span class="ed-brush">Floor</span>
+        ${FLOOR_TOOLS.map((f) => `<button class="ed-h${tool === `f:${f.id}` ? ' on' : ''}" data-floor="${f.id}" style="--c:${f.color}"><b>${f.label}</b></button>`).join('')}
+        <button class="ed-t${L.outside === 'ocean' ? ' on' : ''}" data-act="outside" style="--c:#39a8ff">Around the map: ${L.outside === 'ocean' ? 'ocean' : 'city'}</button>
+      </div>
       <p class="ed-label">2. Place things <span>(tap the map)</span></p>
       <div class="ed-tools">
         ${TOOLS.map((t) => `<button class="ed-t${tool === t.id ? ' on' : ''}" data-t="${t.id}" style="--c:${t.color}">${t.label}</button>`).join('')}
@@ -105,9 +123,11 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
     name.addEventListener('keydown', (e) => e.stopPropagation());
     const on = (sel, fn) => { for (const b of card.querySelectorAll(sel)) b.addEventListener('click', (e) => { e.stopPropagation(); fn(b); }); };
     on('[data-h]', (b) => { tool = +b.dataset.h; zipFrom = null; msg = ''; render(); });
+    on('[data-floor]', (b) => { tool = `f:${b.dataset.floor}`; zipFrom = null; msg = ''; render(); });
+    on('[data-act="outside"]', () => { snapshot(); L.outside = L.outside === 'ocean' ? 'city' : 'ocean'; msg = L.outside === 'ocean' ? 'Ocean all around: your map is an island. Fall in and you\'re back on dry land.' : 'City streets all around the map.'; keepDraft(); render(); });
     on('[data-t]', (b) => { tool = b.dataset.t; zipFrom = null; msg = ''; render(); });
     on('[data-act="more"]', () => { moreHeights = !moreHeights; render(); });
-    on('[data-brush]', (b) => { brush = +b.dataset.brush; msg = brush === 1 ? 'Brush 1 x 1: one square at a time (for small details).' : `Brush ${brush} x ${brush}: paints ${brush * brush} squares at once.`; if (typeof tool !== 'number') tool = 4; render(); });
+    on('[data-brush]', (b) => { brush = +b.dataset.brush; msg = brush === 1 ? 'Brush 1 x 1: one square at a time (for small details).' : `Brush ${brush} x ${brush}: paints ${brush * brush} squares at once.`; if (typeof tool !== 'number' && !tool.startsWith('f:')) tool = 4; render(); });
     on('[data-act="heli"]', () => { snapshot(); L.heli = !L.heli; keepDraft(); render(); });
     on('[data-act="time"]', () => { snapshot(); L.time = TIMES[(TIMES.indexOf(L.time) + 1) % TIMES.length]; keepDraft(); render(); });
     on('[data-act="help"]', () => guide(render));
@@ -131,7 +151,8 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       const reach = reachable(L);
       g.clearRect(0, 0, cv.width, cv.height);
       for (let j = 0; j < GRID; j++) for (let i = 0; i < GRID; i++) {
-        g.fillStyle = HEIGHT_COLORS[L.cells[j * GRID + i]];
+        const v0 = L.cells[j * GRID + i];
+        g.fillStyle = v0 ? HEIGHT_COLORS[v0] : FLOOR_TOOLS[(L.floor || [])[j * GRID + i] || 0].color;
         g.fillRect(i * cs, j * cs, cs, cs);
       }
       g.strokeStyle = 'rgba(255,255,255,0.06)';
@@ -187,6 +208,10 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       for (const [i, j, type] of L.props || []) {
         const P = PROP[type];
         g.fillStyle = P.color;
+        if (type === 'laser') {
+          g.fillRect(i * cs + 1, (j + 0.5) * cs - cs * 0.08, cs - 2, cs * 0.16);
+          continue;
+        }
         if (type === 'duct') {
           g.fillRect(i * cs + 1, j * cs + cs * 0.3, cs - 2, cs * 0.4);
         } else {
@@ -217,7 +242,7 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       mark(L.finish, '#ffb020', 'F', ok(L.finish));
       if (zipFrom) mark(zipFrom, tool === 'beam' ? '#ff8a3d' : '#ffd040', tool === 'beam' ? 'B' : 'Z');
       // Where the brush will paint
-      if (hover && typeof tool === 'number') {
+      if (hover && (typeof tool === 'number' || tool.startsWith('f:'))) {
         const r0 = (brush - 1) / 2;
         g.strokeStyle = 'rgba(255,176,32,0.9)'; g.lineWidth = 2;
         g.strokeRect((hover[0] - r0) * cs, (hover[1] - r0) * cs, (r0 * 2 + 1) * cs, (r0 * 2 + 1) * cs);
@@ -236,6 +261,7 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       for (let di = -r0; di <= r0; di++) for (let dj = -r0; dj <= r0; dj++) {
         const a = i + di, b = j + dj;
         if (a < 0 || b < 0 || a >= GRID || b >= GRID) continue;
+        if (typeof tool === 'string') { (L.floor ||= new Array(GRID * GRID).fill(0))[b * GRID + a] = FLOORS.indexOf(tool.slice(2)); continue; }
         L.cells[b * GRID + a] = tool;
         if (tool === 0) {
           const same = (p) => p[0] === a && p[1] === b;
@@ -259,12 +285,14 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
         crate: 'Crate added: a box to climb on.',
         hut: 'Hideout hut added: step inside to hide from the helicopter.',
         tower: 'Water tower added: stand under it to hide from the helicopter.',
+        gold: 'Gold bars added: a stack to crouch behind (great in a vault).',
+        laser: 'Laser added: a red beam at waist height. Crouch (C) or slide under it, or it\'s back to the start.',
       }[type]);
     };
     const apply = (c, first) => {
       if (!c) return;
       const [i, j] = c, k = j * GRID + i, same = (p) => p[0] === i && p[1] === j;
-      if (typeof tool === 'number') {
+      if (typeof tool === 'number' || tool.startsWith('f:')) {
         if (first) snapshot();
         paintAt(i, j);
       } else if (tool === 'duct' && !first) {
@@ -475,9 +503,9 @@ export function showLevelEditor(game, { level = null, onPlay, onBack }) {
       <h2>How it works</h2>
       <p class="sub">The map is a city seen from above, like a drawing. Each square is 3 m.</p>
       <div class="ed-steps">
-        <div><span>1</span><b>Paint buildings</b><small>Pick a size (Small, Medium, Tall...) and a brush size (1x1 up to 7x7), then drag on the map. The number on a building is how tall it is: you can climb from a building onto one that is <b>one number higher</b> (2 → 3), and jump down from any height. Every building has a ladder from the street.</small></div>
+        <div><span>1</span><b>Paint buildings</b><small>Pick a size (Small, Medium, Tall...) and a brush size (1x1 up to 7x7), then drag on the map. The <b>Floor</b> buttons paint the ground instead: water, grass, sand, vault floor or casino carpet (and you can put ocean all around the map). The number on a building is how tall it is: you can climb from a building onto one that is <b>one number higher</b> (2 → 3), and jump down from any height. Every building has a ladder from the street.</small></div>
         <div><span>2</span><b>Place things</b><small>Tap <b>Start</b> then tap the map where you begin. Do the same for the <b>Finish</b> and some <b>$ Cash</b> bags. For a <b>Zip line</b>, tap one building, then another. You can ride it both ways, even uphill. A <b>Glider</b> lets you glide once you pick it up.</small></div>
-        <div><span>3</span><b>Parkour pieces</b><small>Just like the story levels: <b>Beams</b> to walk across between buildings (tap one building, then another in the same row), <b>Ducts</b> to slide under, <b>Crates</b> to climb, and <b>huts</b> and <b>water towers</b> to hide in from the helicopter.</small></div>
+        <div><span>3</span><b>Parkour pieces</b><small>Just like the story levels: <b>Beams</b> to walk across between buildings (tap one building, then another in the same row), <b>Ducts</b> to slide under, <b>Crates</b> to climb, <b>huts</b> and <b>water towers</b> to hide in from the helicopter, <b>Gold bars</b>, and red <b>Lasers</b> you crouch under.</small></div>
         <div><span>4</span><b>Play it!</b><small>Grab every cash bag, then reach the finish, as fast as you can. The checklist under the map tells you if something can't be reached (it's circled in red).</small></div>
       </div>
       <p class="sub">Not sure where to begin? Press <b>Examples</b> and change one of those.</p>`,
@@ -520,6 +548,13 @@ function helpText(tool, zipFrom) {
   if (tool === 'start') return 'Tap the map where you want to start.';
   if (tool === 'finish') return 'Tap the map where the finish goes.';
   if (tool === 'cash') return 'Tap the map to add a cash bag (tap it again to remove it).';
+  if (typeof tool === 'string' && tool.startsWith('f:')) {
+    const f = tool.slice(2);
+    return f === 'water' ? 'Water: paint rivers, pools or a harbour. Falling in sends you back to dry land (so jump or glide over it).'
+      : `Floor: ${f === 'vault' ? 'shiny vault floor' : f === 'carpet' ? 'casino carpet' : f}. Drag to paint the ground (buildings stay where they are).`;
+  }
+  if (tool === 'gold') return 'Tap to add a stack of gold bars.';
+  if (tool === 'laser') return 'Tap to add a waist-high red laser: crouch or slide under it.';
   if (tool === 'beam') return zipFrom ? 'Now tap another building in the same row or column.' : 'Tap a building, then another one across a gap (same row or column), to lay a beam you can walk across.';
   if (tool === 'duct') return 'Tap or drag to put ducts on the roof: pipes you slide under (sprint + C) or crouch under.';
   if (tool === 'crate') return 'Tap to add a crate to climb on (tap again to remove it).';

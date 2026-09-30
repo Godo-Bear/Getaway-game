@@ -111,6 +111,17 @@ export class CustomLevelMode {
         hud.toast(left ? `Cash! ${left} to go` : 'All the cash!', left ? '' : 'Now get to the finish.', 'var(--safe)', 1.5);
       }
     }
+    // Lasers: touch one (standing up) and it's back to the start
+    for (const las of this.level.lasers) {
+      if (p.pos.x > las.x0 && p.pos.x < las.x1 && Math.abs(p.pos.z - (las.z0 + las.z1) / 2) < 0.4
+        && las.y > p.pos.y + 0.02 && las.y < p.pos.y + p.height && !admin.flag('god')) {
+        this.caught++;
+        audio.sfx('caught');
+        s.placePlayer(this.level.spawn, 0);
+        s.flash('Laser tripped!', 'Crouch (C) or slide under the red lasers. Back to the start.', 'var(--red)');
+        return;
+      }
+    }
     // Gliders
     for (const gl of this.gliders) {
       if (gl.taken) continue;
@@ -161,7 +172,7 @@ export class CustomLevelMode {
     else hud.setMarker(g.clone().setY(g.y + 2), s.camera, 'Finish', 'var(--amber)', p.pos.distanceTo(g));
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span>` +
       (this.bags.length ? `<span>Cash <b>${this.bags.length - left}/${this.bags.length}</b></span>` : '') +
-      (this.heli ? `<span${this.caught ? ' class="warn"' : ''}>Caught <b>${this.caught}</b></span>` : ''));
+      ((this.heli || this.level.lasers.length) ? `<span${this.caught ? ' class="warn"' : ''}>Caught <b>${this.caught}</b></span>` : ''));
   }
 
   _finish() {
@@ -179,6 +190,11 @@ export class CustomLevelMode {
       <p class="sub">Time <b>${formatTime(t)}</b>${this.heli ? ` · caught ${this.caught} time${this.caught === 1 ? '' : 's'}` : ''}</p>
       <p class="sub">${record ? (prev ? `New best! (was ${formatTime(prev)})` : 'Your first finish: that\'s the time to beat.') : `Best: ${formatTime(prev)}`}</p>`,
     [edit], { retryLabel: 'Play again' });
+  }
+
+  /** Fell in the water (or off the world): back to dry land. */
+  onFall() {
+    this.state.respawnToSafety('Splash! Back to dry land.');
   }
 
   adminSkip() {
