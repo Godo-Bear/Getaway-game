@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { lookColors } from './outfits.js';
 import { damp, clamp } from '../core/utils.js';
 
 // The player's visible character: a simple "box person" rig with a duffel
@@ -81,8 +82,10 @@ export class PlayerModel {
     this.torso.add(this.head);
     this.head.add(box(0.1, 0.08, 0.1, C.skin, 0.03)); // neck
     this.head.add(box(0.28, 0.3, 0.28, C.mask, 0.2)); // balaclava
-    this.head.add(box(0.22, 0.06, 0.02, C.skin, 0.24, 0, 0.14)); // eye slit
-    this.head.add(box(0.3, 0.07, 0.3, 0x2a2b31, 0.36)); // beanie rim
+    this.eyes = box(0.22, 0.06, 0.02, C.skin, 0.24, 0, 0.14); // eye slit (or sunglasses)
+    this.head.add(this.eyes);
+    this.beanie = box(0.3, 0.07, 0.3, 0x2a2b31, 0.36); // beanie rim
+    this.head.add(this.beanie);
 
     // --- Arms (shoulder -> elbow)
     const armLen = 0.32, foreLen = 0.3;
@@ -138,12 +141,13 @@ export class PlayerModel {
     this.root.traverse((o) => { if (o.isMesh) o.userData.baseHex = o.material.color.getHex(); });
   }
 
-  /** Your own look (an outfit from outfits.js): clothes, and whether you carry the cash bag. */
-  setLook(outfit) {
-    this.own = outfit?.colors || null;
-    const bag = outfit ? outfit.bag : true;
-    this.bag.visible = bag;
-    this.strap.visible = bag;
+  /** Your own look (outfits.js): clothes, face, hat, and whether you carry the cash bag. */
+  setLook(look) {
+    this.own = lookColors(look);
+    this.hat = look.hat;
+    this.shades = look.face === 'shades';
+    this.bag.visible = look.bag;
+    this.strap.visible = look.bag;
     this.setOutfit(null);
   }
 
@@ -152,6 +156,7 @@ export class PlayerModel {
    * (e.g. a casino staff uniform). null = back to the original outfit.
    */
   setOutfit(colors = null) {
+    const own = !colors;
     colors ||= this.own;
     this.root.traverse((o) => {
       if (!o.isMesh) return;
@@ -160,6 +165,10 @@ export class PlayerModel {
       if (colors) for (const [k, v] of Object.entries(colors)) if (this._colors[k] === base) hex = v;
       o.material.color.setHex(hex);
     });
+    // Your own hat and sunglasses (a disguise brings its own beanie)
+    this.beanie.visible = !own || this.hat !== null;
+    if (own && this.hat != null) this.beanie.material.color.setHex(this.hat);
+    if (own && this.shades) this.eyes.material.color.setHex(0x0c0d10);
   }
 
   /**

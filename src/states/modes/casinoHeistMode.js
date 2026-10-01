@@ -319,7 +319,7 @@ export class CasinoHeistMode {
       // (crossed the beam since last frame, or standing in it: a slow frame can't skip a laser)
       const px = this.prevX ?? pos.x;
       const crossed = (px - las.x) * (pos.x - las.x) <= 0 || Math.abs(pos.x - las.x) < 0.4;
-      if (on && crossed && pos.z > -24 && pos.z < -16) {
+      if (on && crossed && pos.z > -24 && pos.z < -16 && !admin.flag('noLasers')) {
         if (las.heights.some((y) => y > pos.y + 0.02 && y < pos.y + p.height)) {
           s.laserAlarm();
           this._caught('ALARM!', las.type === 'low' ? 'You touched a laser. Crouch (C) or slide under the waist-high beams.' : 'You touched a laser. Wait for the pulsing beams to switch off, then run.');

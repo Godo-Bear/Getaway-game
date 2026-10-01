@@ -13,6 +13,7 @@
 //      const r = mg.update(dt, pressed); // 'done' when finished
 //      mg.close() when you're finished with it.
 
+import { admin } from '../core/admin.js';
 import { diff } from '../core/difficulty.js';
 import { audio } from '../core/audio.js';
 
@@ -69,6 +70,7 @@ export class MiniGame {
 
   /** @returns {'done'|'miss'|'hit'|null} */
   update(dt, pressed) {
+    if (admin.flag('instantMini')) return 'done'; // (admin: Instant hacks)
     const d = diff();
     this.t += dt;
     this.flash = Math.max(0, this.flash - dt);

@@ -4,7 +4,8 @@ import { PlayerController } from '../player/playerController.js';
 import { PlayerModel } from '../player/playerModel.js';
 import { FirstPersonArms } from '../player/firstPersonArms.js';
 import { save } from '../core/save.js';
-import { OUTFITS, outfitById } from '../player/outfits.js';
+import { currentLook, faceShowing } from '../player/outfits.js';
+import { showLookEditor } from '../ui/customise.js';
 import { audio } from '../core/audio.js';
 import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
 import { NightLighting, lightingForQuality, pickTime } from '../world/lighting.js';
@@ -12,7 +13,7 @@ import { Weather, pickWeather } from '../world/weather.js';
 import { FootGadgets } from '../gadgets/footGadgets.js';
 import { owns } from '../gadgets/gadgets.js';
 import { admin } from '../core/admin.js';
-import { CONTROLS, showCard } from '../ui/menus.js';
+import { CONTROLS } from '../ui/menus.js';
 import { damp, clamp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
 import { RooftopRunMode } from './modes/rooftopRunMode.js';
@@ -77,7 +78,7 @@ export class OnFootState extends PlayState {
     this.player.jumpScale = owns('springs') ? 1.2 : 1;
     this.player.wallRunScale = owns('grips') ? 2 : 1;
     this.model = new PlayerModel();
-    this.model.setLook(outfitById(game.settings.outfit));
+    this.model.setLook(currentLook(game.settings));
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
     this.gadgets = new FootGadgets(this); // shop gadgets (F)
@@ -158,6 +159,9 @@ export class OnFootState extends PlayState {
     const c = this.ctl;
     // Admin: super speed and Rocket Boots (can change mid-game from the pause menu)
     this.player.speedScale = admin.flag('superSpeed') ? 1.6 : 1;
+    this.player.jumpScale = (owns('springs') ? 1.2 : 1) * (admin.flag('moonJump') ? 1.9 : 1);
+    if (admin.flag('alwaysGlide')) this.player.canGlide = true;
+    this.model.head.scale.setScalar(admin.flag('bigHead') ? 2.1 : 1);
     this.player.canRocket = owns('rocket');
     const mouse = input.consumeMouse();
     this.cam.applyMouse(mouse.x, mouse.y);
@@ -361,22 +365,34 @@ export class OnFootState extends PlayState {
 
   /** In everyday clothes (not the balaclava)? Street patrols notice you later. */
   get streetClothes() {
-    return outfitById(this.game.settings.outfit).id !== 'heist';
+    return faceShowing(currentLook(this.game.settings));
   }
 
   /** Pause menu: change your look. */
   pauseButtons() {
-    return [{ label: 'Your look', sub: outfitById(this.game.settings.outfit).name, onClick: () => this.showWardrobe() }];
+    const marker = this.game.hud.markerPos;
+    return [
+      { label: 'Your look', sub: 'Mix and match your clothes', onClick: () => this.showWardrobe() },
+      ...(admin.on && marker ? [{ label: 'Admin: teleport to the marker', sub: 'Jump straight to the objective', onClick: () => { this.resume(); this.adminTeleport(marker); } }] : []),
+    ];
   }
 
+  /** Admin: straight to the objective marker (it floats a little above the spot). */
+  adminTeleport(m) {
+    const top = this.world.groundHeight(m.x, m.z, m.y + 0.5);
+    const y = Number.isFinite(top) && top > m.y - 6 ? top + 0.05 : m.y - 1.2;
+    this.player.zip = null;
+    this.placePlayer(new THREE.Vector3(m.x, y, m.z), this.cam.yaw);
+    if (this.game.speedrun) this.game.speedrun.adminUsed = true;
+  }
+
+  /** Your look: mix and match, shown live on your character (turned to face you). */
   showWardrobe() {
     const back = () => { this.paused = false; this.pause(); };
-    const cur = outfitById(this.game.settings.outfit).id;
-    showCard('<p class="sub kicker">Wardrobe</p><h2>Your look</h2><p class="sub">In broad daylight a balaclava gets noticed. In everyday clothes, police and bounty hunters on the street only recognise you up close (walk, don\'t sprint).</p>',
-      [...OUTFITS.map((o) => ({
-        label: (o.id === cur ? '✓ ' : '') + o.name, sub: o.text, primary: o.id === cur,
-        onClick: () => { this.game.settings.outfit = o.id; save.write(); this.model.setLook(o); this.mode.onLookChanged?.(); back(); },
-      })), { label: 'Back', onClick: back }], { grid: true });
+    this.player.facing = Math.atan2(this.camera.position.x - this.player.pos.x, this.camera.position.z - this.player.pos.z);
+    this.model.update(0, this.player);
+    this.cam.distance = Math.max(this.cam.distance, 4.5); // (step back to see the whole outfit)
+    showLookEditor(this.game, back, (look) => { this.model.setLook(look); this.mode.onLookChanged?.(); });
   }
 
   flash(title, message, color = 'var(--cyan)') {

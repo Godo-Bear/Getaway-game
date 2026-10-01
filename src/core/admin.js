@@ -24,13 +24,25 @@ const CODE_HASH = '9c925e1c9a939a528cedbc7bfa554bb837d5230ce8d34f8abfb34a0e17ce6
  * (Any of them on = speedrun times aren't saved.)
  */
 export const ABILITIES = [
-  { id: 'noCooldowns', name: 'No gadget recharge', desc: 'Use gadgets as often as you like' },
-  { id: 'god', name: 'God mode', desc: 'Never caught, spotted out or busted' },
-  { id: 'infiniteNitro', name: 'Infinite nitro', desc: 'The nitro tank never empties' },
-  { id: 'superSpeed', name: 'Super speed', desc: 'Run and drive much faster' },
-  { id: 'infiniteRange', name: 'Infinite range', desc: 'Grapple onto any building you can see; EMP and Flashbang hit every cop; smoke hides you anywhere' },
-  { id: 'adminGadgets', name: 'Admin gadgets', desc: 'Rocket Boots, Invisibility Cloak, Police Freeze and Teleporter in the Shop' },
+  // Stealth
+  { id: 'god', group: 'Stealth', name: 'God mode', desc: 'Never caught, spotted out or busted' },
+  { id: 'unseen', group: 'Stealth', name: 'Unseen', desc: 'Guards, street patrols and searchlights can\'t see you' },
+  { id: 'noLasers', group: 'Stealth', name: 'No lasers', desc: 'Walk straight through laser beams' },
+  { id: 'instantMini', group: 'Stealth', name: 'Instant hacks', desc: 'Every hack and safe opens the moment you start it' },
+  // Movement
+  { id: 'superSpeed', group: 'Movement', name: 'Super speed', desc: 'Run and drive much faster' },
+  { id: 'moonJump', group: 'Movement', name: 'Moon jump', desc: 'Jump almost twice as high' },
+  { id: 'alwaysGlide', group: 'Movement', name: 'Glider always on', desc: 'Press jump again in the air and hold it to glide, anywhere' },
+  { id: 'infiniteNitro', group: 'Movement', name: 'Infinite nitro', desc: 'The nitro tank never empties' },
+  // Gadgets
+  { id: 'noCooldowns', group: 'Gadgets', name: 'No gadget recharge', desc: 'Use gadgets as often as you like' },
+  { id: 'infiniteRange', group: 'Gadgets', name: 'Infinite range', desc: 'Grapple onto any building you can see; EMP and Flashbang hit every cop; smoke hides you anywhere' },
+  { id: 'adminGadgets', group: 'Gadgets', name: 'Admin gadgets', desc: 'Rocket Boots, Invisibility Cloak, Police Freeze and Teleporter in the Shop' },
+  // Fun
+  { id: 'slowMo', group: 'Fun', name: 'Slow motion', desc: 'The whole game runs at half speed' },
+  { id: 'bigHead', group: 'Fun', name: 'Big head', desc: 'Your character\'s head is twice the size' },
 ];
+export const ABILITY_GROUPS = ['Stealth', 'Movement', 'Gadgets', 'Fun'];
 
 const normalise = (s) => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
 

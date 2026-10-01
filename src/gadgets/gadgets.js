@@ -20,7 +20,8 @@ import { diff } from '../core/difficulty.js';
 
 // Shop categories, in the order the Shop shows them.
 export const CATEGORIES = [
-  { id: 'utility', name: 'Utility', blurb: 'Hide, distract and slip away.' },
+  { id: 'hide', name: 'Hiding', blurb: 'Vanish from the police: cloaks, a cardboard box, a chameleon suit, quiet gear, and a car that changes its paint.' },
+  { id: 'utility', name: 'Utility', blurb: 'Distract them and slip away.' },
   { id: 'movement', name: 'Movement', blurb: 'Get around the rooftops faster.' },
   { id: 'damage', name: 'Damage', blurb: 'Knock the police out of the chase.' },
   { id: 'getaway', name: 'Getaways', blurb: 'Upgrades for the getaway car.' },
@@ -31,8 +32,21 @@ export const CATEGORIES = [
 // kind: 'foot' / 'car' = press F to use (equip one of each), 'passive' = always on.
 // cat: which Shop category it's listed under.
 export const GADGETS = [
+  // ---- Hiding
+  { id: 'box', cat: 'hide', kind: 'foot', name: 'Cardboard Box', price: 500, cooldown: 15, color: '#c8a46a', icon: '▢',
+    desc: 'Duck under a cardboard box. Nobody looks twice at a box: you\'re hidden while you stand still or creep along. Sprint, or press the gadget button again, to throw it off.' },
+  { id: 'chameleon', cat: 'hide', kind: 'foot', name: 'Chameleon Suit', price: 1500, cooldown: 45, color: '#6affb0', icon: '◍',
+    desc: 'For 12 seconds your suit copies everything around you: walk (don\'t sprint) and nobody can see you.' },
+  { id: 'mirage', cat: 'hide', kind: 'foot', name: 'Mirage Cloak', price: 2600, cooldown: 60, color: '#b48cff', icon: '◌',
+    desc: 'A light-bending cloak: completely invisible for 7 seconds, even at a sprint.' },
+  { id: 'quiet', cat: 'hide', kind: 'passive', name: 'Ninja Kit', price: 1100, color: '#8a8fb0', icon: '☾',
+    desc: 'Soft shoes and dark cloth: guards and police patrols spot you from a quarter less far.' },
+  { id: 'plates', cat: 'hide', kind: 'car', name: 'Paint Shifter', price: 1800, cooldown: 60, color: '#ff7ad9', icon: '◧',
+    desc: 'Flip the car\'s paint and number plates for 20 seconds: the police are looking for a different car and lose your trail.' },
+  { id: 'blackout', cat: 'hide', kind: 'car', name: 'Blackout Mode', price: 1400, cooldown: 50, color: '#5a6a8a', icon: '◒',
+    desc: 'Lights off, engine quiet, for 8 seconds: police only see you from very close.' },
   // ---- Utility
-  { id: 'smoke', cat: 'utility', kind: 'foot', name: 'Smoke Bomb', price: 400, cooldown: 35, color: '#b8c0cc', icon: '☁',
+  { id: 'smoke', cat: 'hide', kind: 'foot', name: 'Smoke Bomb', price: 400, cooldown: 35, color: '#b8c0cc', icon: '☁',
     desc: 'Bursts into a thick cloud at your feet. For 6 seconds helicopters and officers can\'t see you, and the spotlight meter drains away.' },
   { id: 'decoy', cat: 'utility', kind: 'foot', name: 'Holo-Decoy', price: 800, cooldown: 45, color: '#39e6ff', icon: '◈',
     desc: 'Drops a glowing hologram of you. For 8 seconds the spotlights and officers chase it instead of you.' },

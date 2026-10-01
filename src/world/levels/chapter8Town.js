@@ -41,7 +41,7 @@ export function buildChapter8Town() {
   const pine = (x, z, s = 1) => {
     const t = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 1.6, 6), lambert(0x3a2a1c)); t.position.set(x, 0.8, z);
     const c1 = new THREE.Mesh(new THREE.ConeGeometry(1.6 * s, 3.4 * s, 7), lambert(0x1d3a2a)); c1.position.set(x, 2.6 * s + 0.6, z);
-    const c2 = new THREE.Mesh(new THREE.ConeGeometry(1.0 * s, 1.4 * s, 7), lambert(0xeef2f8)); c2.position.set(x, 3.9 * s + 0.6, z);
+    const c2 = new THREE.Mesh(new THREE.ConeGeometry(1.0 * s, 1.4 * s, 7), lambert(0xd2dae6)); c2.position.set(x, 3.9 * s + 0.6, z);
     g.add(t, c1, c2);
     w.addBlock(x, 0, z, 0.6, 2, 0.6, { tag: 'prop' });
   };
@@ -69,7 +69,7 @@ export function buildChapter8Town() {
   // the bank's security hut (in the street by the station)
   const hut = { x: ST(2) - 3, z: C(1) + 14 };
   box(hut.x, 0, hut.z, 3, 2.6, 3, 0x6a6f78);
-  box(hut.x, 2.6, hut.z, 3.4, 0.2, 3.4, 0xeef2f8, false);
+  box(hut.x, 2.6, hut.z, 3.4, 0.2, 3.4, 0xd2dae6, false);
   sign('BANK SECURITY', hut.x - 1.55, 2.1, hut.z, -Math.PI / 2, '#ffd040', 3);
   // the bank's town office (north side of block 1,2)
   const office = { x: C(1) + 6, z: C(2) - PAV };
@@ -89,7 +89,7 @@ export function buildChapter8Town() {
     const along = Math.abs(Math.sin(heading)) > 0.5;
     box(x, 0.25, z, along ? 4.2 : 1.9, 1.1, along ? 1.9 : 4.2, color);
     box(x, 1.35, z, along ? 2.4 : 1.7, 0.55, along ? 1.7 : 2.4, color);
-    box(x, 1.9, z, along ? 2.3 : 1.6, 0.12, along ? 1.6 : 2.3, 0xeef2f8, false);
+    box(x, 1.9, z, along ? 2.3 : 1.6, 0.12, along ? 1.6 : 2.3, 0xd2dae6, false);
   };
   [[C(1) + 10, C(1) + 25.2, Math.PI / 2, 0x8a2a2a], [C(1) - 12, C(1) + 25.2, Math.PI / 2, 0x2a5a8a], [ST(2) + 3.2, C(1) - 8, 0, 0x3a3a3a],
     [C(2) - 6, C(2) - 25.2, Math.PI / 2, 0x6a8a3a], [C(3) - 10, C(3) + 25.2, Math.PI / 2, 0xc8a040], [ST(1) - 3.2, C(2) + 10, 0, 0xd8d8d8]]
@@ -137,7 +137,7 @@ export function buildChapter8Town() {
 //  and the Glacier Bank's cable car climbing the big peak.
 // ----------------------------------------------------------------------
 function buildAlpineTown(city, g, w) {
-  const SNOW = 0xf2f6fc;
+  const SNOW = 0xd2dae6; // (a soft blue-grey white: pure white snow is blinding in daylight)
   const snowMat = new THREE.MeshLambertMaterial({ color: SNOW });
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x4a3222 });
   const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6a6660 });
@@ -195,12 +195,12 @@ function buildAlpineTown(city, g, w) {
   g.add(eaveMesh);
 
   // --- Snow on the ground (the roads keep a little of their colour: tyre tracks)
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshLambertMaterial({ color: 0xd8e0ea, transparent: true, opacity: 0.68 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshLambertMaterial({ color: 0xc4cedc, transparent: true, opacity: 0.66 }));
   ground.rotation.x = -Math.PI / 2;
   ground.position.y = 0.012;
   ground.receiveShadow = true;
   g.add(ground);
-  const field = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: 0xd8e0ea }));
+  const field = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: 0xc4cedc }));
   field.rotation.x = -Math.PI / 2;
   field.position.y = -0.02;
   g.add(field);
@@ -242,7 +242,7 @@ function buildAlpineTown(city, g, w) {
 
   // --- Mountains all round the valley (not fogged: they're the view)
   const rock = new THREE.MeshLambertMaterial({ color: 0x7c889c, fog: false });
-  const cap = new THREE.MeshLambertMaterial({ color: 0xf4f8ff, fog: false });
+  const cap = new THREE.MeshLambertMaterial({ color: 0xdfe6f0, fog: false });
   const mountain = (x, z, r, h) => {
     const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), rock);
     m.position.set(x, h / 2 - 20, z);

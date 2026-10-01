@@ -25,7 +25,7 @@ export function buildChapter8Vault() {
   const world = new CollisionWorld(8);
   const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.85, ...extra });
   const M = {
-    snow: mat(0xeef2f8, { roughness: 1 }), rock: mat(0x4a4d55), rockDark: mat(0x34363c), ice: mat(0xa8d8f0, { roughness: 0.15, metalness: 0.1 }),
+    snow: mat(0xc8d0dc, { roughness: 1 }), rock: mat(0x4a4d55), rockDark: mat(0x34363c), ice: mat(0xa8d8f0, { roughness: 0.15, metalness: 0.1 }),
     steel: mat(0x8a929c, { metalness: 0.7, roughness: 0.3 }), dark: mat(0x1c1e22), gold: mat(0xe8c040, { metalness: 0.9, roughness: 0.25, emissive: 0x3a2a00 }),
     wood: mat(0x6b5236), orange: mat(0xd8641c), station: mat(0x5a6070),
   };

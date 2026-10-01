@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { generateRooftopCity, findClearRoofSpot } from '../../world/rooftopCity.js';
 import { makeGlowMaterial } from '../../world/materials.js';
 import { makeCarMesh } from '../../vehicles/carModel.js';
-import { playerCarColour } from '../../vehicles/carColours.js';
+import { playerCarColour, playerCarStyle } from '../../vehicles/carColours.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
@@ -93,7 +93,7 @@ export class FreeRunMode {
     const color = playerCarColour();
     this.cars = picked.map((s) => {
       const g = new THREE.Group();
-      const mesh = makeCarMesh({ kind: 'player', color });
+      const mesh = makeCarMesh({ kind: 'player', color, style: playerCarStyle() });
       mesh.rotation.y = s.heading;
       g.add(mesh);
       const ring = new THREE.Mesh(new THREE.RingGeometry(3.4, 3.9, 36), makeGlowMaterial(0x39a8ff, 0.7));

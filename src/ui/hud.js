@@ -136,6 +136,7 @@ export class Hud {
    * with an arrow if it's off-screen).
    */
   setMarker(worldPos, camera, label, color = 'var(--amber)', distance = null) {
+    this.markerPos = worldPos ? { x: worldPos.x, y: worldPos.y, z: worldPos.z } : null; // (admin: teleport to the marker)
     this._placeMarker(this.el.marker, 'marker', worldPos, camera, label, color, distance);
   }
 

@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { generateRooftopCity } from '../rooftopCity.js';
 import { makeCarMesh } from '../../vehicles/carModel.js';
-import { playerCarColour } from '../../vehicles/carColours.js';
+import { playerCarColour, playerCarStyle } from '../../vehicles/carColours.js';
 import { makeTextTexture } from '../materials.js';
 
 // ======================================================================
@@ -45,7 +45,7 @@ export function buildChapter5Recruit() {
     g.add(m);
   };
   const car = (x, z, heading, kind, color) => {
-    const m = makeCarMesh({ kind, color });
+    const m = makeCarMesh({ kind, color, style: kind === 'player' ? playerCarStyle() : null });
     m.position.set(x, 0, z);
     m.rotation.y = heading;
     g.add(m);

@@ -125,7 +125,7 @@ export class CustomLevelMode {
       las.beam.material.opacity = on ? 1 : 0.4;
       las.beam.material.transparent = !on;
       const crossed = (prevZ - las.z) * (p.pos.z - las.z) <= 0 || Math.abs(p.pos.z - las.z) < 0.4;
-      if (on && crossed && p.pos.x > las.x0 && p.pos.x < las.x1
+      if (on && crossed && !admin.flag('noLasers') && p.pos.x > las.x0 && p.pos.x < las.x1
         && las.y > p.pos.y + 0.02 && las.y < p.pos.y + p.height && !admin.flag('god')) {
         this.prevZ = null;
         this.caught++;

@@ -21,6 +21,7 @@ const GRAPPLE_RANGE = 24, GRAPPLE_MAX_RISE = 18; // enough to get from the stree
 const FAR = 600; // "infinite range" ability (admin): as far as you can see
 const FLASH_BLIND = 5, FLASH_RADIUS = 15;
 const CLOAK_TIME = 15;
+const MIRAGE_TIME = 7, CHAMELEON_TIME = 12, BOX_TIME = 30;
 
 const _v = new THREE.Vector3(), _dir = new THREE.Vector3();
 
@@ -35,7 +36,10 @@ export class FootGadgets {
   }
 
   get concealed() {
-    if (this.cloak > 0) return true; // Invisibility Cloak (admin)
+    if (this.cloak > 0) return true; // Invisibility Cloak (admin) / Mirage Cloak
+    const pc = this.state.player;
+    if (this.box && pc.horizontalSpeed < 3.6) return true;          // Cardboard Box: still, or creeping
+    if (this.cham > 0 && pc.horizontalSpeed < 5.2) return true;     // Chameleon Suit: walking
     const s = this.smoke;
     return !!s && s.t < SMOKE_TIME && (admin.flag('infiniteRange') || this.state.player.pos.distanceTo(s.pos) < SMOKE_RADIUS);
   }
@@ -47,10 +51,12 @@ export class FootGadgets {
 
   use() {
     if (this.state.mode.ghost) return; // no police to fool in ghost mode
+    if (this.box) { this._clearBox('You throw the box off.'); return; } // (press again to get out)
     if (!this.slot.ready) { this.slot.explainNotReady(); return; }
     const id = this.slot.gadget.id;
     const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash()
-      : id === 'cloak' ? this._cloak() : this._grapple();
+      : id === 'cloak' ? this._cloak() : id === 'mirage' ? this._cloak(MIRAGE_TIME, 'Mirage Cloak!')
+      : id === 'box' ? this._box() : id === 'chameleon' ? this._chameleon() : this._grapple();
     if (ok) this.slot.used();
   }
 
@@ -121,23 +127,60 @@ export class FootGadgets {
   }
 
   // ---------------------------------------------------------------- Invisibility Cloak (admin)
-  _cloak() {
-    this.cloak = CLOAK_TIME;
+  _cloak(time = CLOAK_TIME, title = 'Invisible!') {
+    this.cloak = time;
     this._setSeeThrough(true);
     audio.sfx('whoosh', { vol: 0.8 });
-    this.state.game.hud.toast('Invisible!', `Nobody can see you for ${CLOAK_TIME} seconds.`, '#b48cff', 3);
+    this.state.game.hud.toast(title, `Nobody can see you for ${time} seconds.`, '#b48cff', 3);
     return true;
   }
 
   /** Make the player's body see-through (or solid again). */
-  _setSeeThrough(on) {
+  _setSeeThrough(on, opacity = 0.22) {
     const root = this.state.model?.root;
     root?.traverse((o) => {
       if (!o.isMesh || !o.material) return;
       o.material.transparent = on;
-      o.material.opacity = on ? 0.22 : 1;
+      o.material.opacity = on ? opacity : 1;
       o.material.needsUpdate = true;
     });
+  }
+
+  // ---------------------------------------------------------------- Chameleon Suit
+  _chameleon() {
+    this.cham = CHAMELEON_TIME;
+    this._setSeeThrough(true, 0.4);
+    audio.sfx('whoosh', { vol: 0.6 });
+    this.state.game.hud.toast('Chameleon suit!', `Walk, don't sprint: nobody can see you for ${CHAMELEON_TIME} seconds.`, '#6affb0', 3);
+    return true;
+  }
+
+  // ---------------------------------------------------------------- Cardboard Box
+  _box() {
+    const pc = this.state.player;
+    if (pc.state !== 'ground') { this.state.game.hud.toast('Not in mid-air', 'Stand on something first.', 'var(--muted)', 2); return false; }
+    const mat = new THREE.MeshLambertMaterial({ color: 0xb88a52 });
+    const mesh = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.1, 1.05, 1.1), mat);
+    body.position.y = 0.525;
+    body.castShadow = true;
+    const tape = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.06, 0.22), new THREE.MeshLambertMaterial({ color: 0xd8c8a0 }));
+    tape.position.y = 1.03;
+    mesh.add(body, tape);
+    this.state.scene.add(mesh);
+    this.box = { mesh, t: 0 };
+    this.state.model.root.visible = false;
+    audio.sfx('land', { vol: 0.6 });
+    this.state.game.hud.toast('Cardboard box', 'Stand still or creep along: nobody looks twice at a box. Sprint, or press the gadget button again, to throw it off.', '#c8a46a', 4);
+    return true;
+  }
+
+  _clearBox(msg) {
+    if (!this.box) return;
+    this.state.scene.remove(this.box.mesh);
+    this.box = null;
+    if (this.state.model) this.state.model.root.visible = !this.state.cam?.firstPerson;
+    if (msg) this.state.game.hud.toast(msg, '', 'var(--muted)', 1.5);
   }
 
   // ---------------------------------------------------------------- Flashbang
@@ -215,6 +258,20 @@ export class FootGadgets {
   // ---------------------------------------------------------------- Per frame
   update(dt) {
     this.slot.update(dt);
+    if (this.box) {
+      const pc = this.state.player, b = this.box;
+      b.t += dt;
+      b.mesh.position.set(pc.pos.x, pc.pos.y, pc.pos.z);
+      b.mesh.rotation.y = pc.facing;
+      b.mesh.position.y += pc.horizontalSpeed > 0.5 ? Math.abs(Math.sin(b.t * 9)) * 0.05 : 0; // (shuffling along)
+      this.state.model.root.visible = false;
+      if (pc.horizontalSpeed > 6 || pc.state !== 'ground' && pc.state !== 'air') this._clearBox('Box off!');
+      else if (b.t > BOX_TIME) this._clearBox('The box falls apart.');
+    }
+    if (this.cham > 0) {
+      this.cham -= dt;
+      if (this.cham <= 0) { this._setSeeThrough(false); this.state.game.hud.toast('Suit off', '', 'var(--muted)', 1.5); }
+    }
     if (this.cloak > 0) {
       this.cloak -= dt;
       if (this.cloak <= 0) {
@@ -265,8 +322,10 @@ export class FootGadgets {
 
   /** Clear any active effects (on restart / respawn). */
   reset() {
-    if (this.cloak > 0) this._setSeeThrough(false);
+    if (this.cloak > 0 || this.cham > 0) this._setSeeThrough(false);
     this.cloak = 0;
+    this.cham = 0;
+    this._clearBox();
     this._clearSmoke();
     this._clearDecoy();
     this._clearCable();

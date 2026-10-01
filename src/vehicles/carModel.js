@@ -37,7 +37,8 @@ function addBox(parent, w, h, d, mat, x, y, z) {
  * @param {'player'|'police'|'civilian'|'van'|'taxi'} opts.kind
  * @param {number} opts.color
  */
-export function makeCarMesh({ kind = 'civilian', color = 0x888888 } = {}) {
+export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null } = {}) {
+  const st = style || { stripe: 0x151515, rims: 0x777777, spoiler: true, tint: null, glow: null };
   const g = new THREE.Group();
   const body = new THREE.Group(); // tilts for pitch/roll without moving wheels' parent
   g.add(body);
@@ -50,7 +51,7 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888 } = {}) {
     addBox(body, 2.0, 0.7, 0.1, glass(), 0, 1.9, 2.52);
   } else {
     addBox(body, 2.05, 0.7, 4.4, bodyMat, 0, 0.72, 0);           // lower body
-    const cab = addBox(body, 1.75, 0.6, 2.1, kind === 'police' ? lambert(0xf2f2f2) : glass(), 0, 1.36, -0.25);
+    const cab = addBox(body, 1.75, 0.6, 2.1, kind === 'police' ? lambert(0xf2f2f2) : kind === 'player' && st.tint != null ? lambert(st.tint) : glass(), 0, 1.36, -0.25);
     cab.castShadow = true;
     if (kind === 'police') {
       addBox(body, 1.78, 0.36, 1.7, glass(), 0, 1.4, -0.25);      // windows band
@@ -59,14 +60,25 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888 } = {}) {
     }
     if (kind === 'player') {
       // Racing stripes and a spoiler for the getaway car
-      const stripe = lambert(0x151515);
-      for (const x of [-0.22, 0.22]) {
-        addBox(body, 0.24, 0.02, 4.42, stripe, x, 1.08, 0);
-        addBox(body, 0.24, 0.02, 2.12, stripe, x, 1.67, -0.25);
+      const stripe = lambert(st.stripe ?? 0x151515);
+      if (st.stripe != null) {
+        for (const x of [-0.22, 0.22]) {
+          addBox(body, 0.24, 0.02, 4.42, stripe, x, 1.08, 0);
+          addBox(body, 0.24, 0.02, 2.12, stripe, x, 1.67, -0.25);
+        }
       }
-      addBox(body, 1.9, 0.08, 0.4, stripe, 0, 1.35, -2.05);
-      addBox(body, 0.08, 0.3, 0.3, stripe, -0.8, 1.18, -2.05);
-      addBox(body, 0.08, 0.3, 0.3, stripe, 0.8, 1.18, -2.05);
+      if (st.spoiler) {
+        const wing = lambert(st.stripe ?? 0x151515);
+        addBox(body, 1.9, 0.08, 0.4, wing, 0, 1.35, -2.05);
+        addBox(body, 0.08, 0.3, 0.3, wing, -0.8, 1.18, -2.05);
+        addBox(body, 0.08, 0.3, 0.3, wing, 0.8, 1.18, -2.05);
+      }
+      if (st.glow != null) {
+        // Underglow: a soft coloured light on the road under the car
+        const glow = new THREE.Mesh(geo('underglow', () => { const p = new THREE.PlaneGeometry(3.2, 5.6); p.rotateX(-Math.PI / 2); return p; }), makeGlowMaterial(st.glow, 0.55));
+        glow.position.y = 0.05;
+        g.add(glow);
+      }
     }
     if (kind === 'taxi') {
       addBox(body, 0.7, 0.22, 0.3, new THREE.MeshBasicMaterial({ color: 0xfff2a0, toneMapped: false }), 0, 1.78, -0.25);
@@ -127,7 +139,7 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888 } = {}) {
     g.add(w);
     wheels.push(w);
     // Hub cap so the spin is visible
-    const hub = new THREE.Mesh(geo('hub', () => new THREE.BoxGeometry(0.36, 0.5, 0.12)), lambert(0x777777));
+    const hub = new THREE.Mesh(geo('hub', () => new THREE.BoxGeometry(0.36, 0.5, 0.12)), lambert(kind === 'player' ? st.rims ?? 0x777777 : 0x777777));
     w.add(hub);
   }
 

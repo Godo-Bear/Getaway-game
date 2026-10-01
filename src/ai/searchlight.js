@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { admin } from '../core/admin.js';
 import { makeGlowMaterial } from '../world/materials.js';
 
 // A searchlight on a prison watchtower. The spot sweeps slowly between a few
@@ -62,6 +63,7 @@ export class Searchlight {
 
   /** Is the player standing in the light (and in view of the lamp)? */
   lights(pos, height) {
+    if (admin.flag('unseen')) return false;
     if (Math.hypot(pos.x - this.spot.x, pos.z - this.spot.z) > RADIUS) return false;
     _from.copy(this.lamp);
     _dir.set(pos.x, pos.y + Math.min(1.2, height * 0.7), pos.z).sub(_from);

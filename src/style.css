@@ -565,3 +565,49 @@ body.alarm-on::after { content: ''; position: fixed; inset: 0; z-index: 7; point
 #rotate span { color: var(--muted); font-size: 16px; max-width: 280px; }
 @keyframes rotate-hint { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
 @media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }
+
+/* ===== Admin panel: tabs, then tidy lists of rows with switches ===== */
+.adm-status { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 14px; color: var(--muted); margin: -2px 0 10px; }
+.adm-status b { color: #ff4dd2; }
+.adm-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); }
+.adm-tabs .chip { text-transform: none; font-size: 14px; padding: 6px 12px; }
+.adm-tabs .chip.on { background: #ff4dd2; border-color: #ff4dd2; color: #1a0414; }
+.card p.adm-group, .adm-group { font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); margin: 12px 0 5px; }
+.adm-list { display: grid; border-radius: 12px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.03); }
+.adm-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 9px 12px; min-height: 48px; }
+.adm-item + .adm-item { border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.adm-text { display: grid; gap: 1px; min-width: 0; }
+.adm-text b { font-size: 15px; font-weight: 700; }
+.adm-text small { font-size: 12px; color: var(--muted); line-height: 1.3; }
+.adm-item .chip { text-transform: none; flex: none; }
+.adm-item .adm-row { margin: 0; flex-wrap: nowrap; }
+.adm-item .adm-row input:not([type=checkbox]) { width: 120px; }
+.adm-adds { justify-content: flex-start; flex-wrap: wrap; gap: 6px; }
+.adm-foot { margin-top: 10px; }
+/* on/off switch */
+.adm-switch { position: relative; flex: none; width: 46px; height: 26px; cursor: pointer; }
+.adm-switch input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.adm-switch span { position: absolute; inset: 0; border-radius: 999px; background: rgba(255, 255, 255, 0.16); transition: background 0.15s; pointer-events: none; }
+.adm-switch span::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; transition: transform 0.15s; }
+.adm-switch input:checked + span { background: #ff4dd2; }
+.adm-switch input:checked + span::after { transform: translateX(20px); }
+.adm-switch input:focus-visible + span { outline: 3px solid var(--ink); outline-offset: 2px; }
+@media (max-height: 520px) {
+  .adm-item { min-height: 40px; padding: 6px 10px; }
+  .adm-text b { font-size: 14px; }
+  .adm-text small { font-size: 11px; }
+}
+
+/* ===== Customise: Your look / Your car (docked to the side, so you can see the change) ===== */
+.cz-note { font-size: 13px !important; margin-bottom: 8px; }
+.cz-row { display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid rgba(255, 255, 255, 0.07); }
+.cz-label { font-size: 13px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.cz-opts { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.cz-opts .chip { text-transform: none; font-size: 13px; padding: 4px 9px; }
+.swatch.sm { width: 26px; height: 26px; }
+.cz-none { font-size: 12px !important; }
+@media (max-height: 520px) {
+  .cz-row { grid-template-columns: 80px 1fr; padding: 4px 0; }
+  .cz-label { font-size: 11px; }
+  .swatch.sm { width: 22px; height: 22px; }
+}

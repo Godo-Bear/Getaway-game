@@ -255,7 +255,7 @@ export class PrisonMode {
           for (const b of las.beams) { b.visible = on || (warn && Math.random() < 0.5); b.material.opacity = on ? 0.95 : 0.35; }
         }
         const crossed = (px - las.x) * (pos.x - las.x) <= 0 || Math.abs(pos.x - las.x) < 0.4;
-        if (on && crossed && pos.z > -30.9 && pos.z < -22.6 && las.heights.some((y) => y > pos.y + 0.02 && y < pos.y + p.height)) {
+        if (on && crossed && !admin.flag('noLasers') && pos.z > -30.9 && pos.z < -22.6 && las.heights.some((y) => y > pos.y + 0.02 && y < pos.y + p.height)) {
           this.prevX = null;
           s.laserAlarm();
           this._caught('ALARM!', las.type === 'low' ? 'You touched a laser. Crouch (C) or slide under the low beam.' : 'You touched a laser. Wait for the beams to switch off, then go.');

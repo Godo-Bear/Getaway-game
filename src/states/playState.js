@@ -5,6 +5,7 @@ import { showCaseBoard } from '../ui/caseBoard.js';
 import { CHAPTERS } from '../story/chapters.js';
 import { buyClue } from '../story/chapterFlow.js';
 import { showSettings } from '../ui/settings.js';
+import { showAdminPanel } from '../ui/adminPanel.js';
 import { audio } from '../core/audio.js';
 import { startSpeedrun, formatRun } from '../story/speedrun.js';
 import { admin } from '../core/admin.js';
@@ -99,6 +100,7 @@ export class PlayState {
         label: 'Admin: skip this part', sub: 'Finish it right now',
         onClick: () => { this.resume(); if (this.game.speedrun) this.game.speedrun.adminUsed = true; this.mode.adminSkip(); },
       }] : []),
+      ...(admin.on ? [{ label: 'Admin panel', sub: 'Abilities, cash, unlocks', onClick: () => showAdminPanel(back) }] : []),
       ...(this.respawnLabel ? [{ label: this.respawnLabel, onClick: () => { this.resume(); this.respawnKey(); } }] : []),
       ...(this.game.speedrun ? [{ label: 'Restart the speedrun', sub: 'Back to the start, timer at zero', onClick: () => startSpeedrun(this.game, this.game.speedrun.routeId) }] : []),
       { label: this.game.speedrun ? 'Restart this part' : 'Restart', sub: this.game.speedrun ? 'The timer keeps running' : undefined, onClick: () => { hideCard(); this.paused = false; this.restart(); this._afterResume(); } },

@@ -15,7 +15,7 @@ import { startSpeedrun } from './story/speedrun.js';
 import { PostFx } from './world/postFx.js';
 import { AutoQuality } from './core/autoQuality.js';
 import { syncOnStart, cloud } from './core/cloud.js';
-import { ABILITIES } from './core/admin.js';
+import { ABILITIES, admin } from './core/admin.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -154,11 +154,11 @@ function start(renderer) {
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
     game.fps = game.fps * 0.95 + (1 / Math.max(dt, 1e-4)) * 0.05;
-    game.dt = dt;
+    game.dt = admin.flag('slowMo') ? dt * 0.5 : dt; // (admin: Slow motion)
 
     game.input.poll(dt);
     game.touch.setMode(game.sm.currentName === 'onFoot' ? 'onFoot' : game.sm.currentName === 'driving' ? 'driving' : 'none');
-    game.sm.update(dt);
+    game.sm.update(game.dt);
     game.sm.render(renderer);
     autoQuality.update(dt);
     game.input.endFrame();

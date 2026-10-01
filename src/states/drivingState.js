@@ -22,7 +22,8 @@ import { CarGadgets } from '../gadgets/carGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
-import { playerCarColour } from '../vehicles/carColours.js';
+import { showGarage } from '../ui/customise.js';
+import { playerCarColour, playerCarStyle } from '../vehicles/carColours.js';
 import { StreetChaseMode } from './modes/streetChaseMode.js';
 import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 import { FreeDriveMode } from './modes/freeDriveMode.js';
@@ -87,7 +88,7 @@ export class DrivingState extends PlayState {
     this.scene.add(this.city.group);
 
     // Player car + a real headlight (the only moving real light)
-    this.playerMesh = makeCarMesh({ kind: 'player', color: playerCarColour() });
+    this.playerMesh = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle() });
     this.scene.add(this.playerMesh);
     this.player = new Car(CAR_SPECS.player, this.playerMesh);
     this.player.active = true;
@@ -334,6 +335,25 @@ export class DrivingState extends PlayState {
 
   applySettings() {
     this.playerMesh.userData.paint?.color.setHex(playerCarColour());
+  }
+
+  /** Pause menu: customise your car (it changes right there on the road). */
+  pauseButtons() {
+    return [{ label: 'Your car', sub: 'Paint, stripes, wheels, underglow', onClick: () => showGarage(this.game, () => { this.paused = false; this.pause(); }, () => this.rebuildCar()) }];
+  }
+
+  /** Your car changed (Your car): swap in a newly built car, same place, same headlight. */
+  rebuildCar() {
+    const old = this.playerMesh;
+    if (!old) return;
+    const mesh = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle() });
+    mesh.position.copy(old.position);
+    mesh.rotation.copy(old.rotation);
+    for (const c of [...old.children]) if (c.isLight || c === old.children.find((x) => x.isLight)?.target || c.type === 'Object3D') mesh.add(c);
+    this.scene.remove(old);
+    this.scene.add(mesh);
+    this.playerMesh = mesh;
+    this.player.mesh = mesh;
   }
 
   /** Crashes: a bang (and a message for big ones), but no damage: the car has no health. */

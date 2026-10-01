@@ -261,12 +261,13 @@ export class NightLighting {
     mats.roof.color.setScalar(1);
     if (this.snow) {
       // Snow: roofs, pavements and roads go white (the textures show through a little)
-      mats.roof.color.setRGB(2.6, 2.7, 2.9);
-      mats.asphalt.color.setRGB(3.2, 3.3, 3.6);
-      mats.concrete.color.setRGB(1.9, 1.95, 2.1);
+      mats.roof.color.setRGB(2.0, 2.1, 2.3);
+      mats.asphalt.color.setRGB(2.3, 2.4, 2.7);
+      mats.concrete.color.setRGB(1.55, 1.6, 1.75);
     }
-    this.exposure = L.exp;
-    this.bloom = L.bloom;
+    // Snow reflects a lot of light: turn the exposure and the glow down so it isn't blinding
+    this.exposure = this.snow ? L.exp * 0.8 : L.exp;
+    this.bloom = this.snow ? L.bloom * 0.3 : L.bloom;
     this._fadeNightGlows(L.halo);
   }
 

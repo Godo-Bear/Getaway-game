@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { PlayerModel } from '../player/playerModel.js';
 import { makeGlowMaterial } from '../world/materials.js';
+import { admin } from '../core/admin.js';
+import { owns } from '../gadgets/gadgets.js';
 
 // Security guards for indoor heists (the casino).
 //
@@ -99,7 +101,7 @@ export class GuardSquad {
   }
 
   get range() {
-    return (this.alert ? this.alertRange : this.baseRange) * this.sight;
+    return (this.alert ? this.alertRange : this.baseRange) * this.sight * (owns('quiet') ? 0.75 : 1); // (Ninja Kit)
   }
 
   /**
@@ -185,7 +187,7 @@ export class GuardSquad {
       u.cone.rotation.y = b.facing;
       const r = this.range;
       u.cone.scale.setScalar(r);
-      u.seesPlayer = !hidden && this._sees(u, player, closeOnly ? Math.min(r, DISGUISE_RANGE) : r);
+      u.seesPlayer = !hidden && !admin.flag('unseen') && this._sees(u, player, closeOnly ? Math.min(r, DISGUISE_RANGE) : r);
       if (u.seesPlayer) seen = true;
       // Spotting a knocked-out colleague
       for (const o of this.units) {

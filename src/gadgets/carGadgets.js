@@ -10,12 +10,16 @@ import { admin } from '../core/admin.js';
 //   Signal Jammer - the police radio goes dead: they lose you on the spot
 //   Spike Drop    - a spike strip behind you; cops that cross it crawl along
 //   Smoke Screen  - thick exhaust smoke: cops behind you can't see you
+//   Paint Shifter - new paint and plates: the police lose your trail
+//   Blackout Mode - lights off, engine quiet: only seen from close up
 
 const OIL_TIME = 14, OIL_RADIUS = 5.5, SPIN_TIME = 2.2;
 const EMP_RADIUS = 45, EMP_TIME = 5;
 const JAM_TIME = 8;
 const SPIKE_TIME = 18, SPIKE_HALF = 3.4, FLAT_TIME = 10;
 const SCREEN_TIME = 7;
+const PLATES_TIME = 20, BLACKOUT_TIME = 8;
+const DISGUISE_PAINTS = [0xe8e6e0, 0x2a5a2a, 0x6a1a8a, 0x8a8f9c, 0xd8c040, 0x3a2a1a];
 
 export class CarGadgets {
   /** @param {import('../states/drivingState.js').DrivingState} state */
@@ -37,6 +41,8 @@ export class CarGadgets {
     else if (id === 'spikes') this._spikes();
     else if (id === 'screen') this._screen();
     else if (id === 'freeze') this._freeze();
+    else if (id === 'plates') this._plates();
+    else if (id === 'blackout') this._blackout();
     else if (id === 'teleport') { if (!this._teleport()) return; }
     else this._jammer();
     this.slot.used();
@@ -165,6 +171,36 @@ export class CarGadgets {
   }
 
   // ---------------------------------------------------------------- Jammer
+  // ---------------------------------------------------------------- Paint Shifter
+  _plates() {
+    const s = this.state, p = s.player, police = s.police, paint = s.playerMesh.userData.paint;
+    this.shifted = PLATES_TIME;
+    if (paint) paint.color.setHex(DISGUISE_PAINTS[Math.floor(Math.random() * DISGUISE_PAINTS.length)]);
+    if (police.everSeen) {
+      // They're looking for a different car now: the search restarts somewhere else
+      const a = Math.random() * Math.PI * 2;
+      police.lastKnown.set(p.pos.x + Math.cos(a) * 140, 0, p.pos.z + Math.sin(a) * 140);
+      police.searching = true;
+      police.timeSinceSeen = 0;
+      police.jammed = Math.max(police.jammed || 0, 3);
+      for (const u of police.units) { u.targetNode = null; u.patrolGoal = null; u.searchGoal = null; }
+    }
+    this._wave(p.pos, 0xff7ad9, 30);
+    audio.sfx('whoosh', { vol: 1 });
+    s.game.hud.toast('New paint, new plates!', `The police are looking for a different car for ${PLATES_TIME} seconds.`, '#ff7ad9', 3);
+  }
+
+  // ---------------------------------------------------------------- Blackout Mode
+  _blackout() {
+    const s = this.state;
+    s.police.blackout = BLACKOUT_TIME;
+    this.dark = BLACKOUT_TIME;
+    s.playerMesh.userData.beam.visible = false;
+    for (const c of s.playerMesh.children) if (c.isLight) c.visible = false;
+    audio.sfx('click', { vol: 1 });
+    s.game.hud.toast('Blackout!', `Lights off: the police only see you from close up for ${BLACKOUT_TIME} seconds.`, '#5a6a8a', 3);
+  }
+
   _jammer() {
     const s = this.state, p = s.player, police = s.police;
     police.jammed = JAM_TIME;
@@ -227,6 +263,14 @@ export class CarGadgets {
 
   update(dt) {
     this.slot.update(dt);
+    if (this.shifted > 0) {
+      this.shifted -= dt;
+      if (this.shifted <= 0) { this.state.applySettings?.(); this.state.game.hud.toast('Paint back to normal', '', 'var(--muted)', 1.5); }
+    }
+    if (this.dark > 0) {
+      this.dark -= dt;
+      if (this.dark <= 0) this._lightsOn();
+    }
     this.strips = this.strips.filter((st) => {
       st.t += dt;
       st.glow.material.opacity = 0.18 + Math.sin(st.t * 5) * 0.07;
@@ -262,7 +306,18 @@ export class CarGadgets {
     });
   }
 
+  _lightsOn() {
+    const m = this.state.playerMesh;
+    if (!m) return;
+    m.userData.beam.visible = true;
+    for (const c of m.children) if (c.isLight) c.visible = true;
+  }
+
   reset() {
+    if (this.shifted > 0) this.state.applySettings?.();
+    if (this.dark > 0) this._lightsOn();
+    this.shifted = 0;
+    this.dark = 0;
     for (const st of this.strips) this.state.scene.remove(st.mesh);
     this.strips = [];
     this.screen = 0;

@@ -3,7 +3,8 @@
 
 import { showCard } from './menus.js';
 import { save } from '../core/save.js';
-import { CAR_COLOURS, isColourUnlocked } from '../vehicles/carColours.js';
+import { showLookEditor, showGarage } from './customise.js';
+import { currentLook } from '../player/outfits.js';
 import { adminSettingsHtml, bindAdminSettings, showAdminPanel } from './adminPanel.js';
 import { difficultyPickerHtml, bindDifficultyPicker } from './difficultyPicker.js';
 
@@ -20,12 +21,6 @@ export function showSettings(game, onBack) {
       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}">
       <output id="${id}-out">${fmt(value)}</output></label>`;
   const pct = (v) => `${Math.round(v * 100)}%`;
-  const colours = CAR_COLOURS.map((c) => {
-    const unlocked = isColourUnlocked(c);
-    return `<button class="swatch${s.carColour === c.id ? ' on' : ''}" data-colour="${c.id}" ${unlocked ? '' : 'disabled'}
-      style="background:${hex(c.hex)}" title="${c.name}${unlocked ? '' : ` (locked: ${c.unlock})`}" aria-label="${c.name}"></button>`;
-  }).join('');
-
   showCard(`
     <h2>Settings</h2>
     <p class="sub setting-head">Difficulty</p>
@@ -54,9 +49,9 @@ export function showSettings(game, onBack) {
       ${[['night', 'night'], ['dawn', 'dawn'], ['day', 'day'], ['dusk', 'dusk'], ['random', 'random'], ['cycle', 'cycle']].map(([v, l]) => `<button class="chip${(s.timeOfDay || 'night') === v ? ' on' : ''}" data-t="${v}">${l}</button>`).join('')}
     </div></div>
     <p class="sub" style="font-size:14px">For Rooftop Run, Street Chase and Free Run (story missions and your own levels pick their own time). Cycle: a whole day passes every 12 minutes.</p>
-    <p class="sub setting-head">Getaway car</p>
-    <div class="swatches">${colours}</div>
-    <p class="sub" id="set-colour-name" style="font-size:14px"></p>
+    <p class="sub setting-head">Customise</p>
+    <div class="seg wrap"><button class="chip cz-open" id="set-look">Your look</button><button class="chip cz-open" id="set-car">Your car</button></div>
+    <p class="sub" style="font-size:14px">Mix and match your clothes, and your getaway car's paint, stripes, wheels, spoiler, windows and underglow.</p>
     ${adminSettingsHtml()}`,
   [{ label: 'Done', primary: true, onClick: onBack }]);
 
@@ -101,18 +96,7 @@ export function showSettings(game, onBack) {
       apply();
     });
   }
-  const nameEl = document.getElementById('set-colour-name');
-  const showName = (c) => { nameEl.textContent = c ? `${c.name}${isColourUnlocked(c) ? '' : ` - locked: ${c.unlock}`}` : ''; };
-  showName(CAR_COLOURS.find((c) => c.id === s.carColour) || CAR_COLOURS[0]);
-  for (const b of document.querySelectorAll('.swatch')) {
-    const c = CAR_COLOURS.find((x) => x.id === b.dataset.colour);
-    b.addEventListener('mouseenter', () => showName(c));
-    b.addEventListener('click', (e) => {
-      e.stopPropagation();
-      s.carColour = c.id;
-      document.querySelectorAll('.swatch').forEach((x) => x.classList.toggle('on', x === b));
-      showName(c);
-      apply();
-    });
-  }
+  const reopen = () => showSettings(game, onBack);
+  document.getElementById('set-look').addEventListener('click', (e) => { e.stopPropagation(); showLookEditor(game, reopen, () => game.sm.current?.model?.setLook(currentLook(s))); });
+  document.getElementById('set-car').addEventListener('click', (e) => { e.stopPropagation(); showGarage(game, reopen, () => game.sm.current?.rebuildCar?.()); });
 }

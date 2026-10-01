@@ -140,10 +140,12 @@ export class PoliceForce {
     this.jammed = Math.max(0, (this.jammed || 0) - dt);
     // Smoke Screen gadget: only cops right on your bumper can see through it.
     this.smoked = Math.max(0, (this.smoked || 0) - dt);
+    // Blackout Mode gadget: lights off, engine quiet: only seen from close up.
+    this.blackout = Math.max(0, (this.blackout || 0) - dt);
     for (const u of this.units) {
       const d = Math.hypot(u.car.pos.x - player.pos.x, u.car.pos.z - player.pos.z);
       u.seesPlayer = !(u.stunned > 0) && this.jammed <= 0 && this.canSee(u.car.pos, player.pos) &&
-        (!inGarage || d < GARAGE_SIGHT) && (this.smoked <= 0 || d < 12);
+        (!inGarage || d < GARAGE_SIGHT) && (this.smoked <= 0 || d < 12) && (this.blackout <= 0 || d < 18);
       if (u.seesPlayer) this.anySees = true;
     }
     if (this.anySees) {

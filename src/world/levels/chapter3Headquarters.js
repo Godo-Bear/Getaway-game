@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { RooftopKit } from '../rooftopKit.js';
 import { makeGlowMaterial, makeTextTexture } from '../materials.js';
 import { makeCarMesh } from '../../vehicles/carModel.js';
-import { playerCarColour } from '../../vehicles/carColours.js';
+import { playerCarColour, playerCarStyle } from '../../vehicles/carColours.js';
 
 // ======================================================================
 //  Chapter 3, Part 1: police headquarters
@@ -89,7 +89,7 @@ export function buildChapter3Headquarters() {
     policeCars.push(m);
   }
   const carPos = new THREE.Vector3(6, 14, -106);
-  const car = makeCarMesh({ kind: 'player', color: playerCarColour() });
+  const car = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle() });
   car.position.copy(carPos);
   car.rotation.y = Math.PI;
   group.add(car);
