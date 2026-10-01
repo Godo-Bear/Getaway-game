@@ -33,6 +33,7 @@ export const BINDINGS = {
   interact: ['KeyE', 'KeyX'], // the action shown on screen (knock out a guard, hack a traffic light...)
   pause: ['KeyP', 'Escape'],
   help: ['KeyH'],
+  car: ['KeyT'],            // Free Run on foot: straight into your car
   debug: ['F3', 'Backquote'],
 };
 

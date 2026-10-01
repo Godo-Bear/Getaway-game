@@ -119,7 +119,21 @@ export class FreeRunMode {
     for (const b of this.bags) this._placeBag(b);
     hud.setPhase(`Free Run${this.police ? ' · police on' : ''}`);
     hud.setObjective('Explore the rooftops');
-    hud.toast('Free Run', 'Grab the cash bags (green beams). Your car is parked on the street (blue beams): walk up to it to drive. Pause for more options.', 'var(--amber)', 6);
+    hud.toast('Free Run', 'Grab the cash bags (green beams). Want to drive? Press "Get in a car" (T): no need to find it.', 'var(--amber)', 6);
+    this._carButton();
+  }
+
+  /** A button on screen that puts you straight in your car (no walking to find it). */
+  _carButton() {
+    this.carBtn?.remove();
+    const b = document.createElement('button');
+    b.className = 'free-car-btn';
+    b.innerHTML = '🚗 Get in a car <kbd>T</kbd>';
+    const go = (e) => { e.preventDefault(); e.stopPropagation(); this.toCar = true; };
+    b.addEventListener('pointerdown', go);
+    b.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(b);
+    this.carBtn = b;
   }
 
   pauseButtons() {
@@ -145,6 +159,14 @@ export class FreeRunMode {
         freeEarn(s.game, BAG_CASH * (this.police ? 2 : 1), 'Cash bag!');
         this._placeBag(b);
       }
+    }
+
+    // The "Get in a car" button (or T): straight into the car, wherever you are
+    if (this.toCar || s.game.input.wasPressed('car')) {
+      this.toCar = false;
+      audio.sfx('door', { vol: 0.6 });
+      switchFreeRoam(s, 'car');
+      return;
     }
 
     // Your car: walk up to it (at street level) to drive
@@ -216,5 +238,7 @@ export class FreeRunMode {
   teardown() {
     this.heli?.dispose();
     this.heli = null;
+    this.carBtn?.remove();
+    this.carBtn = null;
   }
 }
