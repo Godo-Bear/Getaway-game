@@ -25,6 +25,8 @@ const CODE_HASH = '9c925e1c9a939a528cedbc7bfa554bb837d5230ce8d34f8abfb34a0e17ce6
  */
 export const ABILITIES = [
   // Stealth
+  // Everything
+  { id: 'doubleAll', group: 'Everything', name: 'Double everything', desc: 'Twice the cash, twice the time on every countdown, gadgets last twice as long and recharge twice as fast, nitro lasts twice as long, and you catch people twice as fast' },
   { id: 'god', group: 'Stealth', name: 'God mode', desc: 'Never caught, spotted out or busted' },
   { id: 'unseen', group: 'Stealth', name: 'Unseen', desc: 'Guards, street patrols and searchlights can\'t see you' },
   { id: 'noLasers', group: 'Stealth', name: 'No lasers', desc: 'Walk straight through laser beams' },
@@ -43,7 +45,7 @@ export const ABILITIES = [
   { id: 'slowMo', group: 'Fun', name: 'Slow motion', desc: 'The whole game runs at half speed' },
   { id: 'bigHead', group: 'Fun', name: 'Big head', desc: 'Your character\'s head is twice the size' },
 ];
-export const ABILITY_GROUPS = ['Stealth', 'Movement', 'Gadgets', 'Fun'];
+export const ABILITY_GROUPS = ['Everything', 'Stealth', 'Movement', 'Gadgets', 'Fun'];
 
 const normalise = (s) => String(s).trim().toLowerCase().replace(/\s+/g, ' ');
 

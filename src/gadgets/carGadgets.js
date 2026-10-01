@@ -5,7 +5,7 @@ import { audio } from '../core/audio.js';
 import { admin } from '../core/admin.js';
 
 /** A gadget effect's length (the admin's "Double power-ups" ability doubles them all). */
-const T = (t) => t * (admin.flag('doublePower') ? 2 : 1);
+const T = (t) => t * (admin.flag('doublePower') || admin.flag('doubleAll') ? 2 : 1);
 
 // Car gadgets (press F while driving):
 //   Oil Slick     - an oil patch behind you; police cars that hit it spin out

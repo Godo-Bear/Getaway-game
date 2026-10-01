@@ -305,9 +305,10 @@ export class DrivingState extends PlayState {
     // --- Nitro: used by boosting, refilled by drifting and big air
     // (Turbo Tank gadget: lasts longer and refills faster)
     const tank = owns('tank');
-    if (p.boosting) this.nitro = Math.max(0, this.nitro - dt * (tank ? 0.23 : 0.32));
-    if (p.drifting) this.nitro = Math.min(1, this.nitro + dt * (tank ? 0.24 : 0.16));
-    if (p.airborne) this.nitro = Math.min(1, this.nitro + dt * (tank ? 0.37 : 0.25));
+    const dbl = admin.flag('doubleAll') ? 2 : 1; // (admin: Double everything)
+    if (p.boosting) this.nitro = Math.max(0, this.nitro - dt * (tank ? 0.23 : 0.32) / dbl);
+    if (p.drifting) this.nitro = Math.min(1, this.nitro + dt * (tank ? 0.24 : 0.16) * dbl);
+    if (p.airborne) this.nitro = Math.min(1, this.nitro + dt * (tank ? 0.37 : 0.25) * dbl);
   }
 
   /** Looping sounds: engine, tyres, nitro, sirens (louder when close), music. */

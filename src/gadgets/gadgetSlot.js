@@ -28,13 +28,14 @@ export class GadgetSlot {
 
   /** Start the recharge (call after a successful use). */
   used() {
-    this.cooldown = admin.flag('noCooldowns') ? 0 : this.gadget.cooldown;
+    this.cooldown = admin.flag('noCooldowns') ? 0 : this.gadget.cooldown * (admin.flag('doubleAll') ? 0.5 : 1);
+    this.full = this.cooldown || this.gadget.cooldown;
   }
 
   update(dt) {
     if (!this.gadget) return;
     this.cooldown = Math.max(0, this.cooldown - dt);
-    const k = 1 - this.cooldown / this.gadget.cooldown;
+    const k = 1 - this.cooldown / (this.full || this.gadget.cooldown);
     const txt = this.cooldown > 0 ? `${Math.ceil(this.cooldown)}s` : 'READY · F';
     if (txt !== this._last) {
       this._last = txt;

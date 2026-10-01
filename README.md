@@ -85,6 +85,7 @@ This repo is already connected to the `getaway-game-50249` project.
 The panel has four tabs, each a tidy list:
 
 * **Abilities** (on/off switches, in groups):
+  * Everything: Double everything (twice the cash, twice the time on every countdown, gadgets last twice as long and recharge twice as fast, nitro lasts twice as long, catch people twice as fast).
   * Stealth: God mode (never caught, spotted out or busted), Unseen (guards, street patrols and searchlights can't see you), No lasers, Instant hacks (every hack and safe opens at once).
   * Movement: Super speed, Moon jump, Glider always on, Infinite nitro.
   * Gadgets: No gadget recharge, Double power-ups (every gadget effect lasts twice as long), Infinite range (the Grapple Gun reaches any building you can see, EMP and Flashbang hit every cop, smoke hides you anywhere).

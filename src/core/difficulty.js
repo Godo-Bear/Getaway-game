@@ -48,8 +48,14 @@ export const DIFFICULTY_LIST = [DIFFICULTIES.easy, DIFFICULTIES.normal, DIFFICUL
 
 /** The current difficulty's numbers. */
 export function diff() {
-  return DIFFICULTIES[save.data.settings.difficulty] || DIFFICULTIES.normal;
+  const d = DIFFICULTIES[save.data.settings.difficulty] || DIFFICULTIES.normal;
+  // Admin "Double everything": twice the cash, twice the time on every countdown, catch twice as fast
+  const a = save.data.admin, doubled = (a?.unlocked && a.doubleAll) || save.data.perks?.doubleAll;
+  if (!doubled) return d;
+  if (_doubled?.base !== d) _doubled = { ...d, base: d, timer: d.timer * 2, cash: d.cash * 2, catchRate: d.catchRate * 2 };
+  return _doubled;
 }
+let _doubled = null;
 
 export function setDifficulty(id) {
   save.data.settings.difficulty = DIFFICULTIES[id] ? id : 'normal';
