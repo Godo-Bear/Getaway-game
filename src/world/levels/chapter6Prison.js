@@ -105,8 +105,13 @@ export function buildChapter6Prison() {
     for (const [ox, oz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) block(t.x + ox, 0, t.z + oz, 0.3, t.h - 1, 0.3, M.tower);
     block(t.x, t.h - 1.6, t.z, 3.4, 0.25, 3.4, M.tower);
     block(t.x, t.h - 1.35, t.z, 3.4, 1.0, 0.1, M.tower, false);
-    world.addBlock(t.x, 0, t.z, 2.4, t.h - 1, 2.4, { tag: 'tower' });
+    world.addBlock(t.x, 0, t.z, 3.4, t.h - 1.35, 3.4, { tag: 'tower' }); // (solid up to the platform: you can stand on it)
   }
+  // A ladder up the north-west tower (the night guard's keycard is on top)
+  const T3 = towers[2], ladderTop = T3.h - 1.35;
+  const ladders = [{ x: T3.x, z: T3.z + 1.7, nx: 0, nz: 1, y0: 0, y1: ladderTop }];
+  for (const sx of [-0.35, 0.35]) block(T3.x + sx, 0, T3.z + 1.75, 0.08, ladderTop + 1, 0.08, mat(0xffd040), false);
+  for (let y = 0.4; y < ladderTop; y += 0.4) block(T3.x, y, T3.z + 1.75, 0.7, 0.05, 0.06, mat(0xffd040), false);
   // yard floodlights (just glows: the real light is the moon)
   for (const [x, z] of [[-45, 0], [45, 0], [0, 40.5], [0, -21.5]]) {
     const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xffe6b0, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false, opacity: 0.8 }));
@@ -121,6 +126,27 @@ export function buildChapter6Prison() {
   box(-24.5, -40.5, -23.5, -21.5, 6, M.block); box(23.5, -40.5, 24.5, -21.5, 6, M.block);
   box(-24.5, -40.5, 24.5, -21.5, 0.4, M.dark, 6);                    // roof
   box(-2, -22.5, 2, -21.5, 1.4, M.dark, 4.6);                         // lintel over the door
+  // The steel door (opens with a guard keycard)
+  const dbDoor = block(0, 0, -22, 4, 4.6, 0.3, mat(0x8a929c, { metalness: 0.7, roughness: 0.3 }));
+  const dbDoorBox = world.boxes[world.boxes.length - 1];
+  const reader = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.08), new THREE.MeshStandardMaterial({ color: 0x1a1c22, emissive: 0xff3030, emissiveIntensity: 1 }));
+  reader.position.set(2.6, 1.4, -21.4);
+  group.add(reader);
+  // Lasers across the corridor between the door and Ricky's cell (the mode switches them on and off)
+  const corridorLasers = [
+    { x: 4.5, type: 'pulse', heights: [0.45, 1.15, 1.85], phase: 0 },
+    { x: 7, type: 'low', heights: [1.15], phase: 0 },
+    { x: 9.5, type: 'pulse', heights: [0.45, 1.15, 1.85], phase: 0.5 },
+  ];
+  for (const las of corridorLasers) {
+    las.beams = las.heights.map((y) => {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 8.2), new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false, transparent: true }));
+      b.position.set(las.x, y, -26.8);
+      group.add(b);
+      return b;
+    });
+    for (const z of [-30.8, -22.8]) block(las.x, 0, z, 0.2, 2.2, 0.2, M.dark, false);
+  }
   const dSign = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.2), new THREE.MeshBasicMaterial({ map: makeTextTexture('D BLOCK', { color: '#ff6a3a', bg: 'rgba(12,14,22,0.92)', width: 512, height: 128 }), toneMapped: false }));
   dSign.position.set(0, 5.2, -21.45);
   group.add(dSign);
@@ -193,6 +219,8 @@ export function buildChapter6Prison() {
     [[-2, 20], [-2, 36], [12, 36], [12, 20]],                        // by the dock office
   ];
   const spots = {
+    keycard: new THREE.Vector3(T3.x, ladderTop, T3.z),
+    dbDoor: new THREE.Vector3(0, 0, -21),
     uniform: new THREE.Vector3(-10.5, 0, 31.9),
     keypad: new THREE.Vector3(14, 0, -29.6),
     cell: new THREE.Vector3(12, 0, -35),
@@ -208,7 +236,7 @@ export function buildChapter6Prison() {
   const inmates = [[-20, -36], [-4, -37], [20, -35.5]];
 
   return {
-    group, world, spawn: checkpoints[0].spawn, checkpoints, buildings: [], ladders: [], hideSpots: [],
+    group, world, spawn: checkpoints[0].spawn, checkpoints, buildings: [], ladders, hideSpots: [], dbDoor, dbDoorBox, reader, corridorLasers,
     towers, guardRoutes, spots, cellDoor, cellDoorBox, keypad, zip, pierGlow, inmates,
   };
 }

@@ -94,6 +94,7 @@ export class ChapterDriveMode {
     this.done = false;
     this.catchMeter = 0;
     this.timeLeft = part.goal.timer != null ? part.goal.timer * diff().timer : null;
+    s.player.gripFactor = part.ice ? 0.62 : 1; // (snow and ice on the roads: the car slides)
     this.clueFound = part.clue ? this.run.clues.has(part.clue.id) : true;
     if (this.clue) this.clue.group.visible = !this.clueFound;
 

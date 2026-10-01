@@ -33,6 +33,8 @@ const LANDMARKS = {
   hq: { height: 30, tint: 0x6a7080, door: 0x2a4aa0, sign: 'POLICE', signColor: '#3d7bff', windows: true },
   airfield: { height: 11, tint: 0x7a7e86, door: 0x2a90c8, sign: 'NORTH AIRFIELD', signColor: '#39e6ff' },
   freightyard: { height: 7, tint: 0x6a5a48, door: 0xc0551e, sign: 'FREIGHT YARD', signColor: '#ff8a3d' },
+  tunnel: { height: 12, tint: 0x4a4c52, door: 0xffd040, sign: 'HIGHWAY NORTH', signColor: '#ffd040' },
+  cabin: { height: 6, tint: 0x6b5236, door: 0x1f9a58, sign: 'PINE LODGE', signColor: '#7dff8a' },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];

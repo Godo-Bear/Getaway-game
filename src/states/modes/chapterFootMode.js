@@ -30,6 +30,10 @@ import { audio } from '../../core/audio.js';
 //   patrols   - police officers walking the pavements (the level's
 //               patrolRoutes) with vision cones; a crowd (crowdLanes) you
 //               can blend into. Sneak up behind one to knock them out (E).
+//               patrols: 'hunters' = bounty hunters (orange parkas) instead.
+//   recon     - [{ id, label, text }]: walk up to each of the level's
+//               reconSpots to take a photo of the job (planning, not
+//               detective work). goal.requireRecon: all photos first.
 //   goal      - { type: 'reach' } get to the level's goal point (e.g. the car)
 //               { type: 'catch' } catch the fugitive
 //   requiredClue - a clue you must pick up before the goal counts
@@ -45,6 +49,7 @@ import { audio } from '../../core/audio.js';
 
 const CAR_RADIUS = 3.5;
 const COP_LOOK = { hoodie: 0x1d3566, trousers: 0x151d30, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1d3566, shoes: 0x0a0a0a };
+const HUNTER_LOOK = { hoodie: 0xd8641c, trousers: 0x2a2e36, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1a1a1a, shoes: 0x0a0a0a };
 const PICKUP_RADIUS = 2.6;  // generous: running past a clue picks it up
 const CLUE_HINT = 30;       // the marker points at any clue closer than this (m)
 
@@ -77,8 +82,28 @@ export class ChapterFootMode {
     this._buildClues();
     this._buildGuides();
     this._buildPeople();
+    this._buildRecon();
     this.crowd = level.crowdLanes ? new Crowd(level.group, level.world, level.crowdLanes, { perLane: 3, seed: 11 }) : null;
     return level;
+  }
+
+  /** Recon photo spots: a cyan ring and beam at each. */
+  _buildRecon() {
+    this.recon = [];
+    for (const r of this.part.recon || []) {
+      const pos = this.level.reconSpots?.[r.id];
+      if (!pos) continue;
+      const g = new THREE.Group();
+      g.position.copy(pos);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(1.1, 1.4, 32), makeGlowMaterial(0x39e6ff, 0.8));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.05;
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 24, 10, 1, true), makeGlowMaterial(0x39e6ff, 0.18));
+      beam.position.y = 12;
+      g.add(ring, beam);
+      this.level.group.add(g);
+      this.recon.push({ ...r, pos, group: g, ring, taken: false });
+    }
   }
 
   /** Ground-level parts are played in the street: no "climb back up" help. */
@@ -197,6 +222,7 @@ export class ChapterFootMode {
     this.meetBlocked = null;
     this._closeMini();
     for (const n of this.npcs) { n.talked = false; n.beam.visible = !!n.def; }
+    for (const r of this.recon) { r.taken = false; r.group.visible = true; }
 
     this._spawnPolice();
     this.heliAnnounced = false;
@@ -232,7 +258,7 @@ export class ChapterFootMode {
     this.patrols = null;
     if (part.patrols && this.level.patrolRoutes) {
       this.patrols = new GuardSquad(s.scene, s.world, this.level.patrolRoutes.map((route) => ({ route })),
-        { sight: diff().guardSight, look: COP_LOOK, range: 11, alertRange: 15 });
+        { sight: diff().guardSight, look: part.patrols === 'hunters' ? HUNTER_LOOK : COP_LOOK, range: 11, alertRange: 15 });
     }
   }
 
@@ -418,6 +444,19 @@ export class ChapterFootMode {
     // --- People to meet (and their mini-game tests)
     if (this.npcs.length) this._updateMeetings(dt);
 
+    // --- Recon photos (just walk up to the spot)
+    for (const r of this.recon) {
+      if (r.taken) continue;
+      r.ring.rotation.z += dt;
+      if (!this.ghost && Math.hypot(p.pos.x - r.pos.x, p.pos.z - r.pos.z) < 2.2 && Math.abs(p.pos.y - r.pos.y) < 2.5) {
+        r.taken = true;
+        r.group.visible = false;
+        audio.sfx('click', { vol: 1 });
+        const left = this.recon.filter((x) => !x.taken).length;
+        hud.toast(`Photo: ${r.label}`, `${r.text}${left ? ` (${left} more to take)` : ' That\'s every photo.'}`, 'var(--cyan)', 5);
+      }
+    }
+
     // --- Fugitive
     if (this.fugitive) {
       this.fugitive.update(dt, p.pos, this.ghost);
@@ -445,7 +484,10 @@ export class ChapterFootMode {
       const g = this.level.goalPos;
       if (Math.hypot(p.pos.x - g.x, p.pos.z - g.z) < CAR_RADIUS && Math.abs(p.pos.y - g.y) < 2.5) {
         if (this.ghost) this._ghostNotice('Turn ghost mode off to finish this part.');
-        else if (part.goal.requireMeetings && this._nextMeeting()) {
+        else if (part.goal.requireRecon && this.recon.some((r) => !r.taken)) {
+          this.warnTimer -= dt;
+          if (this.warnTimer <= 0) { this.warnTimer = 4; hud.toast('Not yet!', 'Take all the recon photos first (the cyan beams).', 'var(--amber)'); }
+        } else if (part.goal.requireMeetings && this._nextMeeting()) {
           this.warnTimer -= dt;
           if (this.warnTimer <= 0) {
             this.warnTimer = 4;
@@ -521,6 +563,12 @@ export class ChapterFootMode {
     const meet = !this.ghost && this._nextMeeting();
     if (meet) {
       hud.setMarker(meet.pos.clone().setY(meet.pos.y + 2.4), s.camera, `Meet ${SUSPECTS[meet.id].name}`, SUSPECTS[meet.id].color, p.distanceTo(meet.pos));
+      return;
+    }
+    if (!this.ghost && this.recon.some((r) => !r.taken)) {
+      let best = null, bd = Infinity;
+      for (const r of this.recon) { if (r.taken) continue; const d = p.distanceTo(r.pos); if (d < bd) { bd = d; best = r; } }
+      hud.setMarker(best.pos.clone().setY(best.pos.y + 2.4), s.camera, `Photo: ${best.label}`, 'var(--cyan)', bd);
       return;
     }
     if (this.fugitive && !this.ghost) {

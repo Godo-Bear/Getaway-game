@@ -2,13 +2,13 @@
 //
 // Two weeks after the Lucky Star, Ricky gets pulled over for a broken tail
 // light with casino chips still under the seat. He's in Blackwater, the
-// island prison you can only reach over the rail bridge. The crew is going
-// to get him out: catch the prison's night supply train, ride it across the
-// bridge and through the gate, then break Ricky out of his cell.
+// island prison you can only reach over the rail bridge. The crew's way in:
+// the prison's night supply train. Catch it, crack the safe in its mail car
+// for tonight's gate pass, then ride it across the sea bridge and through
+// the gate hidden in the coal wagon. (The breakout itself is Chapter 7.)
 //
-// No mole and no detective work here (see CLAUDE.md): the crew is loyal and
-// the trouble comes from outside - the prison, the clock, and the train.
-// Instead of clues there's loot: the prison's payroll is on the train.
+// No mole and no detective work (see CLAUDE.md): the crew is loyal and the
+// trouble comes from outside - the prison, the clock, the train itself.
 
 const YARD_CITY = {
   seed: 6060, blocks: 8,
@@ -20,13 +20,13 @@ export const CHAPTER6 = {
   number: 6,
   title: 'Chapter 6: The Iron Line',
   short: 'The Iron Line',
-  noDeduction: true,   // a breakout, not a whodunit: the chapter ends with the job done
+  noDeduction: true,   // a job, not a whodunit: the chapter ends with the results
   suspects: [],
-  crew: ['mags', 'theo', 'ricky'], // (on the board at the end: the team, not suspects)
+  crew: ['mags', 'theo', 'ricky'],
   clues: {},
   verdicts: {},
-  nextChapter: null,
-  rating: { gold: 540, silver: 840 },
+  nextChapter: 'chapter7',
+  rating: { gold: 480, silver: 780 },
 
   parts: [
     {
@@ -34,79 +34,68 @@ export const CHAPTER6 = {
       intro: [
         { kicker: 'Two weeks later', title: 'Ricky',
           lines: [
-            'A broken tail light. That\'s all it took: a traffic cop pulled Ricky over, found a handful of Lucky Star chips under the seat, and now he\'s in Blackwater, the prison on the island.',
-            'Nobody gets out of Blackwater. There\'s one way on or off the island: the rail bridge.',
+            'A broken tail light. A traffic cop pulled Ricky over, found Lucky Star chips under the seat, and now he\'s in Blackwater: the prison on the island. One way on or off: the rail bridge.',
           ] },
         { kicker: 'Mags\'s garage', who: 'mags',
-          lines: ['"The prison\'s supply train leaves the freight yard at one o\'clock every night. Food, laundry, and the guards\' payroll. It goes straight over the bridge and in through the gate."',
-            '"We\'re going to be on it."'] },
+          lines: ['"The prison\'s supply train leaves the freight yard at one o\'clock. Food, laundry, the guards\' payroll, and tonight\'s gate pass in the mail car safe. Without that pass the gate guards search every wagon."',
+            '"We get on, we get the pass, we ride it in."'] },
         { kicker: 'On the radio', who: 'theo',
-          lines: ['"It\'s pulling out of the yard early! You\'ve got under three minutes to get to the freight yard before it\'s over the bridge. Go!"'] },
+          lines: ['"It\'s leaving early! You\'ve got under three minutes to reach the freight yard. Go!"'] },
       ],
       startLabel: 'Go',
       objective: 'Get to the freight yard before the train leaves',
       city: YARD_CITY,
       start: { node: [1, 1], offset: [2.3, 30], heading: 0 },
       goal: { type: 'reach', block: '6,6', label: 'Freight yard', color: 0xff8a3d, timer: 170, timerLabel: 'Train leaves in',
-        timeoutTitle: 'The train\'s gone', timeoutText: 'It rolled out without you. Take the fastest route, use nitro on the straights, and hack a junction if the police get close.' },
+        timeoutTitle: 'The train\'s gone', timeoutText: 'It rolled out without you. Take the fastest route, use nitro on the straights, and hack a junction (E) if the police get close.' },
       heat: { start: 2, max: 4, riseEvery: 45 },
       roadblocks: { fromHeat: 4, every: 30, spikes: true },
       doneTitle: 'Made it',
-      doneText: 'You skid into the freight yard as the last wagon rolls past the gate. You leave the car running and sprint for the ladder on the back of the train.',
+      doneText: 'You skid into the freight yard as the last wagon rolls past the gate, and sprint for the step on the back of the train.',
     },
     {
-      id: 'train', kind: 'onFoot', mode: 'train', title: 'The Iron Line',
+      id: 'mailcar', kind: 'onFoot', mode: 'train', title: 'The mail car',
+      train: { stage: 'mail' },
       intro: [
-        { kicker: 'On the supply train, 1:04 a.m.', title: 'The Iron Line',
-          lines: [
-            'You\'re on the back of the train. The front wagon is an open coal wagon with a tarp over it: get in there and hide before the train reaches the prison gate.',
-          ] },
+        { kicker: 'On the supply train, 1:04 a.m.', who: 'theo',
+          lines: ['"The mail car is the red one in the middle, with a hatch in the roof. One guard rides inside. The safe\'s at the front end."'] },
         { kicker: 'How to play', title: 'A moving train',
           lines: [
-            'Run along the roofs and jump the gaps between the wagons. Two guards ride on top: stay out of their torch beams, or sneak up behind them and knock them out (E).',
-            'LOW BRIDGES: when you hear the horn and see "BRIDGE!", crouch (C, or hold Slide) or drop down onto a flat wagon, or you\'ll be knocked off. The guards\' payroll is in green bags along the train: grab them for cash.',
+            'Run along the roofs and jump the gaps. Two guards with torches walk the roofs: stay out of the beams, or sneak up behind and knock them out (E).',
+            'LOW BRIDGES: horn + "BRIDGE!" = crouch (C / hold Slide) or get down onto a flat wagon. Green bags are the guards\' payroll: grab them.',
           ] },
       ],
       startLabel: 'Run',
-      objective: 'Get to the front wagon and hide under the tarp',
-      doneTitle: 'Through the gate',
-      doneText: 'You pull the tarp over your head. The train slows, the gate rumbles shut behind it, and a guard\'s torch sweeps over the coal. Then it moves on.',
+      objective: 'Get into the mail car and crack the safe',
+      doneTitle: 'Got the pass',
+      doneText: 'The safe swings open: tonight\'s gate pass, stamped and signed, and a fat envelope of payroll. Theo whistles over the radio. "Now get to the front before the bridge."',
     },
     {
-      id: 'breakout', kind: 'onFoot', mode: 'prison', title: 'Blackwater',
+      id: 'seabridge', kind: 'onFoot', mode: 'train', title: 'The sea bridge',
+      train: { stage: 'bridge' },
       intro: [
-        { kicker: 'Blackwater Prison, 1:19 a.m.', title: 'Blackwater',
+        { kicker: 'The Blackwater rail bridge, 1:12 a.m.', who: 'mags',
+          lines: ['"Bad news: a police helicopter is following the train. It isn\'t looking for you yet. Keep it that way."'] },
+        { kicker: 'How to play', title: 'The sea bridge',
           lines: [
-            'You\'re in. Ricky is in D Block, the building at the far end of the yard. Get him out of his cell, then get both of you over the north-east wall: Mags has rigged a zip line down to her boat.',
-          ] },
-        { kicker: 'How to play', title: 'Breaking out',
-          lines: [
-            'Searchlights sweep the yard from the towers: stay out of the white circles, or keep something between you and the tower. Guards patrol with torches (yellow cones).',
-            'A guard uniform is hanging in the dock office by the train: in uniform, the guards only notice you close up. Open Ricky\'s cell with a quick hack (press Jump when it lines up). Once he\'s out, the alarm goes: run for the wall, and he\'ll follow you.',
+            'Get to the coal wagon at the front and hide under the tarp before the train reaches the prison gate.',
+            'Stay out of the helicopter\'s spotlight (duck into the mail car hatch or behind something tall). WIND: when the warning shows, crouch or you\'ll be blown off the train.',
           ] },
       ],
-      startLabel: 'Go get him',
-      objective: 'Find Ricky\'s cell in D Block',
-      doneTitle: 'Over the wall',
-      doneText: 'You and Ricky fly down the zip line into the dark, over the rocks, and drop into Mags\'s boat. Behind you, every light in Blackwater comes on.',
+      startLabel: 'Go',
+      objective: 'Get to the coal wagon and hide under the tarp',
+      doneTitle: 'Through the gate',
+      doneText: 'You pull the tarp over your head. The train slows, a guard takes the gate pass from the driver, and the gate rumbles shut behind you. You\'re inside Blackwater.',
     },
   ],
 
   outro: [
-    { kicker: 'Mags\'s boat, 1:31 a.m.', who: 'ricky',
-      lines: ['"A tail light," Ricky says, shaking his head. "Two weeks in there because of a tail light."',
-        '"You came and got me. All of you. Over a prison wall."'] },
-    { kicker: 'Mags\'s boat', who: 'mags',
-      lines: ['"Course we did," Mags says, opening the throttle. "Nobody gets left behind. Now, somebody count that payroll."'] },
+    { kicker: 'Blackwater rail dock, 1:18 a.m.', who: 'mags',
+      lines: ['"You\'re in. Ricky\'s cell is in D Block, the far end of the yard. Rest a second. Then we get him out."'] },
   ],
 
-  // The results card (no deduction in this chapter)
   jobDone: {
-    title: 'Ricky is free',
-    text: 'The crew is back together, and the prison\'s payroll paid for the boat. Somewhere across the water, Blackwater is still counting its prisoners and coming up one short.',
-  },
-  finale: {
-    title: 'The End (for now)',
-    text: 'Four friends, one boat, and a city that has no idea what they\'re planning next.',
+    title: 'Inside Blackwater',
+    text: 'You rode a prison train across the sea and through its own front gate, with its own gate pass. Ricky has no idea you\'re here. Yet.',
   },
 };

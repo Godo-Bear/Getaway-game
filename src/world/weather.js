@@ -13,7 +13,10 @@ import { getMaterials } from './materials.js';
 //  - Wet surfaces: roads and roofs switch to a shiny material that reflects
 //    the sky glow and catches headlights and street lamps.
 //
-// kind: 'clear' | 'rain' | 'storm'
+//  - Snow (Chapter 8): slow white flakes drifting down, an overcast sky, and
+//    snow on the roofs and roads (see NightLighting.setSnow).
+//
+// kind: 'clear' | 'rain' | 'storm' | 'snow'
 
 const BOX = { x: 70, y: 40, z: 70 };
 const FALL_SPEED = 28;          // m/s
@@ -37,7 +40,9 @@ export class Weather {
     this.nextStrike = 6 + Math.random() * 6;
     this.thunderIn = -1;
     this.rain = null;
+    lighting.setSnow?.(kind === 'snow');
     if (kind === 'clear') return;
+    if (kind === 'snow') { this._makeSnow(scene, lighting, quality); return; }
 
     lighting.setStorm(kind === 'storm' ? 1 : 0.55);
     // Shiny wet surfaces cost more to draw: only on high graphics.
@@ -94,6 +99,44 @@ export class Weather {
     });
   }
 
+  /** Snowflakes: points in a box round the camera, falling slowly and swaying. */
+  _makeSnow(scene, lighting, quality) {
+    lighting.setStorm(0.3);
+    const n = { low: 700, medium: 1400, high: 2400 }[quality] ?? 1400;
+    this.count = n;
+    this.flakes = new Float32Array(n * 3);
+    this.sway = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      this.flakes[i * 3] = (Math.random() - 0.5) * BOX.x;
+      this.flakes[i * 3 + 1] = Math.random() * BOX.y;
+      this.flakes[i * 3 + 2] = (Math.random() - 0.5) * BOX.z;
+      this.sway[i] = Math.random() * Math.PI * 2;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage));
+    this.snow = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.16, transparent: true, opacity: 0.85, depthWrite: false }));
+    this.snow.frustumCulled = false;
+    scene.add(this.snow);
+    this.t = 0;
+  }
+
+  _updateSnow(dt, center) {
+    this.t += dt;
+    const n = this.count, f = this.flakes, p = this.snow.geometry.attributes.position.array;
+    const hx = BOX.x / 2, hz = BOX.z / 2, oy = center.y - BOX.y * 0.35;
+    for (let i = 0; i < n; i++) {
+      const k = i * 3;
+      f[k + 1] -= 1.6 * dt;
+      if (f[k + 1] < 0) f[k + 1] += BOX.y;
+      f[k] += Math.sin(this.t * 0.8 + this.sway[i]) * 0.6 * dt + 0.4 * dt;
+      let x = f[k] - center.x, z = f[k + 2] - center.z;
+      x = ((((x + hx) % BOX.x) + BOX.x) % BOX.x) - hx;
+      z = ((((z + hz) % BOX.z) + BOX.z) % BOX.z) - hz;
+      p[k] = center.x + x; p[k + 1] = oy + f[k + 1]; p[k + 2] = center.z + z;
+    }
+    this.snow.geometry.attributes.position.needsUpdate = true;
+  }
+
   /** How loud the rain loop should be (0..1). */
   get rainVolume() {
     return this.kind === 'storm' ? 0.55 : this.kind === 'rain' ? 0.35 : 0;
@@ -101,6 +144,7 @@ export class Weather {
 
   /** @param {number} dt @param {THREE.Vector3} center - usually the camera position */
   update(dt, center) {
+    if (this.snow) { this._updateSnow(dt, center); this.lighting.update(dt, 0); return; }
     if (!this.rain) { this.lighting.update(dt, 0); return; }
     const n = this.count, d = this.drops;
     const fall = FALL_SPEED * dt;
@@ -155,6 +199,7 @@ export class Weather {
   }
 
   dispose() {
+    if (this.snow) { this.scene.remove(this.snow); this.snow.geometry.dispose(); this.snow.material.dispose(); }
     this.env?.dispose();
     for (const m of this.swap?.values() || []) m.dispose();
     if (this.rain) {
@@ -170,7 +215,9 @@ export class Weather {
  * the Weather setting can force rain everywhere, or turn it off.
  */
 export function pickWeather(settings, wanted = 'clear') {
-  if (wanted === 'indoor' || settings.weather === 'off') return 'clear';
+  if (wanted === 'indoor') return 'clear';
+  if (wanted === 'snow') return 'snow'; // (the mountains always have snow)
+  if (settings.weather === 'off') return 'clear';
   if (settings.weather === 'rain' && wanted === 'clear') return 'rain';
   return wanted;
 }

@@ -247,7 +247,7 @@ export class OnFootState extends PlayState {
     if (!frozen) {
       this.time += dt;
       this._trackSafety(dt);
-      if (p.pos.y < -1.5) {
+      if (p.pos.y < (this.mode.fallY ?? -1.5)) { // (a mode can allow a long drop, e.g. gliding off a mountain)
         // In the water (or off the edge of the world): back to safety.
         this.falls++;
         if (this.mode.onFall) this.mode.onFall();

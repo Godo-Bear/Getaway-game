@@ -505,7 +505,7 @@ export class DrivingState extends PlayState {
       }
       if (this.flatTyres <= 0) {
         p.speedFactor = 1;
-        p.gripFactor = 1;
+        p.gripFactor = this.mode.part?.ice ? 0.62 : 1; // (back to icy if the roads are)
         this.game.hud.toast('Tyres re-inflated', 'Run-flat foam did its job.', 'var(--safe)');
       }
     }

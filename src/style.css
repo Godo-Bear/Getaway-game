@@ -129,8 +129,8 @@ body.touch-mode #hud-gadget { left: auto; right: calc(20px + env(safe-area-inset
 .overlay.title .card { background: transparent; border: none; box-shadow: none; backdrop-filter: none; max-width: 520px; overflow: visible; padding: 0; }
 .logo { width: fit-content; font-family: var(--display); white-space: nowrap; font-size: clamp(64px, 11vw, 124px); line-height: 0.8; margin: 0 0 8px; transform: skewX(-8deg); transform-origin: left bottom; letter-spacing: 0.01em; }
 .logo span { color: transparent; -webkit-text-stroke: 2px var(--amber); }
-.card h2 { font-family: var(--display); font-size: 42px; line-height: 0.95; margin: 0 0 10px; font-weight: 400; letter-spacing: 0.01em; }
-.card p { font-size: 17px; line-height: 1.45; margin: 0 0 12px; }
+.card h2 { font-family: var(--display); font-size: 36px; line-height: 0.95; margin: 0 0 10px; font-weight: 400; letter-spacing: 0.01em; }
+.card p { font-size: 16px; line-height: 1.45; margin: 0 0 12px; }
 .card .sub { color: var(--muted); }
 .card .fine { font-size: 14px; }
 .kicker { color: var(--amber) !important; margin-bottom: 6px !important; font-size: 13px !important; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; }
@@ -525,3 +525,38 @@ body.touch-mode #hud-prompt { display: none; }
 .ed-row .pill { grid-row: 1 / span 2; }
 .ed-brush { display: inline-flex; align-items: center; gap: 4px; font: 700 13px var(--body); color: var(--muted); }
 .ed-brush .ed-t { padding: 6px 8px; }
+
+/* Story scenes: a compact panel at the bottom left, so the game stays visible */
+.overlay.story { align-items: flex-end; justify-content: flex-start; padding: 14px; background: linear-gradient(0deg, rgba(6, 8, 15, 0.75), rgba(6, 8, 15, 0) 55%); }
+.overlay.story .card { max-width: 430px; padding: 14px 16px 12px; }
+.overlay.story .card h2 { font-size: 26px; margin-bottom: 4px; }
+.overlay.story .card p { font-size: 14.5px; line-height: 1.38; margin-bottom: 6px; }
+.overlay.story .kicker { font-size: 11px !important; margin-bottom: 2px !important; }
+.overlay.story .speaker { font-size: 20px; }
+.overlay.story .page-dots { font-size: 10px; margin: 0 !important; }
+.overlay.story .btn { font-size: 14px; padding: 7px 12px; }
+@media (max-height: 520px) {
+  .overlay.story { padding: 8px; }
+  .overlay.story .card { max-width: 380px; padding: 10px 12px 8px; }
+  .overlay.story .card h2 { font-size: 21px; }
+  .overlay.story .card p { font-size: 13px; line-height: 1.3; margin-bottom: 4px; }
+  .overlay.story .speaker { font-size: 17px; }
+}
+/* Smaller pop-up messages (clues, checkpoints, hints) */
+#toast { width: min(440px, 80vw); top: 18%; }
+#toast .t { font-size: 27px; }
+#toast .b { font-size: 14.5px; margin-top: 3px; }
+@media (max-height: 520px) {
+  #toast { top: 14%; width: min(380px, 70vw); }
+  #toast .t { font-size: 20px; }
+  #toast .b { font-size: 12.5px; }
+}
+/* Menus and results: a bit more compact on short screens */
+@media (max-height: 520px) { .card h2 { font-size: 26px; } .card p { font-size: 13.5px; } .card { padding: 14px 16px; } }
+/* The game is played in landscape: on a phone held upright, ask to turn it */
+#rotate { display: none; position: fixed; inset: 0; z-index: 100; background: #0b0f1c; color: var(--ink); flex-direction: column; align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 30px; }
+#rotate .phone { width: 46px; height: 80px; border: 4px solid var(--amber); border-radius: 10px; animation: rotate-hint 2.2s ease-in-out infinite; }
+#rotate b { font-family: var(--display); font-size: 34px; font-weight: 400; }
+#rotate span { color: var(--muted); font-size: 16px; max-width: 280px; }
+@keyframes rotate-hint { 0%, 30% { transform: rotate(0deg); } 60%, 100% { transform: rotate(-90deg); } }
+@media (orientation: portrait) and (pointer: coarse) { #rotate { display: flex; } }

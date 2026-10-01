@@ -32,7 +32,7 @@ export function playStoryCards(pages, { finalLabel = 'Continue', onDone }) {
     const last = i === pages.length - 1;
     const buttons = [{ label: last ? finalLabel : 'Next', primary: true, onClick: () => { if (last) finish(); else { i++; show(); } } }];
     if (!last) buttons.push({ label: 'Skip story', onClick: finish });
-    showCard(pageHtml(pages[i], i, pages.length), buttons);
+    showCard(pageHtml(pages[i], i, pages.length), buttons, { story: true });
   };
   show();
 }

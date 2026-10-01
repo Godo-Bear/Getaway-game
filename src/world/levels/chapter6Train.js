@@ -13,7 +13,7 @@ import { makeGlowMaterial } from '../materials.js';
 //  on a roof.
 //
 //  Wagons, rear to front:
-//   caboose (start, rear platform) · boxcar · flatcar with crates · boxcar ·
+//   caboose (start, rear platform) · boxcar · flatcar with crates · MAIL CAR ·
 //   tanker (narrow walkway) · boxcar · container flatcar · COAL WAGON (the
 //   goal: drop inside and hide under the tarp) · locomotive
 // ======================================================================
@@ -85,7 +85,31 @@ export function buildChapter6Train() {
     block(0.6, 1.4, z1 + 1.5, 1.4, 1.4, 1.4, M.crate);
     return { roof: 1.4, low: true };
   });
-  add('boxcar', 14, 1.8, (z0, z1, zc) => { block(0, 0.8, zc, WIDTH, 3.4, z0 - z1, M.red); return { roof: 4.2 }; });
+  // The MAIL CAR: closed, with a hatch in the roof (drop in), the prison's
+  // safe at the front end (gate pass + payroll) and a guard inside.
+  add('mail', 16, 1.8, (z0, z1, zc) => {
+    const len = z0 - z1, steel = mat(0x8a929c, { metalness: 0.7, roughness: 0.3 });
+    block(0, 0.8, zc, WIDTH, 0.4, len, M.dark);                                     // floor (top 1.2)
+    for (const sx of [-1, 1]) block(sx * (WIDTH / 2 - 0.075), 1.2, zc, 0.15, 3.0, len, M.red); // side walls
+    block(0, 1.2, z0 - 0.075, WIDTH, 3.0, 0.15, M.red);
+    block(0, 1.2, z1 + 0.075, WIDTH, 3.0, 0.15, M.red);
+    const hz0 = z0 - 2.0, hz1 = z0 - 3.8;                                           // the hatch (1.8 m long)
+    block(0, 4.0, (z0 + hz0) / 2, WIDTH, 0.2, z0 - hz0, M.red);
+    block(0, 4.0, (hz1 + z1) / 2, WIDTH, 0.2, hz1 - z1, M.red);
+    for (const sx of [-1, 1]) block(sx * 1.15, 4.0, (hz0 + hz1) / 2, 0.7, 0.2, hz0 - hz1, M.red);
+    const rim = new THREE.Mesh(new THREE.RingGeometry(0.75, 0.95, 4, 1), makeGlowMaterial(0xffd040, 0.7));
+    rim.rotation.set(-Math.PI / 2, 0, Math.PI / 4);
+    rim.scale.set(1, 1.15, 1);
+    rim.position.set(0, 4.22, (hz0 + hz1) / 2);
+    group.add(rim);
+    // mail sacks, and the safe at the front
+    for (const [x, z] of [[-0.9, zc + 2], [0.9, zc - 1], [-0.9, zc - 3]]) block(x, 1.2, z, 0.9, 0.7, 1.2, M.crate, true, 'prop');
+    block(0, 1.2, z1 + 0.6, 1.2, 1.3, 0.8, steel);
+    const lamp = new THREE.PointLight(0xffd8a0, 8, 12, 1.6);
+    lamp.position.set(0, 3.6, zc);
+    group.add(lamp);
+    return { roof: 4.2, hatch: new THREE.Vector3(0, 4.2, (hz0 + hz1) / 2), safe: new THREE.Vector3(0, 1.2, z1 + 1.7), inside: { z0: z0 - 0.3, z1: z1 + 0.3 } };
+  });
   add('tanker', 12, 2.0, (z0, z1, zc) => {
     const t = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, z0 - z1, 20), M.tank);
     t.rotation.x = Math.PI / 2;
@@ -135,17 +159,25 @@ export function buildChapter6Train() {
 
   const byKind = (k) => wagons.filter((w) => w.kind === k);
   const coal = byKind('coal')[0];
-  const [box1, , box3] = byKind('boxcar');
+  const [box1, box3] = byKind('boxcar');
   const flat = byKind('flatcar')[0];
-  const checkpoints = [
+  const mail = byKind('mail')[0];
+  // Part A: from the back of the train to the mail car. Part B: from the
+  // mail car's roof to the coal wagon at the front.
+  const checkpointsA = [
     { name: 'The back of the train', spawn: new THREE.Vector3(0, 1.35, 1.4), yaw: 0, z: 1 },
     { name: 'The crate wagon', spawn: new THREE.Vector3(0, 1.45, (flat.z0 + flat.z1) / 2), yaw: 0, z: (flat.z0 + flat.z1) / 2 },
+    { name: 'Inside the mail car', spawn: new THREE.Vector3(0, 1.25, mail.hatch.z - 2.4), yaw: 0, z: mail.hatch.z - 1 },
+  ];
+  const checkpointsB = [
+    { name: 'On the mail car', spawn: new THREE.Vector3(0, 4.25, mail.z1 + 3), yaw: 0, z: mail.z1 + 4 },
     { name: 'The container wagon', spawn: new THREE.Vector3(0, 4.25, (box3.z0 + box3.z1) / 2), yaw: 0, z: (box3.z0 + box3.z1) / 2 },
   ];
+  const checkpoints = checkpointsA;
   // Payroll bags along the train (on roofs and decks)
   const bagAt = (w, t, dx = 0) => new THREE.Vector3(dx, w.roof + 0.05, w.z0 + (w.z1 - w.z0) * t);
   const tanker = byKind('tanker')[0], cont = byKind('container')[0];
-  const bags = [bagAt(box1, 0.7, 0.8), bagAt(flat, 0.45, -0.7), bagAt(byKind('boxcar')[1], 0.3, -0.8), bagAt(tanker, 0.6), bagAt(box3, 0.8, 0.8), bagAt(cont, 0.5, -0.7)];
+  const bags = [bagAt(box1, 0.7, 0.8), bagAt(flat, 0.45, -0.7), bagAt(mail, 0.75, -0.8), bagAt(tanker, 0.6), bagAt(box3, 0.8, 0.8), bagAt(cont, 0.5, -0.7)];
   // Guards with torches pace up and down two roofs
   const guardRoutes = [
     [[0, box1.z0 - 2], [0, box1.z1 + 2]],
@@ -160,7 +192,8 @@ export function buildChapter6Train() {
 
   return {
     group, world, spawn: checkpoints[0].spawn, checkpoints, buildings: [], ladders: [], hideSpots: [],
-    wagons, bags, guardRoutes, hide, hideGlow, front, back: platformZ,
+    wagons, bags, guardRoutes, hide, hideGlow, front, back: platformZ, mail, checkpointsA, checkpointsB,
+    mailGuardRoute: [[0, mail.hatch.z - 2.5], [0, mail.z1 + 3]],
     goalPos: new THREE.Vector3(0, 1.3, (hide.minZ + hide.maxZ) / 2),
   };
 }

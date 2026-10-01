@@ -239,18 +239,24 @@ export function buildCustomLevel(L) {
       }
       kit.world.addBlock(x, h, z, 1.6, 0.75, 1.2, { tag: 'prop' });
     } else if (type === 'laser') {
-      // A waist-high red laser across the square (crouch or slide under it)
-      lasers.push({ x0: x - CELL / 2, x1: x + CELL / 2, z0: z - CELL / 2, z1: z + CELL / 2, y: h + 1.05 });
-      for (const sx of [-1, 1]) kit.block(x + sx * (CELL / 2 - 0.1), h, z, 0.18, 1.3, 0.18, { side: 'plain', top: 'plain', color: 0x2a2c32 });
+      // A waist-high red laser that stretches across the floor, wall to wall
+      // (up to 6 squares each way), so you can't just walk round it. It
+      // pulses on and off: wait for a gap, or crouch / slide under it.
+      let a = i, b = i;
+      while (a > 0 && i - a < 6 && v(a - 1, j) === v(i, j) && floorOf(a - 1, j) !== 'water') a--;
+      while (b < GRID - 1 && b - i < 6 && v(b + 1, j) === v(i, j) && floorOf(b + 1, j) !== 'water') b++;
+      const x0 = (a - GRID / 2) * CELL + 0.1, x1 = (b + 1 - GRID / 2) * CELL - 0.1;
+      lasers.push({ x0, x1, z, y: h + 1.05, phase: (lasers.length * 0.37) % 1 });
+      for (const ex of [x0, x1]) kit.block(ex, h, z, 0.18, 1.3, 0.18, { side: 'plain', top: 'plain', color: 0x2a2c32 });
     }
   }
   const group = kit.finish();
   // Laser beams (glowing lines that the mode checks each frame)
   const laserMat = new THREE.MeshBasicMaterial({ color: 0xff2030, toneMapped: false });
   for (const las of lasers) {
-    const beam = new THREE.Mesh(new THREE.BoxGeometry(las.x1 - las.x0 - 0.2, 0.07, 0.07), laserMat);
-    beam.position.set((las.x0 + las.x1) / 2, las.y, (las.z0 + las.z1) / 2);
-    group.add(beam);
+    las.beam = new THREE.Mesh(new THREE.BoxGeometry(las.x1 - las.x0 - 0.2, 0.07, 0.07), laserMat.clone());
+    las.beam.position.set((las.x0 + las.x1) / 2, las.y, las.z);
+    group.add(las.beam);
   }
 
   const at = ([i, j], lift = 0.05) => { const [x, z] = cellPos(i, j); return new THREE.Vector3(x, cellHeight(v(i, j)) + lift, z); };

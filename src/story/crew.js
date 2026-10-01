@@ -52,6 +52,12 @@ export const SUSPECTS = {
     color: '#7dff8a',
     bio: 'Talks too much, drives better than anyone in the city. Dex\'s cousin: Dex sent him your way.',
   },
+  juno: {
+    name: 'Juno',
+    role: 'The mountain guide',
+    color: '#ff9ad5',
+    bio: 'Ex-ski patrol in Frostvale. Knows every slope, cable and crevasse on the mountain, and flies a wingsuit for fun. Theo\'s cousin.',
+  },
 };
 
 /** The old crew (and the detective): the suspects in Chapters 1-4. */

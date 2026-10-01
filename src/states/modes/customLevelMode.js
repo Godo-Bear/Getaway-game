@@ -111,14 +111,27 @@ export class CustomLevelMode {
         hud.toast(left ? `Cash! ${left} to go` : 'All the cash!', left ? '' : 'Now get to the finish.', 'var(--safe)', 1.5);
       }
     }
-    // Lasers: touch one (standing up) and it's back to the start
+    // Lasers: pulse on (1.2 s) and off (2 s, longer on Easy). Crossing one
+    // while it's on and you're standing up = back to the start. (We check
+    // whether you crossed the beam since the last frame, so a slow frame
+    // can't skip it.)
+    const prevZ = this.prevZ ?? p.pos.z;
+    this.prevZ = p.pos.z;
+    const cycle = 1.2 + 2.0 * diff().timer;
     for (const las of this.level.lasers) {
-      if (p.pos.x > las.x0 && p.pos.x < las.x1 && Math.abs(p.pos.z - (las.z0 + las.z1) / 2) < 0.4
+      const k = (t + las.phase * cycle) % cycle;
+      const on = k < 1.2, warn = !on && k > cycle - 0.35;
+      las.beam.visible = on || (warn && Math.random() < 0.5);
+      las.beam.material.opacity = on ? 1 : 0.4;
+      las.beam.material.transparent = !on;
+      const crossed = (prevZ - las.z) * (p.pos.z - las.z) <= 0 || Math.abs(p.pos.z - las.z) < 0.3;
+      if (on && crossed && p.pos.x > las.x0 && p.pos.x < las.x1
         && las.y > p.pos.y + 0.02 && las.y < p.pos.y + p.height && !admin.flag('god')) {
+        this.prevZ = null;
         this.caught++;
         audio.sfx('caught');
         s.placePlayer(this.level.spawn, 0);
-        s.flash('Laser tripped!', 'Crouch (C) or slide under the red lasers. Back to the start.', 'var(--red)');
+        s.flash('Laser tripped!', 'Wait for a laser to switch off, or crouch (C) / slide under it. Back to the start.', 'var(--red)');
         return;
       }
     }

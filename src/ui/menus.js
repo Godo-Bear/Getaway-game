@@ -24,10 +24,11 @@ const card = document.getElementById('card');
  * Show a card.
  * @param {string} html - content
  * @param {{label:string, sub?:string, primary?:boolean, disabled?:boolean, onClick:Function}[]} buttons
- * @param {{title?:boolean, list?:boolean, grid?:boolean, side?:boolean}} opts - title = big left-aligned title-screen style,
+ * @param {{title?:boolean, list?:boolean, grid?:boolean, side?:boolean, story?:boolean}} opts - title = big left-aligned title-screen style,
+ *        story = a compact story scene docked at the bottom left,
  *        list = one button per row, grid = two columns, side = docked on the right so the 3D scene stays visible
  */
-export function showCard(html, buttons = [], { title = false, list = false, grid = false, side = false } = {}) {
+export function showCard(html, buttons = [], { title = false, list = false, grid = false, side = false, story = false } = {}) {
   card.innerHTML = html;
   const row = document.createElement('div');
   row.className = grid ? 'menu-grid' : list ? 'menu-list' : 'btns';
@@ -45,6 +46,7 @@ export function showCard(html, buttons = [], { title = false, list = false, grid
   if (buttons.length) card.appendChild(row);
   overlay.classList.toggle('title', title);
   overlay.classList.toggle('side', side);
+  overlay.classList.toggle('story', story); // compact, docked bottom-left: the game stays visible
   overlay.hidden = false;
   card.scrollTop = 0;
   const first = row.querySelector('.primary') || row.querySelector('button');

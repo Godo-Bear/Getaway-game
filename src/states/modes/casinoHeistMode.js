@@ -43,8 +43,8 @@ import { defaultPlan } from '../../ui/planBoard.js';
 const ALARM_TIME = 70;
 const RING = 2.0;       // how close counts as "at" something
 const CHIP_CASH = 20;
-const PULSE_ON = 1.5;   // seconds a pulsing laser stays on
-const PULSE_OFF = 1.3;  // ... and off (longer on Easy)
+const PULSE_ON = 1.2;   // seconds a pulsing laser stays on
+const PULSE_OFF = 2.0;  // ... and off (longer on Easy): plenty of time to run through
 const VENT_NOISE = 20;  // seconds the guards stay on alert after the roof-vent drop
 const UNIFORM = { hoodie: 0x7a1f2e, trousers: 0x141418, mask: 0xc4946f, gloves: 0xe8e2d6 };
 
@@ -223,6 +223,7 @@ export class CasinoHeistMode {
     s.placePlayer(cp.spawn, cp.yaw);
     s.flash(title, msg, color);
     this.spotted = 0;
+    this.prevX = null;
     // Guards back to their posts (and up again), so nobody is standing on the checkpoint
     this.guards.reset();
     this.bodyAlert = false;
@@ -315,13 +316,18 @@ export class CasinoHeistMode {
         const warn = !on && k > cycle - 0.35; // flicker just before it comes back on
         for (const b of las.beams) { b.visible = on || (warn && Math.random() < 0.5); b.material.opacity = on ? 0.95 : 0.35; }
       }
-      if (on && Math.abs(pos.x - las.x) < 0.36 && pos.z > -24 && pos.z < -16) {
+      // (crossed the beam since last frame, or standing in it: a slow frame can't skip a laser)
+      const px = this.prevX ?? pos.x;
+      const crossed = (px - las.x) * (pos.x - las.x) <= 0 || Math.abs(pos.x - las.x) < 0.36;
+      if (on && crossed && pos.z > -24 && pos.z < -16) {
         if (las.heights.some((y) => y > pos.y + 0.02 && y < pos.y + p.height)) {
           this._caught('Laser tripped!', las.type === 'low' ? 'Crouch (C) or slide under the waist-high beams.' : 'Wait for the pulsing beams to switch off, then run.');
           return;
         }
       }
     }
+
+    this.prevX = pos.x;
 
     // --- Mini-game in progress
     if (this.mini) {

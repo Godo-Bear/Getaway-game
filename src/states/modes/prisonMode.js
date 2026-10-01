@@ -14,7 +14,14 @@ import { diff } from '../../core/difficulty.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 
-// Chapter 6, Part 3: the breakout from Blackwater Prison.
+// Chapter 7: the breakout from Blackwater Prison, in three stages (the
+// part's prison.stage):
+//   'yard'     - climb the north-west watchtower for the night guard's
+//                keycard, then get into D Block.
+//   'dblock'   - past the corridor lasers to Ricky's cell, open it (the alarm
+//                goes), then back out of D Block with him.
+//   'lockdown' - across the yard with the alarm on, up the east wall stairs,
+//                down Mags's zip line to her boat.
 //
 //   Searchlights - four watchtowers sweep bright circles across the yard.
 //                  In a circle AND in view of the tower = spotted fast. Cover
@@ -44,6 +51,7 @@ export class PrisonMode {
     this.time = 'night';
     this.indoors = true;
     this.mini = null;
+    this.stage = this.part.prison?.stage || 'yard';
   }
 
   get inputLocked() { return !!this.mini; }
@@ -52,6 +60,13 @@ export class PrisonMode {
 
   build() {
     const L = buildChapter6Prison();
+    const V = (x, z) => new THREE.Vector3(x, 0.05, z);
+    L.checkpoints = {
+      yard: [{ name: 'The rail dock', spawn: V(-26, 30), yaw: 0 }, { name: 'The watchtower', spawn: V(-37, 20), yaw: 0 }],
+      dblock: [{ name: 'Inside D Block', spawn: V(0, -24), yaw: -Math.PI / 2 }, { name: 'Ricky\'s cell', spawn: V(12, -28), yaw: Math.PI / 2 }],
+      lockdown: [{ name: 'Outside D Block', spawn: V(0, -19), yaw: -Math.PI / 2 }, { name: 'The east wall stairs', spawn: V(40, 0), yaw: 0 }],
+    }[this.stage];
+    L.spawn = L.checkpoints[0].spawn.clone();
     L.spawn.yaw = L.checkpoints[0].yaw;
     this.level = L;
     this.lights = L.towers.map((t) => new Searchlight(L.group, L.world, t));
@@ -66,6 +81,10 @@ export class PrisonMode {
     this.uniformRing = ring(L.spots.uniform, 0x8ab4ff, 0.9);
     this.keypadRing = ring(L.spots.keypad, 0x39e6ff);
     this.landingRing = ring(L.spots.landing, 0xffd040, 1.2);
+    // The night guard's keycard on top of the north-west watchtower
+    this.keycardMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.32, 0.03), new THREE.MeshStandardMaterial({ color: 0xffd23a, emissive: 0x7a5a00, metalness: 0.7 }));
+    this.keycardMesh.position.set(L.spots.keycard.x, L.spots.keycard.y + 1.1, L.spots.keycard.z);
+    L.group.add(this.keycardMesh);
     // Prisoners in the other cells (scenery), and Ricky
     for (const [x, z] of L.inmates) {
       const m = new PlayerModel(JUMPSUIT, { bag: false });
@@ -85,26 +104,35 @@ export class PrisonMode {
   start(first) {
     const s = this.state, L = this.level;
     this.run = getChapterRun(s.game, this.chapter.id);
+    this.run.flags ||= {};
     this.done = false;
     this.cp = 0;
     this.spotted = 0;
-    this.freed = false;
-    this.alarm = false;
-    this.lockdown = 0;
+    this.freed = this.stage === 'lockdown';
+    this.alarm = this.stage === 'lockdown';
+    this.lockdown = LOCKDOWN * diff().timer;
+    this.keycard = this.stage !== 'yard';
+    this.prevX = null;
+    this.doorWarn = 0;
     this.warnT = 0;
     this.trail = [];
     this._closeMini();
     this.miniBlocked = false;
-    this._setDisguise(false);
-    L.cellDoorBox.disabled = false;
-    L.cellDoor.position.x = 12;
-    L.keypad.material.emissive.setHex(0xff3030);
-    this.rickyBody.pos.copy(L.spots.cell);
+    this._setDisguise(this.stage !== 'yard' && !!this.run.flags.uniform); // (the uniform stays on from the yard)
+    L.cellDoorBox.disabled = this.freed;
+    L.cellDoor.position.x = this.freed ? 12 - 2.1 : 12;
+    L.keypad.material.emissive.setHex(this.freed ? 0x30ff70 : 0xff3030);
+    L.dbDoorBox.disabled = this.keycard;
+    L.dbDoor.visible = !this.keycard;
+    L.reader.material.emissive.setHex(this.keycard ? 0x30ff70 : 0xff3030);
+    this.keycardMesh.visible = !this.keycard;
+    if (this.freed) this.rickyBody.pos.copy(L.checkpoints[0].spawn).add(new THREE.Vector3(1.2, 0, 1.2));
+    else this.rickyBody.pos.copy(L.spots.cell);
     this.rickyBody.facing = 0;
-    s.player.zipLines = [];
+    s.player.zipLines = this.freed ? [L.zip] : [];
     this.guards.reset();
-    this.guards.setAlert(false);
-    for (const l of this.lights) l.reset();
+    this.guards.setAlert(this.alarm);
+    for (const l of this.lights) { l.reset(); l.alert = this.alarm; }
     const hud = s.game.hud;
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${this.part.title}`);
     hud.setObjective(this.part.objective);
@@ -153,6 +181,7 @@ export class PrisonMode {
     // --- The uniform
     if (!this.disguised && near(L.spots.uniform, 1.4)) {
       this._setDisguise(true);
+      this.run.flags.uniform = true;
       audio.sfx('clue', { vol: 0.5 });
       hud.toast('Guard uniform', 'Guards only notice you close up now (walk, don\'t run). The searchlights still check everyone.', '#8ab4ff', 5);
     }
@@ -186,8 +215,55 @@ export class PrisonMode {
       hud.toast('Knocked out', '', 'var(--amber)', 1.5);
     }
 
-    // --- Checkpoints
-    if (this.cp < 1 && pos.z < -22.5 && Math.abs(pos.x) < 24) { this.cp = 1; hud.toast('Checkpoint', 'D Block', 'var(--cyan)', 2); audio.sfx('checkpoint', { vol: 0.6 }); }
+    // --- Stage 1: the keycard on the watchtower, then D Block's door
+    if (this.stage === 'yard') {
+      if (!this.keycard) {
+        this.keycardMesh.rotation.y += dt * 2.5;
+        if (near(L.spots.keycard, 1.6)) {
+          this.keycard = true;
+          this.keycardMesh.visible = false;
+          this.cp = 1;
+          audio.sfx('clue', { vol: 0.7 });
+          hud.toast('Guard keycard', 'Now D Block: the building at the far end of the yard.', 'var(--amber)', 4);
+          hud.setObjective('Get into D Block');
+        }
+      }
+      if (Math.hypot(pos.x - L.spots.dbDoor.x, pos.z - L.spots.dbDoor.z) < 3) {
+        if (this.keycard && !L.dbDoorBox.disabled) {
+          L.dbDoorBox.disabled = true;
+          L.dbDoor.visible = false;
+          L.reader.material.emissive.setHex(0x30ff70);
+          audio.sfx('door');
+        } else if (!this.keycard && (this.doorWarn -= dt) <= 0) {
+          this.doorWarn = 4;
+          hud.toast('Locked', 'The door needs a guard keycard: it\'s on top of the north-west watchtower (climb the yellow ladder).', 'var(--amber)', 4);
+        }
+      }
+      if (this.keycard && pos.z < -22.8 && Math.abs(pos.x) < 3) { this._finish(); return; }
+    }
+
+    // --- Stage 2: the corridor lasers (pulse on and off; the low one you crouch under)
+    if (this.stage === 'dblock') {
+      const cycle = 1.2 + 2.0 * d.timer;
+      const px = this.prevX ?? pos.x;
+      for (const las of L.corridorLasers) {
+        let on = true;
+        if (las.type === 'pulse') {
+          const k = (s.time + las.phase * cycle) % cycle;
+          on = k < 1.2;
+          const warn = !on && k > cycle - 0.35;
+          for (const b of las.beams) { b.visible = on || (warn && Math.random() < 0.5); b.material.opacity = on ? 0.95 : 0.35; }
+        }
+        const crossed = (px - las.x) * (pos.x - las.x) <= 0 || Math.abs(pos.x - las.x) < 0.3;
+        if (on && crossed && pos.z > -30.9 && pos.z < -22.6 && las.heights.some((y) => y > pos.y + 0.02 && y < pos.y + p.height)) {
+          this.prevX = null;
+          this._caught('Laser tripped!', las.type === 'low' ? 'Crouch (C) or slide under the low beam.' : 'Wait for the beams to switch off, then go.');
+          return;
+        }
+      }
+      this.prevX = pos.x;
+      if (this.freed && pos.z > -21.3) { this._finish(); return; }
+    }
 
     // --- Ricky's cell: hack the keypad
     if (this.mini) {
@@ -197,7 +273,7 @@ export class PrisonMode {
         if (r === 'miss') this.spotted = Math.min(0.95, this.spotted + 0.1);
         if (r === 'done') { this._closeMini(); this._freeRicky(); }
       }
-    } else if (!this.freed) {
+    } else if (!this.freed && this.stage === 'dblock') {
       const at = near(L.spots.keypad, 1.5);
       if (!at) this.miniBlocked = false;
       else if (!this.miniBlocked) this.mini = new MiniGame({ type: 'hack', title: 'Opening Ricky\'s cell', hint: 'Jump (Space / A / tap) when it lines up · C to step away' });
@@ -211,12 +287,13 @@ export class PrisonMode {
     this.landingRing.visible = this.freed;
     if (!this.freed && near(L.spots.landing, 2.5)) {
       this.warnT -= dt;
-      if (this.warnT <= 0) { this.warnT = 4; hud.toast('Not without Ricky!', 'He\'s in D Block, the cell at the east end of the corridor.', 'var(--amber)'); }
+      if (this.warnT <= 0) { this.warnT = 4; hud.toast('Not without Ricky!', 'He\'s in D Block.', 'var(--amber)'); }
     }
-    if (this.freed && pos.x > 62 && pos.y > 0.4) { this._escape(); return; }
+    if (this.stage === 'lockdown' && pos.x > 62 && pos.y > 0.4) { this._escape(); return; }
+    if (this.stage === 'lockdown' && this.cp < 1 && pos.x > 38) { this.cp = 1; audio.sfx('checkpoint', { vol: 0.6 }); }
 
-    // --- Lockdown countdown after the alarm
-    if (this.alarm) {
+    // --- Lockdown countdown (stage 3)
+    if (this.stage === 'lockdown') {
       this.lockdown -= dt;
       if (this.lockdown <= 0) { this._caught('Lockdown', 'The guards sealed the yard. As soon as Ricky\'s out, run for the east wall stairs.'); return; }
     }
@@ -224,7 +301,7 @@ export class PrisonMode {
     this._updateMarker(pos);
     hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span>` +
       (this.disguised ? '<span><b style="color:#8ab4ff">IN UNIFORM</b></span>' : '') +
-      (this.alarm ? `<span class="warn">Lockdown in <b>${formatTime(Math.max(0, this.lockdown))}</b></span>` : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`));
+      (this.stage === 'lockdown' ? `<span class="warn">Lockdown in <b>${formatTime(Math.max(0, this.lockdown))}</b></span>` : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`));
   }
 
   _freeRicky() {
@@ -233,7 +310,7 @@ export class PrisonMode {
     L.cellDoorBox.disabled = true;
     L.cellDoor.position.x = 12 - 2.1; // (slides open)
     L.keypad.material.emissive.setHex(0x30ff70);
-    this.cp = 2;
+    this.cp = 1;
     audio.sfx('door');
     // The alarm (a cell opening without a guard's key card sets it off)
     this.alarm = true;
@@ -242,8 +319,8 @@ export class PrisonMode {
     for (const l of this.lights) l.alert = true;
     s.player.zipLines = [L.zip];
     audio.sfx('sting');
-    hud.setObjective('Get Ricky over the east wall');
-    hud.toast('Ricky is out!', `${SUSPECTS.ricky.name}: "About time! Somebody hit the alarm... that was me opening the door, wasn't it. RUN! East wall, I'm right behind you."`, 'var(--red)', 7);
+    hud.setObjective('Get back out of D Block with Ricky');
+    hud.toast('Ricky is out!', `${SUSPECTS.ricky.name}: "About time! That door just set off every alarm on the island. Lead the way, I'm right behind you."`, 'var(--red)', 6);
   }
 
   _updateRicky(dt) {
@@ -276,11 +353,17 @@ export class PrisonMode {
   }
 
   _escape() {
+    this.rickyBody.pos.copy(this.state.player.pos).add(new THREE.Vector3(1.2, 0, 0.8));
+    this._finish();
+  }
+
+  _finish() {
+    if (this.done) return;
     this.done = true;
     const s = this.state;
+    this._closeMini();
     s.setAction(null);
     s.game.hud.setMeter(0, '');
-    this.rickyBody.pos.copy(s.player.pos).add(new THREE.Vector3(1.2, 0, 0.8));
     audio.sfx('win');
     finishPart(s, this);
   }
@@ -288,9 +371,12 @@ export class PrisonMode {
   _updateMarker(pos) {
     const s = this.state, hud = s.game.hud, S = this.level.spots;
     let t, label, color = 'var(--cyan)';
-    if (!this.freed) {
-      if (pos.z > -22.5) { t = new THREE.Vector3(0, 0, -22); label = 'D Block'; }
-      else { t = S.keypad; label = 'Ricky\'s cell'; }
+    if (this.stage === 'yard') {
+      if (!this.keycard) { t = S.keycard; label = 'Keycard (watchtower)'; color = 'var(--amber)'; }
+      else { t = new THREE.Vector3(0, 0, -22); label = 'D Block'; }
+    } else if (this.stage === 'dblock') {
+      if (!this.freed) { t = S.keypad; label = 'Ricky\'s cell'; }
+      else { t = new THREE.Vector3(0, 0, -21); label = 'Way out'; color = 'var(--amber)'; }
     } else if (pos.x < 42 || pos.y < 6) { t = S.landing; label = 'East wall: zip line'; color = 'var(--amber)'; }
     else { t = S.pier; label = 'Mags\'s boat'; color = 'var(--safe)'; }
     this._mk ||= new THREE.Vector3();
@@ -304,7 +390,7 @@ export class PrisonMode {
   }
 
   adminSkip() {
-    if (!this.done) { if (!this.freed) this._freeRicky(); this._escape(); }
+    this._finish();
   }
 
   teardown() {

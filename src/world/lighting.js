@@ -212,6 +212,12 @@ export class NightLighting {
     this._apply();
   }
 
+  /** Snow on the roofs and roads (Chapter 8's mountains). */
+  setSnow(on) {
+    this.snow = !!on;
+    this._apply();
+  }
+
   /** 0 at night, 1 in full daylight. */
   get daylight() { return 1 - this.look.win / NIGHT.win; }
 
@@ -252,6 +258,13 @@ export class NightLighting {
     const day = 1 - L.win / NIGHT.win;
     mats.asphalt.color.setScalar(1 + day * 1.1);
     mats.concrete.color.setScalar(1 + day * 0.15);
+    mats.roof.color.setScalar(1);
+    if (this.snow) {
+      // Snow: roofs, pavements and roads go white (the textures show through a little)
+      mats.roof.color.setRGB(2.6, 2.7, 2.9);
+      mats.asphalt.color.setRGB(3.2, 3.3, 3.6);
+      mats.concrete.color.setRGB(1.9, 1.95, 2.1);
+    }
     this.exposure = L.exp;
     this.bloom = L.bloom;
     this._fadeNightGlows(L.halo);

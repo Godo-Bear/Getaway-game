@@ -27,6 +27,7 @@ export class TitleState {
       const city = generateRooftopCity({ seed: 99, blocks: 5 });
       this.scene.add(city.group);
     }
+    this.lighting.setTime(0); // (puts the shared materials back to night, no snow)
     this.game.hud.hideAll();
     this.game.speedrun = null;
     this.game.freeRoam = null;
