@@ -61,7 +61,7 @@ export const CHAPTER8 = {
       intro: [
         { kicker: 'Frostvale, 11:20 a.m.', title: 'A new town',
           lines: ['Snow on every roof, a ski lift on the mountain, and wanted posters on the noticeboard by the bus stop. Your faces. Even here.',
-            'Bounty hunters in red jackets walk the streets. Blend into the crowd, crouch behind parked cars, or take the roofs. Knock one out from behind with E (if another finds the body, they all start looking).'] },
+            'Bounty hunters in red jackets walk the streets. Blend into the crowd, or crouch behind parked cars and snowmen. Knock one out from behind with E (if another finds the body, they all start looking).'] },
         { kicker: 'On the phone', who: 'theo',
           lines: ['"Juno\'s at the ski hire shop. Then take photos of the job for the plan: the Glacier Bank cable car station, its security hut, and the bank\'s office in town (follow the cyan beams). Then go home: Pine Lodge, the cabin at the edge of town."'] },
       ],

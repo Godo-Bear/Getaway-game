@@ -372,6 +372,9 @@ class AudioManager {
       case 'win':
         if (!this._playBuffer('win', 0.9 * vol)) [523, 659, 784, 1047].forEach((f, i) => this._tone(f, 0.5, 'triangle', 0.14, i * 0.12));
         return;
+      case 'alarm': // an alarm bell ringing for a couple of seconds (a laser was touched)
+        for (let i = 0; i < 9; i++) this._tone(i % 2 ? 680 : 920, 0.22, 'square', 0.06 * vol, i * 0.25);
+        return;
       case 'sting': // dramatic chord for reveals
         this._tone(110, 1.6, 'sawtooth', 0.06 * vol);
         this._tone(116.5, 1.6, 'sawtooth', 0.05 * vol);

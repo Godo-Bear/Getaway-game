@@ -36,7 +36,7 @@ html, body {
 .hud { position: fixed; pointer-events: none; z-index: 5; }
 .hud[hidden] { display: none !important; }
 
-#hud-tl { top: 0; left: 0; padding: 16px 18px; max-width: min(460px, 62vw); }
+#hud-tl { top: 0; left: 0; padding: 16px 18px; max-width: min(460px, 62vw); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 12px rgba(0, 0, 0, 0.5); }
 #hud-phase { font-size: 14px; color: var(--amber); font-weight: 500; letter-spacing: 0.02em; }
 #hud-objective { font-family: var(--display); font-size: 30px; line-height: 0.95; margin-top: 2px; text-shadow: 0 2px 14px #000; }
 #hud-stats { margin-top: 8px; font-size: 15px; color: var(--muted); display: flex; gap: 16px; flex-wrap: wrap; }
@@ -526,8 +526,8 @@ body.touch-mode #hud-prompt { display: none; }
 .ed-brush { display: inline-flex; align-items: center; gap: 4px; font: 700 13px var(--body); color: var(--muted); }
 .ed-brush .ed-t { padding: 6px 8px; }
 
-/* Story scenes: a compact panel at the bottom left, so the game stays visible */
-.overlay.story { align-items: flex-end; justify-content: flex-start; padding: 14px; background: linear-gradient(0deg, rgba(6, 8, 15, 0.75), rgba(6, 8, 15, 0) 55%); }
+/* Story scenes: a compact panel in the middle of the screen */
+.overlay.story { align-items: center; justify-content: center; padding: 14px; background: rgba(6, 8, 15, 0.45); }
 .overlay.story .card { max-width: 430px; padding: 14px 16px 12px; }
 .overlay.story .card h2 { font-size: 26px; margin-bottom: 4px; }
 .overlay.story .card p { font-size: 14.5px; line-height: 1.38; margin-bottom: 6px; }
@@ -537,7 +537,6 @@ body.touch-mode #hud-prompt { display: none; }
 .overlay.story .btn { font-size: 14px; padding: 7px 12px; }
 @media (max-height: 520px) {
   .overlay.story { padding: 8px; }
-  /* (phones in landscape: wide and short, so most of the screen stays game) */
   .overlay.story .card { max-width: min(520px, 62vw); max-height: 52vh; overflow-y: auto; padding: 8px 12px 6px; }
   .overlay.story .card h2 { font-size: 18px; margin-bottom: 2px; }
   .overlay.story .card p { font-size: 12px; line-height: 1.28; margin-bottom: 3px; }
@@ -545,15 +544,18 @@ body.touch-mode #hud-prompt { display: none; }
   .overlay.story .speaker { font-size: 15px; }
   .overlay.story .btn { font-size: 12.5px; padding: 5px 10px; }
 }
-/* Smaller pop-up messages (clues, checkpoints, hints) */
-#toast { width: min(440px, 80vw); top: 18%; }
-#toast .t { font-size: 27px; }
-#toast .b { font-size: 14.5px; margin-top: 3px; }
+/* Small pop-up messages (clues, checkpoints, hints): a short line, not a wall of text */
+#toast { width: min(360px, 62vw); top: 17%; }
+#toast .t { font-size: 22px; }
+#toast .b { font-size: 13px; margin-top: 2px; line-height: 1.25; }
 @media (max-height: 520px) {
-  #toast { top: 14%; width: min(380px, 70vw); }
-  #toast .t { font-size: 20px; }
-  #toast .b { font-size: 12.5px; }
+  #toast { top: 19%; width: min(320px, 46vw); }
+  #toast .t { font-size: 17px; }
+  #toast .b { font-size: 11px; }
 }
+/* A laser was touched: the screen edges pulse red while the alarm rings */
+body.alarm-on::after { content: ''; position: fixed; inset: 0; z-index: 7; pointer-events: none; box-shadow: inset 0 0 90px 24px rgba(255, 30, 50, 0.8); animation: alarm-pulse 0.25s ease-in-out infinite alternate; }
+@keyframes alarm-pulse { from { opacity: 0.35; } to { opacity: 1; } }
 /* Menus and results: a bit more compact on short screens */
 @media (max-height: 520px) { .card h2 { font-size: 26px; } .card p { font-size: 13.5px; } .card { padding: 14px 16px; } }
 /* The game is played in landscape: on a phone held upright, ask to turn it */

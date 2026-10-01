@@ -18,7 +18,7 @@ const ST = (i) => C(i) + PITCH / 2;                // street centre (after block
 const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter8Town() {
-  const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS });
+  const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS, alpine: true });
   const w = city.world;
   const g = city.group;
   const lambert = (color) => new THREE.MeshLambertMaterial({ color });
@@ -46,6 +46,8 @@ export function buildChapter8Town() {
     w.addBlock(x, 0, z, 0.6, 2, 0.6, { tag: 'prop' });
   };
   for (let i = 0; i < BLOCKS - 1; i++) for (let j = 0; j < BLOCKS - 1; j++) pine(ST(i) + 5.5, ST(j) + 5.5, 0.9 + ((i + j) % 3) * 0.15);
+
+  buildAlpineTown(city, g, w);
 
   const spawn = new THREE.Vector3(C(0) + PAV, 0.05, C(1) - 8);
 
@@ -126,4 +128,175 @@ export function buildChapter8Town() {
     spawn, checkpoints, clues: [], goalPos, meetingSpots, reconSpots, patrolRoutes, crowdLanes,
     meetingCheckpoint: { juno: 1 },
   };
+}
+
+// ----------------------------------------------------------------------
+//  A mountain town, not the city with snow on it: pitched snowy roofs and
+//  chimneys on every chalet, snow on the ground, drifts along the kerbs,
+//  a pine forest round the edge of town, mountains all round the valley,
+//  and the Glacier Bank's cable car climbing the big peak.
+// ----------------------------------------------------------------------
+function buildAlpineTown(city, g, w) {
+  const SNOW = 0xf2f6fc;
+  const snowMat = new THREE.MeshLambertMaterial({ color: SNOW });
+  const woodMat = new THREE.MeshLambertMaterial({ color: 0x4a3222 });
+  const stoneMat = new THREE.MeshLambertMaterial({ color: 0x6a6660 });
+  let seed = 8;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+
+  // --- Pitched roofs (one merged mesh), wooden eaves, chimneys
+  const tri = [];
+  const quad = (a, b, c, d) => tri.push(...a, ...b, ...c, ...a, ...c, ...d);
+  const eaves = [];
+  for (const b of city.buildings) {
+    const o = 0.7, x0 = b.minX - o, x1 = b.maxX + o, z0 = b.minZ - o, z1 = b.maxZ + o, h = b.h;
+    const alongX = (b.maxX - b.minX) >= (b.maxZ - b.minZ);
+    const span = alongX ? b.maxZ - b.minZ : b.maxX - b.minX;
+    const rise = Math.min(5, span * 0.38);
+    const top = h + rise;
+    if (alongX) {
+      const zc = (z0 + z1) / 2;
+      quad([x0, h, z1], [x1, h, z1], [x1, top, zc], [x0, top, zc]);   // south slope
+      quad([x1, h, z0], [x0, h, z0], [x0, top, zc], [x1, top, zc]);   // north slope
+      tri.push(x0, h, z0, x0, h, z1, x0, top, zc, x1, h, z1, x1, h, z0, x1, top, zc); // gable ends
+    } else {
+      const xc = (x0 + x1) / 2;
+      quad([x1, h, z1], [x1, h, z0], [xc, top, z0], [xc, top, z1]);
+      quad([x0, h, z0], [x0, h, z1], [xc, top, z1], [xc, top, z0]);
+      tri.push(x0, h, z1, x1, h, z1, xc, top, z1, x1, h, z0, x0, h, z0, xc, top, z0);
+    }
+    eaves.push([x0, z0, x1, z1, h]);
+    // stepped collision under the slopes (nobody stands inside a roof)
+    for (let k = 0; k < 3; k++) {
+      const f = (k + 1) / 4, y0 = h + rise * (k / 3), y1 = h + rise * ((k + 1) / 3);
+      if (alongX) w.addBox(b.minX, y0, b.minZ + span * f / 2, b.maxX, y1, b.maxZ - span * f / 2, { tag: 'building' });
+      else w.addBox(b.minX + span * f / 2, y0, b.minZ, b.maxX - span * f / 2, y1, b.maxZ, { tag: 'building' });
+    }
+    // a stone chimney on most houses
+    if (rnd() < 0.7) {
+      const cx = alongX ? x0 + (x1 - x0) * (0.25 + rnd() * 0.5) : (x0 + x1) / 2 + span * 0.18;
+      const cz = alongX ? (z0 + z1) / 2 + span * 0.18 : z0 + (z1 - z0) * (0.25 + rnd() * 0.5);
+      const ch = new THREE.Mesh(new THREE.BoxGeometry(1, rise + 1.4, 1), stoneMat);
+      ch.position.set(cx, h + (rise + 1.4) / 2, cz);
+      const cap = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.25, 1.25), snowMat);
+      cap.position.set(cx, h + rise + 1.5, cz);
+      g.add(ch, cap);
+    }
+  }
+  const roofGeo = new THREE.BufferGeometry();
+  roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(tri, 3));
+  roofGeo.computeVertexNormals();
+  const roofs = new THREE.Mesh(roofGeo, new THREE.MeshLambertMaterial({ color: SNOW, side: THREE.DoubleSide }));
+  roofs.castShadow = roofs.receiveShadow = true;
+  g.add(roofs);
+  const eaveMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), woodMat, eaves.length);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  eaves.forEach(([x0, z0, x1, z1, h], i) => eaveMesh.setMatrixAt(i, m4.compose(v.set((x0 + x1) / 2, h - 0.15, (z0 + z1) / 2), q, sc.set(x1 - x0, 0.3, z1 - z0))));
+  g.add(eaveMesh);
+
+  // --- Snow on the ground (the roads keep a little of their colour: tyre tracks)
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(700, 700), new THREE.MeshLambertMaterial({ color: 0xd8e0ea, transparent: true, opacity: 0.68 }));
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = 0.012;
+  ground.receiveShadow = true;
+  g.add(ground);
+  const field = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600), new THREE.MeshLambertMaterial({ color: 0xd8e0ea }));
+  field.rotation.x = -Math.PI / 2;
+  field.position.y = -0.02;
+  g.add(field);
+
+  // --- Snowdrifts along the kerbs (between the junctions)
+  const drifts = [];
+  for (let i = 0; i < BLOCKS; i++) {
+    for (let j = 0; j < BLOCKS; j++) {
+      for (const side of [-1, 1]) {
+        for (let t = -16; t <= 16; t += 8) {
+          drifts.push([C(i) + t + rnd() * 3, C(j) + side * 23.6, true]);
+          drifts.push([C(i) + side * 23.6, C(j) + t + rnd() * 3, false]);
+        }
+      }
+    }
+  }
+  const driftMesh = new THREE.InstancedMesh(new THREE.SphereGeometry(1, 10, 6), snowMat, drifts.length);
+  drifts.forEach(([x, z, alongX], i) => {
+    const len = 2 + rnd() * 2.5;
+    driftMesh.setMatrixAt(i, m4.compose(v.set(x, 0, z), q, sc.set(alongX ? len : 0.9, 0.45 + rnd() * 0.25, alongX ? 0.9 : len)));
+  });
+  g.add(driftMesh);
+
+  // --- A pine forest round the town
+  const ext = ((BLOCKS - 1) / 2) * PITCH + PITCH / 2 + 12;
+  const pines = [];
+  for (let k = 0; k < 520; k++) {
+    const x = (rnd() * 2 - 1) * 330, z = (rnd() * 2 - 1) * 330;
+    if (Math.abs(x) < ext && Math.abs(z) < ext) continue;
+    pines.push([x, z, 0.9 + rnd() * 1.4]);
+  }
+  const green = new THREE.InstancedMesh(new THREE.ConeGeometry(2.2, 7, 7), new THREE.MeshLambertMaterial({ color: 0x1f3d2c }), pines.length);
+  const tips = new THREE.InstancedMesh(new THREE.ConeGeometry(1.2, 2.6, 7), snowMat, pines.length);
+  pines.forEach(([x, z, s], i) => {
+    green.setMatrixAt(i, m4.compose(v.set(x, 4.2 * s, z), q, sc.set(s, s, s)));
+    tips.setMatrixAt(i, m4.compose(v.set(x, 7.2 * s, z), q, sc.set(s, s, s)));
+  });
+  g.add(green, tips);
+
+  // --- Mountains all round the valley (not fogged: they're the view)
+  const rock = new THREE.MeshLambertMaterial({ color: 0x7c889c, fog: false });
+  const cap = new THREE.MeshLambertMaterial({ color: 0xf4f8ff, fog: false });
+  const mountain = (x, z, r, h) => {
+    const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 7), rock);
+    m.position.set(x, h / 2 - 20, z);
+    m.rotation.y = rnd() * 3;
+    const c = new THREE.Mesh(new THREE.ConeGeometry(r * 0.48, h * 0.48, 7), cap);
+    c.position.set(x, h - h * 0.24 - 20 + 0.5, z);
+    c.rotation.y = m.rotation.y;
+    g.add(m, c);
+  };
+  for (let k = 0; k < 16; k++) {
+    const a = (k / 16) * Math.PI * 2 + rnd() * 0.2, r = 430 + rnd() * 120;
+    mountain(Math.cos(a) * r, Math.sin(a) * r, 120 + rnd() * 80, 180 + rnd() * 140);
+  }
+  mountain(C(2) + 330, C(1) - 330, 220, 420); // the Glacier Bank's mountain (the cable car goes up it)
+
+  // --- The cable car's pylons and cabins, climbing towards the summit
+  const st = { x: C(2), z: C(1) };
+  for (let t = 40; t < 300; t += 52) {
+    const py = new THREE.Mesh(new THREE.BoxGeometry(0.8, t, 0.8), new THREE.MeshLambertMaterial({ color: 0x3a3e46 }));
+    py.position.set(st.x + t, t / 2, st.z - t);
+    const arm = new THREE.Mesh(new THREE.BoxGeometry(3, 0.4, 0.4), py.material);
+    arm.position.set(st.x + t, t + 0.2, st.z - t);
+    arm.rotation.y = Math.PI / 4;
+    g.add(py, arm);
+  }
+  for (let t = 70; t < 300; t += 75) {
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 2, 2), new THREE.MeshLambertMaterial({ color: 0xc8302a }));
+    cab.position.set(st.x + t, t - 2.2, st.z - t);
+    g.add(cab);
+  }
+
+  // --- Snowmen and a welcome sign
+  const snowman = (x, z) => {
+    for (const [y, r] of [[0.55, 0.6], [1.35, 0.42], [1.95, 0.28]]) {
+      const b = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), snowMat);
+      b.position.set(x, y, z);
+      g.add(b);
+    }
+    const nose = new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.3, 6), new THREE.MeshLambertMaterial({ color: 0xff7a1a }));
+    nose.rotation.x = Math.PI / 2;
+    nose.position.set(x, 1.97, z + 0.32);
+    g.add(nose);
+    w.addBlock(x, 0, z, 1.1, 2.2, 1.1, { tag: 'prop' });
+  };
+  snowman(ST(0) - 5, ST(0) - 5);
+  snowman(ST(1) + 5, ST(2) - 5);
+  snowman(ST(2) - 5, ST(0) + 5);
+  const welcome = new THREE.Mesh(new THREE.PlaneGeometry(7, 1.6), new THREE.MeshBasicMaterial({ map: makeTextTexture('WELCOME TO FROSTVALE · 1,840 M', { color: '#7dff8a', bg: 'rgba(40,26,16,0.95)', width: 1024, height: 200, font: 'bold 96px "Bebas Neue", Impact, sans-serif' }), toneMapped: false, side: THREE.DoubleSide }));
+  welcome.position.set(C(0) + 26.5, 3.4, C(1) - 14);
+  welcome.rotation.y = Math.PI / 2;
+  g.add(welcome);
+  for (const dz of [-3.2, 3.2]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.25, 4.2, 0.25), woodMat);
+    post.position.set(C(0) + 26.5, 2.1, C(1) - 14 + dz);
+    g.add(post);
+  }
 }

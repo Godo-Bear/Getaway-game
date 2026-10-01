@@ -93,6 +93,7 @@ export class PlayState {
         sub: ghostOn ? 'The police come back and you return to where you turned it on' : 'Remove the police and roam freely. Nothing counts while it\'s on',
         onClick: () => { this.resume(); this.toggleGhost(); },
       }] : []),
+      ...(this.pauseButtons?.() ?? []),
       ...(this.mode?.pauseButtons?.() ?? []),
       ...(admin.on && this.mode?.adminSkip ? [{
         label: 'Admin: skip this part', sub: 'Finish it right now',

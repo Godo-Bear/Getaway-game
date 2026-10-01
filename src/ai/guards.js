@@ -54,7 +54,7 @@ export class GuardSquad {
     // Vision cone on the floor (a fan)
     const geo = new THREE.CircleGeometry(1, 24, -HALF_ANGLE, HALF_ANGLE * 2);
     geo.rotateX(-Math.PI / 2);
-    geo.rotateY(Math.PI / 2); // fan points along +Z (the way the model faces)
+    geo.rotateY(-Math.PI / 2); // fan points along +Z (the way the model faces)
     const cone = new THREE.Mesh(geo, makeGlowMaterial(0xffd23a, 0.16));
     cone.position.y = 0.04;
     this.parent.add(cone);

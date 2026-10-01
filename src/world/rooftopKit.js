@@ -539,7 +539,7 @@ export class RooftopKit {
   // Finish: build all meshes
   // ------------------------------------------------------------------
   finish() {
-    this._placeLadders();
+    if (!this.noLadders) this._placeLadders();
     const group = new THREE.Group();
     group.add(this.batch.build(getMaterials()));
     if (this.ladders.length) group.add(buildLadders(this.ladders));

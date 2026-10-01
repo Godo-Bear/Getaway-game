@@ -12,8 +12,14 @@ const BLOCK = 42;          // block size (m)
 const STREET = 13;         // street width (m) - too far to jump
 const PITCH = BLOCK + STREET;
 
-export function generateRooftopCity({ seed = 1, blocks = 6 } = {}) {
+// alpine: a small mountain town instead of the city (low wooden and plaster
+// chalets, no towers, no roof props or bridges, no ladders: the level adds
+// pitched snowy roofs on top, see chapter8Town.js).
+const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4, 0x7a5236];
+
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false } = {}) {
   const kit = new RooftopKit({ seed });
+  if (alpine) kit.noLadders = true;
   const rng = kit.rng;
   const half = ((blocks - 1) / 2) * PITCH;
   const blockCenter = (i) => i * PITCH - half;
@@ -31,6 +37,10 @@ export function generateRooftopCity({ seed = 1, blocks = 6 } = {}) {
       const zs = splitSpan(rng, z0, BLOCK, rng.int(2, 3));
       for (const [lx0, lx1] of xs) {
         for (const [lz0, lz1] of zs) {
+          if (alpine) {
+            kit.building(lx0, lz0, lx1, lz1, Math.round(rng.range(7, 10.5) * 2) / 2, { lips: false, tint: rng.pick(ALPINE_TINTS) });
+            continue;
+          }
           const tower = rng() < 0.09;
           // Normal roofs stay within a 4.5 m band so routes are always climbable.
           const h = tower ? rng.range(28, 36) : Math.round(rng.range(15, 19.5) * 2) / 2;
@@ -49,7 +59,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6 } = {}) {
   const findBuilding = (x, z) => kit.buildings.find((b) =>
     x > b.minX + 0.8 && x < b.maxX - 0.8 && z > b.minZ + 0.8 && z < b.maxZ - 0.8);
 
-  for (let bi = 0; bi < blocks; bi++) {
+  for (let bi = 0; bi < (alpine ? 0 : blocks); bi++) {
     for (let bj = 0; bj < blocks; bj++) {
       if (bi < blocks - 1) tryBridges('x', blockCenter(bi) + BLOCK / 2, blockCenter(bj));
       if (bj < blocks - 1) tryBridges('z', blockCenter(bj) + BLOCK / 2, blockCenter(bi));

@@ -4,6 +4,7 @@ import { PlayerController } from '../player/playerController.js';
 import { PlayerModel } from '../player/playerModel.js';
 import { FirstPersonArms } from '../player/firstPersonArms.js';
 import { save } from '../core/save.js';
+import { OUTFITS, outfitById } from '../player/outfits.js';
 import { audio } from '../core/audio.js';
 import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
 import { NightLighting, lightingForQuality, pickTime } from '../world/lighting.js';
@@ -11,7 +12,7 @@ import { Weather, pickWeather } from '../world/weather.js';
 import { FootGadgets } from '../gadgets/footGadgets.js';
 import { owns } from '../gadgets/gadgets.js';
 import { admin } from '../core/admin.js';
-import { CONTROLS } from '../ui/menus.js';
+import { CONTROLS, showCard } from '../ui/menus.js';
 import { damp, clamp } from '../core/utils.js';
 import { FreeRunMode } from './modes/freeRunMode.js';
 import { RooftopRunMode } from './modes/rooftopRunMode.js';
@@ -76,6 +77,7 @@ export class OnFootState extends PlayState {
     this.player.jumpScale = owns('springs') ? 1.2 : 1;
     this.player.wallRunScale = owns('grips') ? 2 : 1;
     this.model = new PlayerModel();
+    this.model.setLook(outfitById(game.settings.outfit));
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
     this.gadgets = new FootGadgets(this); // shop gadgets (F)
@@ -349,6 +351,34 @@ export class OnFootState extends PlayState {
   }
 
   /** Quick fade + message, used for any respawn. */
+  /** A laser was touched: alarm bell, the screen edges pulse red for a moment. */
+  laserAlarm() {
+    audio.sfx('alarm');
+    document.body.classList.add('alarm-on');
+    clearTimeout(this._alarmT);
+    this._alarmT = setTimeout(() => document.body.classList.remove('alarm-on'), 2300);
+  }
+
+  /** In everyday clothes (not the balaclava)? Street patrols notice you later. */
+  get streetClothes() {
+    return outfitById(this.game.settings.outfit).id !== 'heist';
+  }
+
+  /** Pause menu: change your look. */
+  pauseButtons() {
+    return [{ label: 'Your look', sub: outfitById(this.game.settings.outfit).name, onClick: () => this.showWardrobe() }];
+  }
+
+  showWardrobe() {
+    const back = () => { this.paused = false; this.pause(); };
+    const cur = outfitById(this.game.settings.outfit).id;
+    showCard('<p class="sub kicker">Wardrobe</p><h2>Your look</h2><p class="sub">In broad daylight a balaclava gets noticed. In everyday clothes, police and bounty hunters on the street only recognise you up close (walk, don\'t sprint).</p>',
+      [...OUTFITS.map((o) => ({
+        label: (o.id === cur ? '✓ ' : '') + o.name, sub: o.text, primary: o.id === cur,
+        onClick: () => { this.game.settings.outfit = o.id; save.write(); this.model.setLook(o); this.mode.onLookChanged?.(); back(); },
+      })), { label: 'Back', onClick: back }], { grid: true });
+  }
+
   flash(title, message, color = 'var(--cyan)') {
     const hud = this.game.hud;
     hud.toast(title, message, color);

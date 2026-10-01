@@ -508,6 +508,13 @@ export class ChapterFootMode {
     const s = this.state, p = s.player, hud = s.game.hud;
     // Walking (not sprinting) right next to people: you're just another face in the crowd
     this.blending = !!this.crowd && p.horizontalSpeed < 4.6 && p.grounded && this.crowd.blendsIn(p.pos);
+    // In everyday clothes in daylight, they only recognise you closer up (a balaclava gets noticed)
+    const daylight = (s.lighting?.daylight ?? 0) > 0.5, plain = daylight && s.streetClothes;
+    this.patrols.sight = diff().guardSight * (plain ? 0.55 : 1);
+    if (daylight && !s.streetClothes && !this.lookTip && s.time > 4) {
+      this.lookTip = true;
+      hud.toast('Broad daylight', 'A balaclava gets noticed. Pause and pick "Your look" to change into everyday clothes: police only recognise you up close.', 'var(--amber)', 6);
+    }
     const seen = this.patrols.update(dt, p, this.hidden || s.concealed || !!this.mini || this.blending);
     if (this.patrols.bodyFound && !this.patrols.alert) {
       this.patrols.setAlert(true);

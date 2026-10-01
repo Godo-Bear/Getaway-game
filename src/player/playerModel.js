@@ -121,6 +121,8 @@ export class PlayerModel {
     strap.rotation.z = 0.7;
     strap.visible = bag;
     this.torso.add(strap);
+    this.strap = strap;
+    this.own = null; // your own clothes (setLook); disguises go on top
 
     // Current joint angles (blended toward targets each frame)
     this.pose = {
@@ -136,11 +138,21 @@ export class PlayerModel {
     this.root.traverse((o) => { if (o.isMesh) o.userData.baseHex = o.material.color.getHex(); });
   }
 
+  /** Your own look (an outfit from outfits.js): clothes, and whether you carry the cash bag. */
+  setLook(outfit) {
+    this.own = outfit?.colors || null;
+    const bag = outfit ? outfit.bag : true;
+    this.bag.visible = bag;
+    this.strap.visible = bag;
+    this.setOutfit(null);
+  }
+
   /**
    * Wear different clothes: any of hoodie, trousers, mask, gloves...
    * (e.g. a casino staff uniform). null = back to the original outfit.
    */
   setOutfit(colors = null) {
+    colors ||= this.own;
     this.root.traverse((o) => {
       if (!o.isMesh) return;
       const base = o.userData.baseHex;
