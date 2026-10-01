@@ -28,7 +28,7 @@ const ARRIVE_RADIUS = 11;
 const ARRIVE_SPEED = 18;       // m/s: you have to actually pull up
 const COP_CLEAR_RADIUS = 45;   // no cop this close and watching = you can slip into the safehouse
 const CLUE_RADIUS = 7;
-const CATCH_RADIUS = 11;
+const CATCH_RADIUS = 16;   // (generous: stay roughly on their bumper)
 
 export class ChapterDriveMode {
   constructor(state, params) {
@@ -107,7 +107,8 @@ export class ChapterDriveMode {
       this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color);
       const fn = g.node(f.startNode[0], f.startNode[1]);
       this.fugitive.place(fn, f.heading ?? Math.PI);
-      this.fugitive.car.speedFactor = diff().fugitive;
+      this.fugitiveSpeed = diff().fugitive * 0.9;
+      this.fugitive.car.speedFactor = this.fugitiveSpeed;
     }
 
     if (this.goalPos) s.beacon.set(this.goalPos.x, this.goalPos.z, part.goal.label, part.goal.color ?? 0x4dffa6);
@@ -275,9 +276,11 @@ export class ChapterDriveMode {
     if (this.fugitive && !this.ghost) {
       const fc = this.fugitive.car;
       const d = Math.hypot(fc.pos.x - p.pos.x, fc.pos.z - p.pos.z);
-      if (fc.lastImpact > 5 && d < 6) this.catchMeter += 0.12;
+      if (fc.lastImpact > 3 && d < 8) this.catchMeter += 0.25; // a good ram counts for a lot
       fc.lastImpact = 0;
-      this.catchMeter = clamp(this.catchMeter + (d < CATCH_RADIUS ? dt * 0.3 * diff().catchRate : -dt * 0.08), 0, 1);
+      // Fall far behind and they ease off (traffic, nerves), so you can always catch up
+      fc.speedFactor = this.fugitiveSpeed * (d > 80 ? 0.7 : d > 45 ? 0.82 : 1);
+      this.catchMeter = clamp(this.catchMeter + (d < CATCH_RADIUS ? dt * 0.48 * diff().catchRate : -dt * 0.035), 0, 1);
       if (this.catchMeter > 0.01 || d < CATCH_RADIUS * 2) {
         hud.setMeter(this.catchMeter, d < CATCH_RADIUS ? `Run ${part.fugitive.name} off the road!` : `Catch ${part.fugitive.name}`, 'var(--amber)');
       }

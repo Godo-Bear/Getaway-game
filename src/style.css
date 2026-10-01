@@ -544,14 +544,17 @@ body.touch-mode #hud-prompt { display: none; }
   .overlay.story .speaker { font-size: 15px; }
   .overlay.story .btn { font-size: 12.5px; padding: 5px 10px; }
 }
-/* Small pop-up messages (clues, checkpoints, hints): a short line, not a wall of text */
-#toast { width: min(360px, 62vw); top: 17%; }
-#toast .t { font-size: 22px; }
-#toast .b { font-size: 13px; margin-top: 2px; line-height: 1.25; }
+/* Pop-up messages (clues, checkpoints, hints, alarms): tucked into the top-left
+   corner under the objective, never across the middle of the screen. hud.toast()
+   sets `top` to just below the objective text. */
+#toast { left: calc(18px + env(safe-area-inset-left, 0px)); top: 110px; transform: translateY(-6px); width: min(340px, 34vw); text-align: left; }
+#toast.show { transform: translateY(0); }
+#toast .t { font-size: 20px; }
+#toast .b { font-size: 13px; margin-top: 2px; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 @media (max-height: 520px) {
-  #toast { top: 19%; width: min(320px, 46vw); }
-  #toast .t { font-size: 17px; }
-  #toast .b { font-size: 11px; }
+  #toast { left: calc(14px + env(safe-area-inset-left, 0px)); width: min(280px, 36vw); }
+  #toast .t { font-size: 15px; }
+  #toast .b { font-size: 10.5px; -webkit-line-clamp: 2; }
 }
 /* A laser was touched: the screen edges pulse red while the alarm rings */
 body.alarm-on::after { content: ''; position: fixed; inset: 0; z-index: 7; pointer-events: none; box-shadow: inset 0 0 90px 24px rgba(255, 30, 50, 0.8); animation: alarm-pulse 0.25s ease-in-out infinite alternate; }

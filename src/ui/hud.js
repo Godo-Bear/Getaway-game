@@ -108,6 +108,10 @@ export class Hud {
     this.el.toast.querySelector('.t').textContent = title;
     this.el.toast.querySelector('.t').style.color = color;
     this.el.toast.querySelector('.b').textContent = body;
+    // Just under the objective in the top-left corner (out of the way of the action)
+    const tl = document.getElementById('hud-tl');
+    const r = tl && !tl.hidden && getComputedStyle(tl).display !== 'none' ? tl.getBoundingClientRect() : null;
+    this.el.toast.style.top = `${Math.round(r && r.height ? r.bottom + 6 : 14)}px`;
     this.el.toast.classList.add('show');
     this._toastTimer = seconds ?? (body ? 4 : 2);
   }
