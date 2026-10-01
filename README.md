@@ -87,7 +87,7 @@ The panel has four tabs, each a tidy list:
 * **Abilities** (on/off switches, in groups):
   * Stealth: God mode (never caught, spotted out or busted), Unseen (guards, street patrols and searchlights can't see you), No lasers, Instant hacks (every hack and safe opens at once).
   * Movement: Super speed, Moon jump, Glider always on, Infinite nitro.
-  * Gadgets: No gadget recharge, Infinite range (the Grapple Gun reaches any building you can see, EMP and Flashbang hit every cop, smoke hides you anywhere).
+  * Gadgets: No gadget recharge, Double power-ups (every gadget effect lasts twice as long), Infinite range (the Grapple Gun reaches any building you can see, EMP and Flashbang hit every cop, smoke hides you anywhere).
   * Fun: Slow motion, Big head.
   * With any ability on, Speedrun times aren't saved.
 * **Cash & unlocks**: set your cash or add $1,000 to $1,000,000; unlock every gadget, chapter or car colour.

@@ -5,6 +5,9 @@ import { PlayerModel } from '../player/playerModel.js';
 import { audio } from '../core/audio.js';
 import { admin } from '../core/admin.js';
 
+/** A gadget effect's length (the admin's "Double power-ups" ability doubles them all). */
+const T = (t) => t * (admin.flag('doublePower') ? 2 : 1);
+
 // On-foot gadgets (press F):
 //   Smoke Bomb  - a cloud at your feet; inside it the police can't see you
 //   Holo-Decoy  - a hologram of you that the spotlights and officers chase
@@ -41,7 +44,7 @@ export class FootGadgets {
     if (this.box && pc.horizontalSpeed < 3.6) return true;          // Cardboard Box: still, or creeping
     if (this.cham > 0 && pc.horizontalSpeed < 5.2) return true;     // Chameleon Suit: walking
     const s = this.smoke;
-    return !!s && s.t < SMOKE_TIME && (admin.flag('infiniteRange') || this.state.player.pos.distanceTo(s.pos) < SMOKE_RADIUS);
+    return !!s && s.t < T(SMOKE_TIME) && (admin.flag('infiniteRange') || this.state.player.pos.distanceTo(s.pos) < SMOKE_RADIUS);
   }
 
   /** The decoy, shaped like the player object the police AI expects. */
@@ -55,7 +58,7 @@ export class FootGadgets {
     if (!this.slot.ready) { this.slot.explainNotReady(); return; }
     const id = this.slot.gadget.id;
     const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash()
-      : id === 'cloak' ? this._cloak() : id === 'mirage' ? this._cloak(MIRAGE_TIME, 'Mirage Cloak!')
+      : id === 'cloak' ? this._cloak() : id === 'mirage' ? this._cloak(T(MIRAGE_TIME), 'Mirage Cloak!')
       : id === 'box' ? this._box() : id === 'chameleon' ? this._chameleon() : this._grapple();
     if (ok) this.slot.used();
   }
@@ -127,7 +130,7 @@ export class FootGadgets {
   }
 
   // ---------------------------------------------------------------- Invisibility Cloak (admin)
-  _cloak(time = CLOAK_TIME, title = 'Invisible!') {
+  _cloak(time = T(CLOAK_TIME), title = 'Invisible!') {
     this.cloak = time;
     this._setSeeThrough(true);
     audio.sfx('whoosh', { vol: 0.8 });
@@ -148,10 +151,10 @@ export class FootGadgets {
 
   // ---------------------------------------------------------------- Chameleon Suit
   _chameleon() {
-    this.cham = CHAMELEON_TIME;
+    this.cham = T(CHAMELEON_TIME);
     this._setSeeThrough(true, 0.4);
     audio.sfx('whoosh', { vol: 0.6 });
-    this.state.game.hud.toast('Chameleon suit!', `Walk, don't sprint: nobody can see you for ${CHAMELEON_TIME} seconds.`, '#6affb0', 3);
+    this.state.game.hud.toast('Chameleon suit!', `Walk, don't sprint: nobody can see you for ${T(CHAMELEON_TIME)} seconds.`, '#6affb0', 3);
     return true;
   }
 
@@ -189,7 +192,7 @@ export class FootGadgets {
     let blinded = 0, stunned = 0;
     for (const h of [mode.heli, ...(mode.helis || [])]) {
       if (!h) continue;
-      h.blinded = FLASH_BLIND;
+      h.blinded = T(FLASH_BLIND);
       // The spotlight swings away from you while the crew can't see
       const a = Math.random() * Math.PI * 2;
       h.lastSeen.set(p.x + Math.cos(a) * 35, p.y, p.z + Math.sin(a) * 35);
@@ -197,7 +200,7 @@ export class FootGadgets {
     }
     for (const u of [...(mode.officers?.units || []), ...(mode.patrols?.units || [])]) {
       if (u.waitTimer > 0) continue;
-      if (admin.flag('infiniteRange') || u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = FLASH_BLIND; stunned++; }
+      if (admin.flag('infiniteRange') || u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = T(FLASH_BLIND); stunned++; }
     }
     // A white burst at your feet
     const burst = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xfff6c8, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -207,7 +210,7 @@ export class FootGadgets {
     s.game.post?.lightning?.(0.8);
     audio.sfx('thunder', { vol: 0.35 });
     const what = [blinded ? `${blinded > 1 ? 'Helicopters' : 'The helicopter'} blinded` : '', stunned ? `${stunned} officer${stunned > 1 ? 's' : ''} stunned` : ''].filter(Boolean).join(', ');
-    s.game.hud.toast('Flashbang!', what ? `${what} for ${FLASH_BLIND} seconds. Go!` : 'Nobody was close enough to be dazzled.', '#fff3a0', 3);
+    s.game.hud.toast('Flashbang!', what ? `${what} for ${T(FLASH_BLIND)} seconds. Go!` : 'Nobody was close enough to be dazzled.', '#fff3a0', 3);
     return true;
   }
 
@@ -266,7 +269,7 @@ export class FootGadgets {
       b.mesh.position.y += pc.horizontalSpeed > 0.5 ? Math.abs(Math.sin(b.t * 9)) * 0.05 : 0; // (shuffling along)
       this.state.model.root.visible = false;
       if (pc.horizontalSpeed > 6 || pc.state !== 'ground' && pc.state !== 'air') this._clearBox('Box off!');
-      else if (b.t > BOX_TIME) this._clearBox('The box falls apart.');
+      else if (b.t > T(BOX_TIME)) this._clearBox('The box falls apart.');
     }
     if (this.cham > 0) {
       this.cham -= dt;
@@ -289,7 +292,7 @@ export class FootGadgets {
     const s = this.smoke;
     if (s) {
       s.t += dt;
-      const fadeIn = Math.min(1, s.t * 3), fadeOut = Math.max(0, 1 - Math.max(0, s.t - SMOKE_TIME + 1.5) / 1.5);
+      const fadeIn = Math.min(1, s.t * 3), fadeOut = Math.max(0, 1 - Math.max(0, s.t - T(SMOKE_TIME) + 1.5) / 1.5);
       for (const p of s.puffs) {
         p.m.position.x += p.vx * dt * Math.max(0, 1 - s.t / 2);
         p.m.position.z += p.vz * dt * Math.max(0, 1 - s.t / 2);
@@ -297,17 +300,17 @@ export class FootGadgets {
         p.m.scale.setScalar(p.s + s.t * 0.9);
         p.m.material.opacity = 0.75 * fadeIn * fadeOut;
       }
-      if (s.t > SMOKE_TIME) this._clearSmoke();
+      if (s.t > T(SMOKE_TIME)) this._clearSmoke();
     }
     const d = this.decoy;
     if (d) {
       d.t += dt;
       d.model.update(dt, d.body);
       // Hologram flicker, stronger as it runs out
-      const flick = Math.random() < (d.t > DECOY_TIME - 2 ? 0.25 : 0.05) ? 0.15 : 0.6;
+      const flick = Math.random() < (d.t > T(DECOY_TIME) - 2 ? 0.25 : 0.05) ? 0.15 : 0.6;
       d.model.root.traverse((o) => { if (o.isMesh && o.material.transparent) o.material.opacity = flick; });
       d.ring.rotation.z += dt * 3;
-      if (d.t > DECOY_TIME) this._clearDecoy();
+      if (d.t > T(DECOY_TIME)) this._clearDecoy();
     }
     if (this.cable) {
       if (this.state.player.state !== 'grapple') this._clearCable();

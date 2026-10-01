@@ -37,6 +37,7 @@ export const ABILITIES = [
   // Gadgets
   { id: 'noCooldowns', group: 'Gadgets', name: 'No gadget recharge', desc: 'Use gadgets as often as you like' },
   { id: 'infiniteRange', group: 'Gadgets', name: 'Infinite range', desc: 'Grapple onto any building you can see; EMP and Flashbang hit every cop; smoke hides you anywhere' },
+  { id: 'doublePower', group: 'Gadgets', name: 'Double power-ups', desc: 'Every gadget effect lasts twice as long: smoke, cloaks, the box, decoys, flashbangs, EMP, jammer, oil, spikes...' },
   { id: 'adminGadgets', group: 'Gadgets', name: 'Admin gadgets', desc: 'Rocket Boots, Invisibility Cloak, Police Freeze and Teleporter in the Shop' },
   // Fun
   { id: 'slowMo', group: 'Fun', name: 'Slow motion', desc: 'The whole game runs at half speed' },

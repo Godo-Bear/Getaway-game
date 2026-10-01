@@ -4,6 +4,9 @@ import { makeGlowMaterial, getGlowTexture } from '../world/materials.js';
 import { audio } from '../core/audio.js';
 import { admin } from '../core/admin.js';
 
+/** A gadget effect's length (the admin's "Double power-ups" ability doubles them all). */
+const T = (t) => t * (admin.flag('doublePower') ? 2 : 1);
+
 // Car gadgets (press F while driving):
 //   Oil Slick     - an oil patch behind you; police cars that hit it spin out
 //   EMP Blast     - a shockwave that knocks out every cruiser within 45 m
@@ -101,26 +104,26 @@ export class CarGadgets {
 
   // ---------------------------------------------------------------- Smoke Screen
   _screen() {
-    this.screen = SCREEN_TIME;
-    this.state.police.smoked = SCREEN_TIME;
+    this.screen = T(SCREEN_TIME);
+    this.state.police.smoked = T(SCREEN_TIME);
     audio.sfx('whoosh', { vol: 1 });
-    this.state.game.hud.toast('Smoke screen!', `Cops behind you can't see through it for ${SCREEN_TIME} seconds. Break away!`, '#9aa2ae', 3);
+    this.state.game.hud.toast('Smoke screen!', `Cops behind you can't see through it for ${T(SCREEN_TIME)} seconds. Break away!`, '#9aa2ae', 3);
   }
 
   // ---------------------------------------------------------------- Admin: Police Freeze
   _freeze() {
     const s = this.state, police = s.police;
     for (const u of police.units) {
-      u.stunned = 10;
+      u.stunned = T(10);
       u.emp = true; // lights off while frozen
       u.spinDir = 0;
       this._spark(u.car.pos);
     }
-    police.jammed = 10;
+    police.jammed = T(10);
     if (police.everSeen) { police.searching = true; police.timeSinceSeen = 0; }
     this._wave(s.player.pos, 0x8af4ff, 120);
     audio.sfx('thunder', { vol: 0.4 });
-    s.game.hud.toast('Police frozen!', 'Every cruiser is stuck for 10 seconds.', '#8af4ff', 3);
+    s.game.hud.toast('Police frozen!', `Every cruiser is stuck for ${T(10)} seconds.`, '#8af4ff', 3);
   }
 
   // ---------------------------------------------------------------- Admin: Teleporter
@@ -148,7 +151,7 @@ export class CarGadgets {
     let hit = 0;
     for (const u of s.police.units) {
       if (admin.flag('infiniteRange') || Math.hypot(u.car.pos.x - p.pos.x, u.car.pos.z - p.pos.z) < EMP_RADIUS) {
-        u.stunned = EMP_TIME;
+        u.stunned = T(EMP_TIME);
         u.emp = true;
         u.spinDir = 0;
         hit++;
@@ -158,7 +161,7 @@ export class CarGadgets {
     this._wave(p.pos, 0x3d9bff, admin.flag('infiniteRange') ? 150 : EMP_RADIUS);
     s.game.post?.lightning(0.35);
     audio.sfx('thunder', { vol: 0.5 });
-    s.game.hud.toast('EMP!', hit ? `${hit} police car${hit > 1 ? 's' : ''} knocked out for ${EMP_TIME} seconds. Go!` : 'No police cars were close enough.', '#3d9bff', 3);
+    s.game.hud.toast('EMP!', hit ? `${hit} police car${hit > 1 ? 's' : ''} knocked out for ${T(EMP_TIME)} seconds. Go!` : 'No police cars were close enough.', '#3d9bff', 3);
   }
 
   _spark(pos) {
@@ -174,7 +177,7 @@ export class CarGadgets {
   // ---------------------------------------------------------------- Paint Shifter
   _plates() {
     const s = this.state, p = s.player, police = s.police, paint = s.playerMesh.userData.paint;
-    this.shifted = PLATES_TIME;
+    this.shifted = T(PLATES_TIME);
     if (paint) paint.color.setHex(DISGUISE_PAINTS[Math.floor(Math.random() * DISGUISE_PAINTS.length)]);
     if (police.everSeen) {
       // They're looking for a different car now: the search restarts somewhere else
@@ -187,23 +190,23 @@ export class CarGadgets {
     }
     this._wave(p.pos, 0xff7ad9, 30);
     audio.sfx('whoosh', { vol: 1 });
-    s.game.hud.toast('New paint, new plates!', `The police are looking for a different car for ${PLATES_TIME} seconds.`, '#ff7ad9', 3);
+    s.game.hud.toast('New paint, new plates!', `The police are looking for a different car for ${T(PLATES_TIME)} seconds.`, '#ff7ad9', 3);
   }
 
   // ---------------------------------------------------------------- Blackout Mode
   _blackout() {
     const s = this.state;
-    s.police.blackout = BLACKOUT_TIME;
-    this.dark = BLACKOUT_TIME;
+    s.police.blackout = T(BLACKOUT_TIME);
+    this.dark = T(BLACKOUT_TIME);
     s.playerMesh.userData.beam.visible = false;
     for (const c of s.playerMesh.children) if (c.isLight) c.visible = false;
     audio.sfx('click', { vol: 1 });
-    s.game.hud.toast('Blackout!', `Lights off: the police only see you from close up for ${BLACKOUT_TIME} seconds.`, '#5a6a8a', 3);
+    s.game.hud.toast('Blackout!', `Lights off: the police only see you from close up for ${T(BLACKOUT_TIME)} seconds.`, '#5a6a8a', 3);
   }
 
   _jammer() {
     const s = this.state, p = s.player, police = s.police;
-    police.jammed = JAM_TIME;
+    police.jammed = T(JAM_TIME);
     if (police.everSeen) {
       // They think you went the other way: the search starts 150 m off.
       const a = Math.random() * Math.PI * 2;
@@ -214,7 +217,7 @@ export class CarGadgets {
     }
     this._wave(p.pos, 0xff3a6a, 60);
     audio.sfx('sting', { vol: 0.5 });
-    s.game.hud.toast('Radio jammed!', `The police lost your trail. They can't call you in for ${JAM_TIME} seconds.`, '#ff3a6a', 3);
+    s.game.hud.toast('Radio jammed!', `The police lost your trail. They can't call you in for ${T(JAM_TIME)} seconds.`, '#ff3a6a', 3);
   }
 
   /** An expanding glowing ring on the ground. */
@@ -240,7 +243,7 @@ export class CarGadgets {
         const across = Math.abs(dx * st.az - dz * st.ax); // distance from the strip
         if (Math.abs(along) < SPIKE_HALF + 0.6 && across < 1.4 && c.speed > 3) {
           st.hit.add(u);
-          u.flat = FLAT_TIME;
+          u.flat = T(FLAT_TIME);
           this._spark(c.pos);
           audio.sfx('spike', { vol: 0.4 });
         }
@@ -251,7 +254,7 @@ export class CarGadgets {
         if (u.stunned > 0) continue;
         const c = u.car;
         if (Math.hypot(c.pos.x - sl.pos.x, c.pos.z - sl.pos.z) < OIL_RADIUS && c.speed > 4) {
-          u.stunned = SPIN_TIME;
+          u.stunned = T(SPIN_TIME);
           u.emp = false;
           u.spinDir = Math.random() < 0.5 ? -1 : 1;
           c.gripFactor = 0.15;
@@ -274,7 +277,7 @@ export class CarGadgets {
     this.strips = this.strips.filter((st) => {
       st.t += dt;
       st.glow.material.opacity = 0.18 + Math.sin(st.t * 5) * 0.07;
-      if (st.t > SPIKE_TIME) { this.state.scene.remove(st.mesh); return false; }
+      if (st.t > T(SPIKE_TIME)) { this.state.scene.remove(st.mesh); return false; }
       return true;
     });
     // Smoke screen: grey clouds pour out of the exhaust
@@ -292,7 +295,7 @@ export class CarGadgets {
       sl.mesh.scale.setScalar(Math.min(1, 0.2 + sl.t * 3));
       sl.sheen.rotation.z += dt * 0.4;
       sl.sheen.material.opacity = 0.06 + Math.sin(sl.t * 2) * 0.03; // a faint oily shimmer
-      if (sl.t > OIL_TIME) { this.state.scene.remove(sl.mesh); return false; }
+      if (sl.t > T(OIL_TIME)) { this.state.scene.remove(sl.mesh); return false; }
       return true;
     });
     this.waves = this.waves.filter((w) => {
