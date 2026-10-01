@@ -623,3 +623,44 @@ body.alarm-on::after { content: ''; position: fixed; inset: 0; z-index: 7; point
 .free-car-btn kbd { font: inherit; font-size: 11px; background: rgba(0, 0, 0, 0.18); border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
 body.touch .free-car-btn kbd, .overlay:not([hidden]) ~ .free-car-btn { display: none; }
 @media (pointer: coarse) { .free-car-btn kbd { display: none; } .free-car-btn { font-size: 14px; padding: 8px 14px; } }
+
+/* ===== Chapter screens: a clean grid of chapter cards ===== */
+#card.wide { max-width: 760px; }
+.ch-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.ch-head h2 { margin-bottom: 0; }
+.ch-diff { display: inline-flex; padding: 3px; border-radius: 999px; background: rgba(255, 255, 255, 0.06); }
+.ch-diff button { font: 700 13px var(--body); color: var(--muted); background: transparent; border: 0; border-radius: 999px; padding: 6px 14px; cursor: pointer; }
+.ch-diff button.on { background: var(--amber); color: #1a1204; }
+.ch-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+.ch-grid .ch-back, .ch-parts .ch-back { grid-column: 1 / -1; justify-self: start; padding: 8px 18px; }
+.btn.ch-card { display: grid !important; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; text-align: left; padding: 10px 12px; min-height: 60px;
+  background: rgba(255, 255, 255, 0.035); border: 1px solid rgba(255, 255, 255, 0.08); }
+.btn.ch-card:hover:not(:disabled) { background: rgba(255, 255, 255, 0.07); border-color: rgba(255, 255, 255, 0.18); }
+.btn.ch-card:disabled { opacity: 0.45; }
+.btn.ch-card .ch-num { width: 38px; height: 38px; border-radius: 50%; font-size: 22px; background: rgba(255, 255, 255, 0.07); color: var(--ink); }
+.btn.ch-card.is-done .ch-num { background: rgba(77, 255, 166, 0.12); color: var(--safe); }
+.btn.ch-card.is-next { border-color: var(--amber); background: rgba(255, 176, 32, 0.08); }
+.btn.ch-card.is-next .ch-num { background: var(--amber); color: #1a1204; }
+.ch-card .ch-main { min-width: 0; }
+.ch-card .ch-main b { display: block; font-size: 16px; line-height: 1.15; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ch-card .ch-main small { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-top: 2px; }
+.ch-side { display: inline-flex; align-items: center; gap: 6px; }
+.ch-status { font-size: 12px; font-weight: 800; }
+.ch-status.done { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: rgba(77, 255, 166, 0.15); color: var(--safe); }
+.ch-status.next { text-transform: uppercase; letter-spacing: 0.08em; color: #1a1204; background: var(--amber); padding: 3px 8px; border-radius: 999px; font-size: 11px; }
+.ch-status.lock { font-size: 14px; }
+.ch-medal { width: 16px; height: 16px; border-radius: 50%; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.25); }
+.ch-medal.gold { background: #ffcf4a; } .ch-medal.silver { background: #cfd6e0; } .ch-medal.bronze { background: #d08a4a; }
+.ch-parts { gap: 8px; }
+.ch-play { font-size: 12px; font-weight: 700; color: var(--muted); padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, 0.15); }
+.ch-card.is-next .ch-play { color: #1a1204; background: var(--amber); border-color: var(--amber); }
+.ch-hint { font-size: 12px !important; color: var(--muted); margin: 2px 0 0 !important; }
+@media (max-width: 620px) { .ch-grid { grid-template-columns: 1fr; } }
+@media (max-height: 520px) {
+  #card.wide { max-width: min(760px, 94vw); }
+  .btn.ch-card { min-height: 50px; padding: 7px 10px; grid-template-columns: 32px 1fr auto; gap: 10px; }
+  .btn.ch-card .ch-num { width: 32px; height: 32px; font-size: 19px; }
+  .ch-card .ch-main b { font-size: 14.5px; }
+  .ch-card .ch-main small { font-size: 11px; }
+}
+.btn.ch-card:focus-visible { outline: 2px solid rgba(255, 176, 32, 0.7); outline-offset: 1px; }

@@ -14,8 +14,7 @@ import { showAccount } from './account.js';
 import { cloud } from '../core/cloud.js';
 import { admin } from '../core/admin.js';
 import { showAdminPanel } from './adminPanel.js';
-import { difficultyPickerHtml, bindDifficultyPicker } from './difficultyPicker.js';
-import { diff, DIFFICULTY_LIST } from '../core/difficulty.js';
+import { diff, DIFFICULTY_LIST, setDifficulty } from '../core/difficulty.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -28,15 +27,17 @@ const card = document.getElementById('card');
  *        story = a compact story scene docked at the bottom left,
  *        list = one button per row, grid = two columns, side = docked on the right so the 3D scene stays visible
  */
-export function showCard(html, buttons = [], { title = false, list = false, grid = false, side = false, story = false } = {}) {
+export function showCard(html, buttons = [], { title = false, list = false, grid = false, side = false, story = false, rowCls = '', wide = false } = {}) {
   card.innerHTML = html;
+  card.classList.toggle('wide', wide);
   const row = document.createElement('div');
-  row.className = grid ? 'menu-grid' : list ? 'menu-list' : 'btns';
+  row.className = (grid ? 'menu-grid' : list ? 'menu-list' : 'btns') + (rowCls ? ` ${rowCls}` : '');
   for (const b of buttons) {
     const el = document.createElement('button');
     el.className = `btn${b.primary ? ' primary' : ''}${b.cls ? ` ${b.cls}` : ''}`;
     el.innerHTML = b.label + (b.sub ? `<small>${b.sub}</small>` : '');
     el.disabled = !!b.disabled;
+    if (b.focus) el.dataset.focus = '1';
     el.addEventListener('click', (e) => {
       e.stopPropagation();
       b.onClick();
@@ -49,7 +50,7 @@ export function showCard(html, buttons = [], { title = false, list = false, grid
   overlay.classList.toggle('story', story); // compact, docked bottom-left: the game stays visible
   overlay.hidden = false;
   card.scrollTop = 0;
-  const first = row.querySelector('.primary') || row.querySelector('button');
+  const first = row.querySelector('[data-focus]') || row.querySelector('.primary') || row.querySelector('button:not(:disabled)');
   if (first) setTimeout(() => first.focus({ preventScroll: true }), 30);
 }
 
@@ -241,34 +242,34 @@ function showFreeRunMenu(actions, back) {
   render();
 }
 
-/** Chapter select: pick a chapter (and part), see ratings, open the Case Board. */
+/** Chapter select: a clean grid of chapter cards (status and your rank on this difficulty). */
 export function showChapterSelect(actions) {
   const p = save.data.progress;
-  const back = () => showChapterSelect(actions);
-  const buttons = CHAPTER_LIST.map((c) => {
+  const next = nextChapter();
+  const cards = CHAPTER_LIST.map((c) => {
     const unlocked = c.number <= (p.chapterUnlocked || 1);
-    const best = save.bestTime(`${c.id}.total`);
-    // A rank for each difficulty (the current one is outlined)
-    const ranks = DIFFICULTY_LIST.map((d) => {
-      const r = save.rating(c.id, d.id);
-      const cur = d.id === diff().id ? ' cur' : '';
-      return r ? `<em class="tag ${r}${cur}">${d.name}: ${r}</em>` : `<em class="tag rank-none${cur}">${d.name}: -</em>`;
-    }).join('');
-    const tags = !unlocked ? '<em class="tag">Locked: finish the previous chapter</em>'
-      : [p.solved?.[c.id] ? `<em class="tag ok">${c.noDeduction ? 'Done' : 'Solved'} ✓</em>` : `<em class="tag">${c.noDeduction ? 'Not done yet' : 'Not solved yet'}</em>`,
-        ranks,
-        best != null ? `<em class="tag">Best ${formatTime(best)} (${diff().name})</em>` : ''].join('');
+    const done = !!p.solved?.[c.id];
+    const isNext = unlocked && !done && c.id === next.id;
+    const rank = unlocked ? save.rating(c.id, diff().id) : null;
+    const best = unlocked ? save.bestTime(`${c.id}.total`) : null;
+    const status = !unlocked ? '<span class="ch-status lock">🔒</span>'
+      : done ? '<span class="ch-status done">✓</span>'
+        : isNext ? '<span class="ch-status next">Next</span>' : '';
+    const medal = rank ? `<span class="ch-medal ${rank}" title="${rank} on ${diff().name}"></span>` : '';
+    const line = !unlocked ? 'Finish the previous chapter'
+      : [`${c.parts.length} parts`, best != null ? `best ${formatTime(best)}` : ''].filter(Boolean).join(' · ');
     return {
-      label: `<span class="ch-num">${unlocked ? c.number : '🔒'}</span><span class="ch-main"><b>${c.short}</b><span class="tags">${tags}</span></span>`,
-      cls: 'ch-row', primary: unlocked && c.id === nextChapter().id && !p.solved?.[c.id], disabled: !unlocked,
-      onClick: () => showChapterParts(c.id, actions, back),
+      label: `<span class="ch-num">${c.number}</span><span class="ch-main"><b>${c.short}</b><small>${line}</small></span><span class="ch-side">${medal}${status}</span>`,
+      cls: `ch-card${done ? ' is-done' : ''}${isNext ? ' is-next' : ''}`, disabled: !unlocked, focus: isNext,
+      onClick: () => showChapterParts(c.id, actions, () => showChapterSelect(actions)),
     };
   });
-  buttons.push({ label: 'Back', onClick: () => showTitle(actions) });
-  showCard(`<p class="sub kicker">Story</p><h2>Chapters</h2><p class="sub">Pull off the job, lose the police, and get away. (Chapters 1 to 5: work out who on the crew betrayed you.)</p>
-    <p class="sub setting-head" style="margin-top:4px !important">Difficulty</p>${difficultyPickerHtml()}
-    <p class="sub fine">Each difficulty keeps its own ranks and best times.</p>`, buttons, { list: true });
-  bindDifficultyPicker(() => showChapterSelect(actions)); // redraw: ranks and times for that difficulty
+  showCard(`<div class="ch-head"><div><p class="sub kicker">Story</p><h2>Chapters</h2></div>
+      <div class="ch-diff">${DIFFICULTY_LIST.map((d) => `<button class="${d.id === diff().id ? 'on' : ''}" data-diff="${d.id}">${d.name}</button>`).join('')}</div></div>`,
+  [...cards, { label: 'Back', cls: 'ch-back', onClick: () => showTitle(actions) }], { list: true, rowCls: 'ch-grid', wide: true });
+  for (const b of document.querySelectorAll('#card .ch-diff [data-diff]')) {
+    b.addEventListener('click', (e) => { e.stopPropagation(); setDifficulty(b.dataset.diff); showChapterSelect(actions); });
+  }
 }
 
 function showChapterParts(chapterId, actions, back) {
@@ -276,21 +277,21 @@ function showChapterParts(chapterId, actions, back) {
   const found = new Set((save.data.progress.clues?.[chapterId] || []).filter((id) => id in chapter.clues));
   const total = Object.keys(chapter.clues).length;
   const partBest = (id) => save.bestTime(`${chapterId}.${id}`);
-  const parts = chapter.parts.map((part, i) => ({
-    label: `<span class="ch-num">${i + 1}</span><span class="ch-main"><b>${part.title}</b><span class="tags">` +
-      `<em class="tag">${part.kind === 'drive' ? 'Driving' : 'On foot'}</em>` +
-      `${i === 0 ? '<em class="tag">Full chapter</em>' : '<em class="tag">Practice from here</em>'}` +
-      `${partBest(part.id) != null ? `<em class="tag">Best ${formatTime(partBest(part.id))} (${diff().name})</em>` : ''}</span></span>`,
-    cls: 'ch-row',
-    primary: i === 0,
-    onClick: () => actions.story(chapterId, i, false),
-  }));
-  showCard(`<p class="sub kicker">${chapter.title.replace(/:.*/, '')}</p><h2>${chapter.short}</h2>
-    <p class="sub fine">A chapter rating needs a full run from Part 1. Want to look around without the police? Press G (or use the pause menu) for ghost mode: nothing counts while it's on.</p>`, [
+  const parts = chapter.parts.map((part, i) => {
+    const best = partBest(part.id);
+    return {
+      label: `<span class="ch-num">${i + 1}</span><span class="ch-main"><b>${part.title}</b><small>${part.kind === 'drive' ? '🚗 Driving' : '🏃 On foot'}${best != null ? ` · best ${formatTime(best)}` : ''}</small></span>` +
+        `<span class="ch-side"><span class="ch-play">${i === 0 ? 'Play' : 'Practice'}</span></span>`,
+      cls: `ch-card part${i === 0 ? ' is-next' : ''}`, focus: i === 0,
+      onClick: () => actions.story(chapterId, i, false),
+    };
+  });
+  showCard(`<div class="ch-head"><div><p class="sub kicker">Chapter ${chapter.number}</p><h2>${chapter.short}</h2></div></div>
+    <p class="sub ch-hint">Play from Part 1 for a rating; later parts are practice. G = ghost mode (look around, nothing counts).</p>`, [
     ...parts,
-    ...(total ? [{ label: `Case Board <small>Every clue you have found: ${found.size} of ${total}</small>`,
+    ...(total ? [{ label: `<span class="ch-num">⌕</span><span class="ch-main"><b>Case Board</b><small>${found.size} of ${total} clues found</small></span>`, cls: 'ch-card part',
       onClick: () => showCaseBoard(chapter, found, () => showChapterParts(chapterId, actions, back), 'clues', false,
         { onBuy: (id) => buyClue(actions.game, chapterId, id) }) }] : []),
-    { label: 'Back', onClick: back },
-  ], { list: true });
+    { label: 'Back', cls: 'ch-back', onClick: back },
+  ], { list: true, rowCls: 'ch-parts' });
 }
