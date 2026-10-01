@@ -349,7 +349,7 @@ export class ChapterDriveMode {
     const timer = this.timeLeft != null && !this.ghost
       ? `<span class="${this.timeLeft < 30 ? 'warn' : ''}">${this.part.goal.timerLabel || 'Time left'} <b>${formatTime(Math.max(0, this.timeLeft))}</b></span>` : '';
     s.game.hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span>` + timer +
-      `<span>Clues <b>${found}/${total}</b></span>` +
+      (total ? `<span>Clues <b>${found}/${total}</b></span>` : '') +
       (this.ghost ? '' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>` +
       `<span>Heat <b style="color:var(--red)">${'★'.repeat(this.heat)}</b></span>`) + status);
   }

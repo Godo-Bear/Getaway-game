@@ -43,8 +43,12 @@ export function buildChapter8Vault() {
   box(-42, -52, 42, 32, 4, M.snow, -4);                               // snowy ground (top 0), a cliff all round
   box(-42, -52, 42, 32, 60, M.rockDark, -64);                         // the mountain below it
   // the mountain behind (north), with the tunnel cut into it
-  box(-60, -120, -4, -50, 34, M.rock); box(4, -120, 60, -50, 34, M.rock);
-  box(-4, -120, 4, -50, 28, M.rock, 4.6);                             // rock above the tunnel
+  // (solid rock, leaving the tunnel (x -4..4, z -86..-50) and the vault room (x -10.5..10.5, z -104..-86) hollow)
+  box(-60, -120, -10.5, -50, 34, M.rock); box(10.5, -120, 60, -50, 34, M.rock);
+  box(-10.5, -86, -4, -50, 34, M.rock); box(4, -86, 10.5, -50, 34, M.rock);
+  box(-4, -86, 4, -50, 28, M.rock, 4.6);                              // rock above the tunnel
+  box(-10.5, -104, 10.5, -86, 28, M.rock, 7.2);                       // the vault's ceiling
+  box(-10.5, -120, 10.5, -104, 34, M.rock);                           // behind the vault
   box(-60, -130, 60, -120, 34, M.rock);
   const peak = new THREE.Mesh(new THREE.ConeGeometry(70, 90, 7), M.rock);
   peak.position.set(0, 40, -110);
@@ -179,7 +183,7 @@ export function buildChapter8Vault() {
   jumpGlow.rotation.x = -Math.PI / 2;
   jumpGlow.position.set(43, 0.05, -10);
   group.add(jumpGlow);
-  const LEDGE = { x: 165, y: -40, z: -10 };
+  const LEDGE = { x: 160, y: -24, z: -10 };   // (a held glide from the deck comes down right on it)
   box(LEDGE.x - 18, LEDGE.z - 18, LEDGE.x + 18, LEDGE.z + 18, 4, M.snow, LEDGE.y - 4);
   box(LEDGE.x - 18, LEDGE.z - 18, LEDGE.x + 18, LEDGE.z + 18, 40, M.rockDark, LEDGE.y - 44);
   const landGlow = new THREE.Mesh(new THREE.RingGeometry(5, 6, 40), makeGlowMaterial(0x4dffa6, 0.85));

@@ -474,7 +474,7 @@ export class ChapterFootMode {
     const total = Object.keys(this.chapter.clues).length;
     const found = this.run.clues.size;
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span>` +
-      `<span>Clues <b>${found}/${total}</b></span>` +
+      (total ? `<span>Clues <b>${found}/${total}</b></span>` : '') +
       (this.ghost ? '<span><b style="color:var(--cyan)">GHOST MODE</b></span>' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`) +
       (this.hidden ? '<span><b style="color:var(--safe)">HIDDEN</b></span>' : '') +
       (this.blending ? '<span><b style="color:var(--safe)">IN THE CROWD</b></span>' : ''));
