@@ -14,6 +14,7 @@ const DEFAULTS = {
     sprintToggle: true, // tap sprint once to keep sprinting (false = hold it)
     difficulty: 'normal', // 'easy' | 'normal' | 'hard' (src/core/difficulty.js)
     crosshair: true,
+    brightness: 1,      // Settings > Graphics: 0.6 (darker) to 2.5 (much brighter, for night scenes)
     carColour: 'amber',
     // 'low' | 'medium' | 'high'. Everyone starts on medium (smooth on most
     // laptops and phones); raise it in Settings if your computer can take it.

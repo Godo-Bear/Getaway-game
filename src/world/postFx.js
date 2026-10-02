@@ -24,6 +24,7 @@ const GradeShader = {
     vignette: { value: 0.35 },
     flash: { value: 0 },      // 0..1 lightning flash
     tint: { value: new THREE.Vector3(1, 1, 1) },
+    lift: { value: 0 },       // Brightness setting: lifts the darkest shadows (night scenes)
   },
   vertexShader: /* glsl */`
     varying vec2 vUv;
@@ -33,6 +34,7 @@ const GradeShader = {
     uniform float vignette;
     uniform float flash;
     uniform vec3 tint;
+    uniform float lift;
     varying vec2 vUv;
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
@@ -40,6 +42,8 @@ const GradeShader = {
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
       c.rgb *= mix(vec3(0.92, 0.97, 1.08), vec3(1.06, 1.0, 0.94), smoothstep(0.05, 0.6, l));
       c.rgb *= tint;
+      // Brightness: lift the shadows so dark night corners can be seen (fades out in bright areas)
+      c.rgb += lift * (1.0 - smoothstep(0.0, 0.35, l)) * vec3(0.9, 0.95, 1.05);
       // Vignette: darker towards the corners.
       vec2 d = vUv - 0.5;
       c.rgb *= 1.0 - vignette * smoothstep(0.2, 0.75, dot(d, d) * 2.0);
@@ -116,7 +120,9 @@ export class PostFx {
     this.flash = Math.max(0, this.flash - dt * 3.5);
     // Time of day: daylight scenes are exposed a little darker and bloom less
     const look = scene.userData.lighting;
-    this.renderer.toneMappingExposure = look?.exposure ?? 1.15;
+    // Brightness setting (Settings > Graphics): scales the exposure, and lifts the shadows a little
+    const bright = this.brightness ?? 1;
+    this.renderer.toneMappingExposure = (look?.exposure ?? 1.15) * bright;
     if (!this.composer) {
       this.renderer.render(scene, camera);
       return;
@@ -126,6 +132,7 @@ export class PostFx {
     this.renderPass.scene = scene;
     this.renderPass.camera = camera;
     this.grade.uniforms.flash.value = this.flash;
+    this.grade.uniforms.lift.value = Math.max(0, bright - 1) * 0.045;
     this.composer.render(dt);
   }
 }

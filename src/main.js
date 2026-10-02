@@ -76,12 +76,14 @@ function start(renderer) {
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR[st.graphics] ?? 1));
       renderer.setSize(window.innerWidth, window.innerHeight);
       game.post.setQuality(st.graphics);
+      game.post.brightness = st.brightness ?? 1;
       game.post.setSize(window.innerWidth, window.innerHeight);
       audio.setVolumes(st);
       game.sm.current?.applySettings?.();
     },
   };
   game.post.setQuality(settings.graphics);
+  game.post.brightness = settings.brightness ?? 1;
   const autoQuality = new AutoQuality(game);
   audio.setVolumes(settings);
   game.touch = new TouchControls(game.input);

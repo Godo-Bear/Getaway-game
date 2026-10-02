@@ -36,6 +36,8 @@ export function showSettings(game, onBack) {
     <label class="setting check" for="set-sprint"><span>Sprint stays on (press sprint once to switch it on or off)</span><input type="checkbox" id="set-sprint" ${s.sprintToggle !== false ? 'checked' : ''}></label>
     <label class="setting check" for="set-cross"><span>Crosshair on foot</span><input type="checkbox" id="set-cross" ${s.crosshair !== false ? 'checked' : ''}></label>
     <p class="sub setting-head">Graphics</p>
+    ${slider('set-bright', 'Brightness', s.brightness ?? 1, 0.6, 2.5, 0.05, pct)}
+    <p class="sub" style="font-size:14px">Turn it up if night-time levels are too dark to see.</p>
     <div class="setting"><span>Quality</span><div class="seg" id="set-quality">
       ${['low', 'medium', 'high'].map((q) => `<button class="chip${s.graphics === q ? ' on' : ''}" data-q="${q}">${q}</button>`).join('')}
     </div></div>
@@ -65,6 +67,7 @@ export function showSettings(game, onBack) {
   };
   bindSlider('set-master', 'masterVolume', pct);
   bindSlider('set-music', 'musicVolume', pct);
+  bindSlider('set-bright', 'brightness', pct);
   bindSlider('set-sfx', 'sfxVolume', pct);
   bindSlider('set-sens', 'mouseSensitivity', (v) => `${Number(v).toFixed(2)}x`);
   document.getElementById('set-invert').addEventListener('change', (e) => { s.invertY = e.target.checked; apply(); });
