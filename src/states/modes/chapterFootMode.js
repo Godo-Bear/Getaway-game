@@ -5,7 +5,7 @@ import { updateSirens } from '../../vehicles/carModel.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { OfficerSquad } from '../../ai/officer.js';
 import { FugitiveRunner } from '../../ai/fugitive.js';
-import { GuardSquad } from '../../ai/guards.js';
+import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { Crowd } from '../../ai/crowd.js';
 import { PlayerModel } from '../../player/playerModel.js';
 import { MiniGame } from '../../ui/miniGame.js';
@@ -522,7 +522,8 @@ export class ChapterFootMode {
     }
     const d = diff();
     this.spotted = clamp(this.spotted + (seen ? (dt / 0.9) * d.fill : -dt * 0.5), 0, 1);
-    hud.setMeter(this.spotted, seen ? 'SEEN! Get out of sight' : 'Keep a low profile', seen ? 'var(--red)' : '#8a8f9c');
+    const searching = huntMessages(this.patrols, hud, this.part.patrols === 'hunters' ? 'bounty hunters' : 'police');
+    hud.setMeter(this.spotted, seen ? 'SEEN! Get out of sight' : searching || 'Keep a low profile', seen ? 'var(--red)' : searching ? '#ff7a1a' : '#8a8f9c');
     if (this.spotted >= 1) { this._caught('A police officer recognised you. Back to the last checkpoint.'); return; }
     // Sneak takedown: behind an officer, press E (X on a gamepad, the button on a phone)
     const target = !this.mini ? this.patrols.takedownTarget(p) : null;

@@ -87,9 +87,9 @@ export class TrainMode {
       L.group.add(g);
       return { pos, group: g, bag, taken: false };
     });
-    this.guards = new GuardSquad(L.group, L.world, L.guardRoutes.map((route) => ({ route })), { sight: diff().guardSight, groundFrom: 8, range: 8, alertRange: 11 });
+    this.guards = new GuardSquad(L.group, L.world, L.guardRoutes.map((route) => ({ route })), { sight: diff().guardSight, groundFrom: 8, range: 8, alertRange: 11, chase: false });
     // The guard inside the mail car (stage 1 only)
-    this.mailGuard = this.stage === 'mail' ? new GuardSquad(L.group, L.world, [{ route: L.mailGuardRoute }], { sight: diff().guardSight, groundFrom: 3, range: 7 }) : null;
+    this.mailGuard = this.stage === 'mail' ? new GuardSquad(L.group, L.world, [{ route: L.mailGuardRoute }], { sight: diff().guardSight, groundFrom: 3, range: 7, chase: false }) : null;
     // The safe in the mail car
     if (this.stage === 'mail') {
       this.safeRing = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.0, 32), makeGlowMaterial(0x39e6ff, 0.8));

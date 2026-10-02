@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildChapter5Casino } from '../../world/levels/chapter5Casino.js';
 import { makeGlowMaterial } from '../../world/materials.js';
-import { GuardSquad } from '../../ai/guards.js';
+import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
@@ -286,10 +286,12 @@ export class CasinoHeistMode {
       c.g.rotation.y = c.yaw;
       c.cone.visible = camsOn;
       if (!camsOn || hidden || blending) continue;
-      if (this._camSees(c, pos, p.height)) seen = true;
+      if (this._camSees(c, pos, p.height)) { seen = true; this.guards.alarmAt(pos); } // (the camera calls the guards)
     }
     this.spotted = clamp(this.spotted + (seen ? (dt / 0.8) * d.fill * this.noticeScale : -dt * 0.5), 0, 1);
-    if (this.spotted > 0.01) hud.setMeter(this.spotted, seen ? (this.guards.units.some((u) => u.seesPlayer) ? (this.disguised ? 'A guard recognised you!' : 'A guard can see you!') : 'A camera can see you!') : 'Hidden', seen ? 'var(--red)' : '#8a8f9c');
+    const searching = huntMessages(this.guards, hud, 'guards');
+    if (!seen && searching) hud.setMeter(this.spotted, searching, '#ff7a1a');
+    else if (this.spotted > 0.01) hud.setMeter(this.spotted, seen ? (this.guards.units.some((u) => u.seesPlayer) ? (this.disguised ? 'A guard recognised you!' : 'A guard can see you!') : 'A camera can see you!') : 'Hidden', seen ? 'var(--red)' : '#8a8f9c');
     else if (!this.mini) hud.setMeter(0, '');
     if (this.spotted >= 1) {
       this._caught('Spotted!', this.alarm ? 'Security grabbed you. Back to the vault.' : 'Security saw you. Back to the last checkpoint: stay out of the yellow cones, and crouch (C) behind tables.');

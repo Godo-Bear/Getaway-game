@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { buildChapter8Vault } from '../../world/levels/chapter8Vault.js';
 import { makeGlowMaterial } from '../../world/materials.js';
-import { GuardSquad } from '../../ai/guards.js';
+import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { Searchlight } from '../../ai/searchlight.js';
 import { PlayerModel } from '../../player/playerModel.js';
 import { MiniGame } from '../../ui/miniGame.js';
@@ -169,9 +169,12 @@ export class GlacierMode {
       this.guards.setAlert(true);
       hud.toast('Guard down!', 'A guard found the one you knocked out. They\'re all on alert.', 'var(--red)', 4);
     }
+    if (lit) this.guards.alarmAt(pos); // (the tower radios the guards)
+    const searching = huntMessages(this.guards, hud, 'guards');
     const fill = (lit ? dt / 0.7 : 0) + (seenByGuard ? dt / 0.8 : 0);
     this.spotted = clamp(this.spotted + (fill ? fill * d.fill : -dt * 0.5), 0, 1);
-    if (this.spotted > 0.01 && !this.mini) hud.setMeter(this.spotted, lit ? 'SEARCHLIGHT! Get behind a rock' : seenByGuard ? 'A guard can see you!' : 'Hidden', lit || seenByGuard ? 'var(--red)' : '#8a8f9c');
+    if (!lit && !seenByGuard && searching && !this.mini) hud.setMeter(this.spotted, searching, '#ff7a1a');
+    else if (this.spotted > 0.01 && !this.mini) hud.setMeter(this.spotted, lit ? 'SEARCHLIGHT! Get behind a rock' : seenByGuard ? 'A guard can see you!' : 'Hidden', lit || seenByGuard ? 'var(--red)' : '#8a8f9c');
     else if (!this.mini) hud.setMeter(0, '');
     if (this.spotted >= 1) {
       this._caught('Spotted!', lit ? 'A searchlight caught you. Keep the rocks and snowcats between you and the masts.' : 'A guard saw you. Stay out of the torch beams, or knock them out from behind (E).');

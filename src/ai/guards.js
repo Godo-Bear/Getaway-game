@@ -3,6 +3,7 @@ import { PlayerModel } from '../player/playerModel.js';
 import { makeGlowMaterial } from '../world/materials.js';
 import { admin } from '../core/admin.js';
 import { owns } from '../gadgets/gadgets.js';
+import { audio } from '../core/audio.js';
 
 // Security guards for indoor heists (the casino).
 //
@@ -28,6 +29,11 @@ const HALF_ANGLE = 0.5;               // radians either side (about 57 degrees w
 const RANGE = 9, ALERT_RANGE = 12.5;  // metres
 const PAUSE = 1.3;                    // seconds at each waypoint
 const DISGUISE_RANGE = 3.2;           // in disguise, they only recognise you this close
+// THE HUNT: the moment any of them sees you, every guard nearby turns to look
+// and runs to where you were last seen. Break line of sight and stay hidden
+// for HUNT_TIME seconds and they give up and go back to their rounds.
+const HUNT_TIME = 8, HUNT_RADIUS = 70, HUNT_RUN = 4.3; // s, m, m/s (you can outrun them sprinting)
+const HUNT_COLOR = 0xff7a1a;
 const _from = new THREE.Vector3(), _dir = new THREE.Vector3();
 
 export class GuardSquad {
@@ -37,7 +43,9 @@ export class GuardSquad {
    * @param {{route:number[][]}[]} defs - route = [[x, z], ...] (a loop)
    * @param {{sight?:number}} opts - sight multiplies the view range (difficulty)
    */
-  constructor(parent, world, defs, { sight = 1, look = null, range = RANGE, alertRange = ALERT_RANGE, groundFrom = 1.2 } = {}) {
+  constructor(parent, world, defs, { sight = 1, look = null, range = RANGE, alertRange = ALERT_RANGE, groundFrom = 1.2, chase = true } = {}) {
+    this.chase = chase;   // false: they hold their posts (guards on train roofs)
+    this.hunt = null;     // { pos, t }: where they last saw you, and how long ago
     this.groundFrom = groundFrom; // (how high to look for the floor: raise it for guards on train roofs)
     this.parent = parent;
     this.world = world;
@@ -80,6 +88,7 @@ export class GuardSquad {
   reset() {
     this.alert = false;
     this.bodyFound = null;
+    this._endHunt();
     this.units.forEach((u, i) => {
       const [x, z] = u.route[0];
       u.pc.pos.set(x, this._y(x, z), z);
@@ -97,7 +106,54 @@ export class GuardSquad {
 
   setAlert(on) {
     this.alert = on;
-    for (const u of this.units) u.cone.material.color.setHex(on ? 0xff3346 : 0xffd23a);
+    this._coneColors();
+  }
+
+  _coneColors() {
+    for (const u of this.units) u.cone.material.color.setHex(this.alert ? 0xff3346 : u.hunting ? HUNT_COLOR : 0xffd23a);
+  }
+
+  /** Are they hunting for you right now? (any of them saw you in the last few seconds) */
+  get hunting() { return !!this.hunt; }
+  /** Seconds until they give up (0 if they aren't hunting). */
+  get huntLeft() { return this.hunt ? Math.max(0, HUNT_TIME - this.hunt.t) : 0; }
+
+  /**
+   * Something saw you at `pos` (one of them, a searchlight, a camera): everyone
+   * within range drops their rounds and comes running.
+   */
+  alarmAt(pos) {
+    if (!this.chase) return;
+    const fresh = !this.hunt;
+    this.hunt ||= { pos: new THREE.Vector3(), t: 0 };
+    this.hunt.pos.copy(pos);
+    this.hunt.t = 0;
+    if (fresh) this.huntStarted = true; // (the mode shows a warning once)
+    for (const u of this.units) {
+      if (u.down || u.hunting) continue;
+      if (Math.hypot(u.pc.pos.x - pos.x, u.pc.pos.z - pos.z) < HUNT_RADIUS) { u.hunting = true; u.wait = 0; u.stuck = 0; }
+    }
+    this._coneColors();
+  }
+
+  _endHunt() {
+    this.hunt = null;
+    for (const u of this.units) { u.hunting = false; u.homing = false; }
+    this._coneColors?.();
+  }
+
+  /** Walk toward (tx, tz), sliding along walls instead of walking through them. Returns metres moved. */
+  _step(u, tx, tz, dist) {
+    const b = u.pc.pos, dx = tx - b.x, dz = tz - b.z, d = Math.hypot(dx, dz);
+    if (d < 0.05) return 0;
+    const sx = (dx / d) * Math.min(dist, d), sz = (dz / d) * Math.min(dist, d);
+    const free = (x, z) => !this.world.query(x - 0.3, b.y + 0.4, z - 0.3, x + 0.3, b.y + 1.6, z + 0.3, this._q || (this._q = [])).some((q) => !q.disabled);
+    const x0 = b.x, z0 = b.z;
+    if (free(b.x + sx, b.z)) b.x += sx;
+    if (free(b.x, b.z + sz)) b.z += sz;
+    const g = this._y(b.x, b.z);
+    if (Math.abs(g - b.y) < 1.2) b.y = g; else { b.x = x0; b.z = z0; } // (no walking off ledges)
+    return Math.hypot(b.x - x0, b.z - z0);
   }
 
   get range() {
@@ -145,6 +201,12 @@ export class GuardSquad {
    */
   update(dt, player, hidden = false, { closeOnly = false } = {}) {
     let seen = false;
+    if (this.hunt && (this.hunt.t += dt) > HUNT_TIME) {
+      for (const u of this.units) if (u.hunting) { u.hunting = false; u.homing = !u.down; u.stuck = 0; }
+      this.hunt = null;
+      this.huntEnded = true; // (the mode can say "they've given up")
+      this._coneColors();
+    }
     for (const u of this.units) {
       const b = u.pc;
       if (u.down) continue;
@@ -157,7 +219,33 @@ export class GuardSquad {
         continue;
       }
       u.cone.visible = true;
-      if (u.wait > 0) {
+      if (u.hunting && this.hunt) {
+        // Running to where you were last seen, then looking around for you
+        const h = this.hunt.pos, d = Math.hypot(h.x - b.pos.x, h.z - b.pos.z);
+        if (d > 1.2) {
+          const moved = this._step(u, h.x, h.z, HUNT_RUN * dt);
+          b.facing = Math.atan2(h.x - b.pos.x, h.z - b.pos.z);
+          b.horizontalSpeed = moved > 0.001 ? HUNT_RUN : 0;
+          if (moved < HUNT_RUN * dt * 0.2) { u.look += dt; b.facing += Math.sin(u.look * 2.2) * 0.9; } // (blocked: look around)
+        } else {
+          u.look += dt;
+          b.horizontalSpeed = 0;
+          b.facing = (u.baseFacing ?? b.facing) + Math.sin(u.look * 1.8) * 1.4;
+        }
+        u.baseFacing = d > 1.2 ? b.facing : u.baseFacing;
+      } else if (u.homing) {
+        // Hunt over: back to their rounds (if they get stuck, they just reappear at their post)
+        const [hx, hz] = u.route[u.leg];
+        const moved = this._step(u, hx, hz, WALK * 1.3 * dt);
+        b.facing = Math.atan2(hx - b.pos.x, hz - b.pos.z);
+        b.horizontalSpeed = WALK * 1.3;
+        u.stuck = moved < WALK * dt * 0.3 ? (u.stuck || 0) + dt : 0;
+        if (Math.hypot(hx - b.pos.x, hz - b.pos.z) < 0.5 || u.stuck > 2.5) {
+          b.pos.set(hx, this._y(hx, hz), hz);
+          u.homing = false;
+          u.wait = PAUSE;
+        }
+      } else if (u.wait > 0) {
         // Paused at a waypoint: look left and right
         u.wait -= dt;
         u.look += dt;
@@ -188,7 +276,7 @@ export class GuardSquad {
       const r = this.range;
       u.cone.scale.setScalar(r);
       u.seesPlayer = !hidden && !admin.flag('unseen') && this._sees(u, player, closeOnly ? Math.min(r, DISGUISE_RANGE) : r);
-      if (u.seesPlayer) seen = true;
+      if (u.seesPlayer) { seen = true; this.alarmAt(player.pos); }
       // Spotting a knocked-out colleague
       for (const o of this.units) {
         if (o.down && !o.found && this._sees(u, { pos: o.pc.pos, height: 0.5 }, r)) { o.found = true; this.bodyFound = o; }
@@ -221,4 +309,24 @@ export class GuardSquad {
     for (const u of this.units) { this.parent.remove(u.model.root); this.parent.remove(u.cone); }
     this.units = [];
   }
+}
+
+/**
+ * The hunt's messages for a mode: a warning when it starts, "they gave up" when
+ * it ends, and (while it's on) a line for the meter. Returns that line, or null.
+ * @param {GuardSquad} squad
+ * @param {string} who - 'guards', 'police', 'bounty hunters'...
+ */
+export function huntMessages(squad, hud, who = 'guards') {
+  if (!squad) return null;
+  if (squad.huntStarted) {
+    squad.huntStarted = false;
+    hud.toast('You\'ve been seen!', `All the ${who} nearby are coming. Break line of sight and hide: they give up after ${HUNT_TIME} seconds.`, 'var(--red)', 4);
+    audio.sfx('sting', { vol: 0.45 });
+  }
+  if (squad.huntEnded) {
+    squad.huntEnded = false;
+    hud.toast('They gave up', `The ${who} are going back to their rounds.`, 'var(--safe)', 2.5);
+  }
+  return squad.hunting ? `They're looking for you! Stay hidden: ${Math.ceil(squad.huntLeft)}s` : null;
 }
