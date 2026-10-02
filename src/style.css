@@ -123,7 +123,7 @@ body.touch-mode #hud-gadget { left: auto; right: calc(20px + env(safe-area-inset
 /* ---------- Menus / cards ---------- */
 .overlay { position: fixed; inset: 0; z-index: 20; display: flex; align-items: center; justify-content: center; padding: 20px 18px; background: radial-gradient(ellipse at center, rgba(6, 8, 15, 0.45), rgba(6, 8, 15, 0.88)); }
 .overlay[hidden] { display: none; }
-.overlay.title { justify-content: flex-start; padding-left: max(18px, 6vw); background: linear-gradient(90deg, rgba(6, 8, 15, 0.92) 0%, rgba(6, 8, 15, 0.55) 45%, rgba(6, 8, 15, 0.05) 80%); }
+.overlay.title { justify-content: flex-start; padding-left: max(18px, 6vw); background: linear-gradient(90deg, rgba(3, 5, 14, 0.9) 0%, rgba(3, 5, 14, 0.62) 40%, rgba(3, 5, 14, 0.08) 72%, rgba(3, 5, 14, 0) 100%); }
 .card { width: 100%; max-width: 560px; max-height: 100%; overflow: auto; background: rgba(13, 17, 28, 0.92); border: 1px solid rgba(255, 255, 255, 0.08); border-top: 3px solid var(--amber);
   border-radius: 16px; padding: 24px 26px 24px; backdrop-filter: blur(10px); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); }
 .overlay.title .card { background: transparent; border: none; box-shadow: none; backdrop-filter: none; max-width: 520px; overflow: visible; padding: 0; }
@@ -677,3 +677,34 @@ body.touch .free-car-btn kbd, .overlay:not([hidden]) ~ .free-car-btn { display: 
 .g-fx u { display: block; height: 100%; width: 100%; background: var(--gc, #fff); }
 .g-fx.ending b { color: var(--red); animation: fx-blink 0.5s steps(2) infinite; }
 @keyframes fx-blink { 50% { opacity: 0.35; } }
+
+/* ===== Title screen: the rainy neon city from the app icon, and the neon GETAWAY sign ===== */
+#title-bg { position: fixed; inset: 0; z-index: 1; overflow: hidden; background: #04050c; }
+#title-bg[hidden] { display: none; }
+#title-bg .tb-art { position: absolute; inset: -2%; background: url('./assets/title/keyart.webp') 68% 55% / cover no-repeat;
+  transform-origin: 70% 56%; animation: tb-drift 46s ease-in-out infinite alternate; will-change: transform; }
+@keyframes tb-drift { from { transform: scale(1); } to { transform: scale(1.09) translate(-1.2%, 0.6%); } }
+#tb-rain { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { #title-bg .tb-art { animation: none; } }
+
+.neon-logo { display: block; width: clamp(300px, 40vw, 560px); height: auto; overflow: visible; margin: -6px 0 6px -10px; }
+.neon-logo use { fill: none; stroke-linejoin: round; stroke-linecap: round; }
+.neon-logo .nl-w { stroke: #ff8414; stroke-width: 7; filter: url(#nl-wide); opacity: 0.7; }
+.neon-logo .nl-g { stroke: #ffa526; stroke-width: 4; filter: url(#nl-soft); opacity: 0.85; }
+.neon-logo .nl-t { stroke: url(#nl-tube); stroke-width: 2.7; }
+.neon-logo .nl-c { stroke: #fff6de; stroke-width: 0.85; opacity: 0.95; }
+.neon-logo .nl-glint { transform-box: fill-box; transform-origin: center; animation: nl-twinkle 6s 1.8s ease-in-out infinite; }
+/* the sign switching on (first time only), and the W that buzzes now and then */
+.neon-logo.nl-on .nl-l { animation: nl-on 1.5s steps(1, end) both; animation-delay: calc(0.15s + var(--i) * 0.07s); }
+.neon-logo .nl-l4 { animation: nl-buzz 9s 4s steps(1, end) infinite; }
+.neon-logo.nl-on .nl-l4 { animation: nl-on 1.5s 0.43s steps(1, end) both, nl-buzz 9s 4s steps(1, end) infinite; }
+@keyframes nl-on { 0% { opacity: 0.06; } 12% { opacity: 1; } 16% { opacity: 0.18; } 24% { opacity: 1; } 31% { opacity: 0.42; } 36%, 100% { opacity: 1; } }
+@keyframes nl-buzz { 0%, 90%, 100% { opacity: 1; } 91% { opacity: 0.3; } 92% { opacity: 1; } 94% { opacity: 0.55; } 95% { opacity: 1; } }
+@keyframes nl-twinkle { 0%, 66%, 100% { opacity: 0.35; transform: scale(0.55); } 78% { opacity: 1; transform: scale(1.15); } }
+@media (prefers-reduced-motion: reduce) { .neon-logo *, .neon-logo.nl-on * { animation: none !important; } }
+.overlay.title .tagline { color: #c9d2ea; text-shadow: 0 1px 10px rgba(0, 0, 0, 0.8); letter-spacing: 0.01em; }
+.overlay.title .story-btn { box-shadow: 0 0 26px rgba(255, 150, 30, 0.35), 0 10px 30px rgba(0, 0, 0, 0.45); }
+.overlay.title .tile, .overlay.title .pill { background: rgba(10, 14, 30, 0.55); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+@media (max-height: 700px) { .neon-logo { width: clamp(260px, 34vw, 440px); } }
+@media (max-height: 520px) { .neon-logo { width: clamp(220px, 30vw, 330px); margin: -4px 0 2px -8px; } }
+@media (max-width: 480px) { .neon-logo { width: min(300px, 80vw); } }

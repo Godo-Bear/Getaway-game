@@ -15,6 +15,7 @@ import { cloud } from '../core/cloud.js';
 import { admin } from '../core/admin.js';
 import { showAdminPanel } from './adminPanel.js';
 import { diff, DIFFICULTY_LIST, setDifficulty } from '../core/difficulty.js';
+import { neonLogoSvg } from './neonLogo.js';
 
 const overlay = document.getElementById('overlay');
 const card = document.getElementById('card');
@@ -177,8 +178,8 @@ export function showTitle(actions) {
   const back = () => showTitle(actions);
   const fmtScore = (n) => (n ? `Best ${n.toLocaleString('en-US')} (${diff().name})` : `No ${diff().name} score yet`);
   showCard(`
-    <div class="logo">GET<span>AWAY</span></div>
-    <p class="tagline">A heist gone wrong. Someone on your crew talked. Get out, lose the cops, and find the rat.</p>
+    ${neonLogoSvg()}
+    <p class="tagline">Plan the job. Pull the heist. Lose the cops. Get away.</p>
     <button class="btn primary story-btn" data-go="story">
       <span class="t-kick">Story · ${solved}/${CHAPTER_LIST.length} solved</span>
       <b>${next.title.replace(/^Chapter (\d+): /, 'Chapter $1 · ')}</b>

@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <title>Getaway</title>
   <!-- App icon (Add to Home Screen): an amber neon G over a rainy night city -->
-  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png" />
-  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png?v=neon" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/apple-touch-icon.png?v=neon" />
+  <link rel="manifest" href="./manifest.webmanifest?v=neon" />
   <meta name="theme-color" content="#0b0f1c" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,6 +21,9 @@
 <body>
   <!-- The 3D canvas is inserted here by main.js -->
   <div id="game"></div>
+
+  <!-- Title screen backdrop: the rainy neon city from the app icon, with falling rain (titleState.js) -->
+  <div id="title-bg" hidden><div class="tb-art"></div><canvas id="tb-rain"></canvas></div>
 
   <!-- Phones held upright: ask to turn the phone sideways (the game is played in landscape) -->
   <div id="rotate"><div class="phone"></div><b>Turn your phone sideways</b><span>Getaway is played in landscape.</span></div>

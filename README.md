@@ -40,9 +40,13 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 **Audio:** recorded sounds in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
 
+## Title screen
+
+The title matches the app icon: **GETAWAY** is an amber neon-tube sign (each letter drawn from the title font's outline as a glass tube with a hot core and a glow, golden at the top and deep orange at the bottom; it flickers on the first time, the W buzzes now and then, and a glint twinkles on the G; `src/ui/neonLogo.js`), over the same rainy neon city as the icon (`src/assets/title/keyart.webp`, rendered from a 3D scene) that slowly drifts, with rain falling over it (`src/states/titleState.js`). There's no 3D city to build or draw on the title, so it opens fast on phones.
+
 ## App icon (Add to Home Screen)
 
-The icon is a see-through amber **neon-tube G** (the title font, slanted like the logo, golden at the top and deep orange at the bottom, with a glint on the glass) glowing over a 3D-rendered rainy night city: a wet avenue with soft reflections, lit office windows, neon shop signs, street lamps and long-exposure car light trails (`public/icons/`). `public/manifest.webmanifest` makes **Add to Home Screen** (Safari: Share > Add to Home Screen; Chrome: menu > Add to Home screen / Install app) use it and open the game full-screen in landscape like an app.
+The icon is a see-through amber **neon-tube G** (the title font, slanted like the logo, golden at the top and deep orange at the bottom, with a glint on the glass) glowing over a 3D-rendered rainy night city: a wet avenue with soft reflections, lit office windows, neon shop signs, street lamps and long-exposure car light trails (`public/icons/`). `public/manifest.webmanifest` makes **Add to Home Screen** use it and open the game full-screen in landscape like an app. Use the GitHub Pages address (https://godo-bear.github.io/Getaway-game/) in Safari (Share > Add to Home Screen) or Chrome (menu > Add to Home screen / Install app): a page shown inside another site (like a claude.ai link) gets that site's icon instead. The icon links carry a version (`?v=neon`) so phones fetch a new icon after it changes; if an old one still shows, delete the home-screen icon and add it again.
 
 ## Publish on GitHub Pages
 
