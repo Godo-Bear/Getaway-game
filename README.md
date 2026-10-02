@@ -42,7 +42,7 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 ## App icon (Add to Home Screen)
 
-The icon is a see-through outlined amber **G** (like AWAY on the title screen) over a steel bank-vault door, with cash stacks at the bottom (`public/icons/`, source `icon.svg`). `public/manifest.webmanifest` makes **Add to Home Screen** (Safari: Share > Add to Home Screen; Chrome: menu > Add to Home screen / Install app) use it and open the game full-screen in landscape like an app.
+The icon is a see-through outlined amber **G** (like AWAY on the title screen) over a 3D-rendered steel bank-vault door (brushed steel, chrome bolts, wheel handle, combination dial) set in a concrete wall (`public/icons/`). `public/manifest.webmanifest` makes **Add to Home Screen** (Safari: Share > Add to Home Screen; Chrome: menu > Add to Home screen / Install app) use it and open the game full-screen in landscape like an app.
 
 ## Publish on GitHub Pages
 
