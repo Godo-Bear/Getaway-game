@@ -14,6 +14,11 @@ export class GadgetSlot {
     this.cooldown = 0;
     this.el = document.getElementById('hud-gadget');
     this._last = '';
+    // Active effects (cloak, smoke, jammer...) with how long each has left
+    this.fx = this.el.querySelector('.g-effects');
+    if (!this.fx) { this.fx = document.createElement('div'); this.fx.className = 'g-effects'; this.el.appendChild(this.fx); }
+    this.fx.innerHTML = '';
+    this._fxKey = '';
     if (this.gadget) {
       this.el.hidden = false;
       this.el.style.setProperty('--gc', this.gadget.color);
@@ -45,6 +50,22 @@ export class GadgetSlot {
     this.el.querySelector('.g-bar > div').style.width = `${(k * 100).toFixed(0)}%`;
   }
 
+  /**
+   * Show the effects that are running and how long each has left.
+   * @param {{name:string, left:number, total:number}[]} list
+   */
+  showEffects(list) {
+    const live = list.filter((e) => e.left > 0.05);
+    const key = live.map((e) => `${e.name}|${Math.ceil(e.left)}`).join(',');
+    if (key !== this._fxKey) {
+      this._fxKey = key;
+      this.fx.innerHTML = live.map((e) =>
+        `<div class="g-fx${e.left < 3 ? ' ending' : ''}"><span>${e.name}</span><b>${Math.ceil(e.left)}s</b><i><u></u></i></div>`).join('');
+    }
+    const bars = this.fx.querySelectorAll('u');
+    live.forEach((e, i) => { if (bars[i]) bars[i].style.width = `${Math.max(0, Math.min(1, e.left / e.total)) * 100}%`; });
+  }
+
   /** Pressed F with nothing equipped, or while recharging. */
   explainNotReady() {
     const hud = this.game.hud;
@@ -54,5 +75,7 @@ export class GadgetSlot {
 
   hide() {
     this.el.hidden = true;
+    this.fx.innerHTML = '';
+    this._fxKey = '';
   }
 }

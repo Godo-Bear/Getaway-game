@@ -664,3 +664,16 @@ body.touch .free-car-btn kbd, .overlay:not([hidden]) ~ .free-car-btn { display: 
   .ch-card .ch-main small { font-size: 11px; }
 }
 .btn.ch-card:focus-visible { outline: 2px solid rgba(255, 176, 32, 0.7); outline-offset: 1px; }
+
+/* Active gadget effects: a countdown for each one, just above the gadget badge */
+#hud-gadget { position: fixed; }
+#hud-gadget .g-effects { position: absolute; left: 0; bottom: calc(100% + 6px); display: grid; gap: 4px; min-width: 100%; pointer-events: none; }
+#hud-gadget .g-effects:empty { display: none; }
+.g-fx { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: 10px; padding: 5px 9px 6px; border-radius: 9px;
+  background: rgba(10, 13, 22, 0.78); border: 1px solid color-mix(in srgb, var(--gc, #fff) 45%, transparent); white-space: nowrap; }
+.g-fx span { font-size: 12px; font-weight: 700; }
+.g-fx b { font-family: var(--display); font-size: 17px; line-height: 1; color: var(--gc, #fff); }
+.g-fx i { grid-column: 1 / -1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); margin-top: 4px; overflow: hidden; }
+.g-fx u { display: block; height: 100%; width: 100%; background: var(--gc, #fff); }
+.g-fx.ending b { color: var(--red); animation: fx-blink 0.5s steps(2) infinite; }
+@keyframes fx-blink { 50% { opacity: 0.35; } }

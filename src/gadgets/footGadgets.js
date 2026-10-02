@@ -132,6 +132,8 @@ export class FootGadgets {
   // ---------------------------------------------------------------- Invisibility Cloak (admin)
   _cloak(time = T(CLOAK_TIME), title = 'Invisible!') {
     this.cloak = time;
+    this.cloakTotal = time;
+    this.cloakName = title === 'Invisible!' ? 'Invisible' : title.replace('!', '');
     this._setSeeThrough(true);
     audio.sfx('whoosh', { vol: 0.8 });
     this.state.game.hud.toast(title, `Nobody can see you for ${time} seconds.`, '#b48cff', 3);
@@ -152,6 +154,7 @@ export class FootGadgets {
   // ---------------------------------------------------------------- Chameleon Suit
   _chameleon() {
     this.cham = T(CHAMELEON_TIME);
+    this.chamTotal = this.cham;
     this._setSeeThrough(true, 0.4);
     audio.sfx('whoosh', { vol: 0.6 });
     this.state.game.hud.toast('Chameleon suit!', `Walk, don't sprint: nobody can see you for ${T(CHAMELEON_TIME)} seconds.`, '#6affb0', 3);
@@ -209,6 +212,7 @@ export class FootGadgets {
     this.burst = { sprite: burst, t: 0 };
     s.game.post?.lightning?.(0.8);
     audio.sfx('thunder', { vol: 0.35 });
+    if (blinded || stunned) { this.dazed = T(FLASH_BLIND); this.dazedTotal = this.dazed; }
     const what = [blinded ? `${blinded > 1 ? 'Helicopters' : 'The helicopter'} blinded` : '', stunned ? `${stunned} officer${stunned > 1 ? 's' : ''} stunned` : ''].filter(Boolean).join(', ');
     s.game.hud.toast('Flashbang!', what ? `${what} for ${T(FLASH_BLIND)} seconds. Go!` : 'Nobody was close enough to be dazzled.', '#fff3a0', 3);
     return true;
@@ -259,8 +263,22 @@ export class FootGadgets {
   }
 
   // ---------------------------------------------------------------- Per frame
+  /** What's running right now, and for how long (shown under the gadget badge). */
+  _effects() {
+    const fx = [];
+    if (this.cloak > 0) fx.push({ name: this.cloakName || 'Invisible', left: this.cloak, total: this.cloakTotal || this.cloak });
+    if (this.cham > 0) fx.push({ name: 'Chameleon suit', left: this.cham, total: this.chamTotal || this.cham });
+    if (this.box) fx.push({ name: 'Cardboard box', left: T(BOX_TIME) - this.box.t, total: T(BOX_TIME) });
+    if (this.smoke) fx.push({ name: 'Smoke', left: T(SMOKE_TIME) - this.smoke.t, total: T(SMOKE_TIME) });
+    if (this.decoy) fx.push({ name: 'Decoy', left: T(DECOY_TIME) - this.decoy.t, total: T(DECOY_TIME) });
+    if (this.dazed > 0) fx.push({ name: 'Police dazed', left: this.dazed, total: this.dazedTotal });
+    return fx;
+  }
+
   update(dt) {
     this.slot.update(dt);
+    if (this.dazed > 0) this.dazed -= dt;
+    this.slot.showEffects(this._effects());
     if (this.box) {
       const pc = this.state.player, b = this.box;
       b.t += dt;
@@ -328,6 +346,7 @@ export class FootGadgets {
     if (this.cloak > 0 || this.cham > 0) this._setSeeThrough(false);
     this.cloak = 0;
     this.cham = 0;
+    this.dazed = 0;
     this._clearBox();
     this._clearSmoke();
     this._clearDecoy();

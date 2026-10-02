@@ -33,6 +33,7 @@ export class CarGadgets {
     this.waves = [];    // expanding rings (EMP / jammer effects)
     this.strips = [];   // { mesh, x, z, ax, az, t, hit:Set }
     this.screen = 0;    // smoke screen time left
+    this.timed = {};    // freeze / emp / jammer: { left, total }
   }
 
   use() {
@@ -48,6 +49,9 @@ export class CarGadgets {
     else if (id === 'blackout') this._blackout();
     else if (id === 'teleport') { if (!this._teleport()) return; }
     else this._jammer();
+    // Effects with a set length, for the countdown under the gadget badge
+    const len = { freeze: T(10), emp: T(EMP_TIME), jammer: T(JAM_TIME) }[id];
+    if (len) this.timed[id] = { left: len, total: len };
     this.slot.used();
   }
 
@@ -264,8 +268,28 @@ export class CarGadgets {
     }
   }
 
+  /** What's running right now, and for how long (shown under the gadget badge). */
+  _effects() {
+    const fx = [];
+    const names = { freeze: 'Police frozen', emp: 'Cruisers knocked out', jammer: 'Radio jammed' };
+    for (const [id, t] of Object.entries(this.timed)) fx.push({ name: names[id], left: t.left, total: t.total });
+    if (this.screen > 0) fx.push({ name: 'Smoke screen', left: this.screen, total: T(SCREEN_TIME) });
+    if (this.shifted > 0) fx.push({ name: 'New paint', left: this.shifted, total: T(PLATES_TIME) });
+    if (this.dark > 0) fx.push({ name: 'Blackout', left: this.dark, total: T(BLACKOUT_TIME) });
+    const last = (list, total, name) => {
+      if (!list.length) return;
+      const left = Math.max(...list.map((x) => total - x.t));
+      fx.push({ name: list.length > 1 ? `${name} ×${list.length}` : name, left, total });
+    };
+    last(this.slicks, T(OIL_TIME), 'Oil slick');
+    last(this.strips, T(SPIKE_TIME), 'Spike strip');
+    return fx;
+  }
+
   update(dt) {
     this.slot.update(dt);
+    for (const [id, t] of Object.entries(this.timed)) { t.left -= dt; if (t.left <= 0) delete this.timed[id]; }
+    this.slot.showEffects(this._effects());
     if (this.shifted > 0) {
       this.shifted -= dt;
       if (this.shifted <= 0) { this.state.applySettings?.(); this.state.game.hud.toast('Paint back to normal', '', 'var(--muted)', 1.5); }
@@ -321,6 +345,7 @@ export class CarGadgets {
     if (this.dark > 0) this._lightsOn();
     this.shifted = 0;
     this.dark = 0;
+    this.timed = {};
     for (const st of this.strips) this.state.scene.remove(st.mesh);
     this.strips = [];
     this.screen = 0;
