@@ -40,6 +40,10 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 **Audio:** recorded sounds in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
 
+## App icon (Add to Home Screen)
+
+The icon is a slanted amber **G** over the night city with police lights in the corners (`public/icons/`, source `icon.svg`). `public/manifest.webmanifest` makes **Add to Home Screen** (Safari: Share > Add to Home Screen; Chrome: menu > Add to Home screen / Install app) use it and open the game full-screen in landscape like an app.
+
 ## Publish on GitHub Pages
 
 `.github/workflows/deploy.yml` builds the game and publishes it on every push.
