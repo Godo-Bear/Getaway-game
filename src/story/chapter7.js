@@ -59,7 +59,7 @@ export const CHAPTER7 = {
       prison: { stage: 'lockdown' },
       intro: [
         { kicker: 'The yard, 1:31 a.m.', who: 'mags',
-          lines: ['"The zip line\'s rigged on the east wall: up the stairs, jump onto the cable, and it\'ll take you both down to my boat. The towers are hunting now. Move!"'] },
+          lines: ['"The zip line\'s rigged on the east wall: up the stairs, jump onto the cable, and it\'ll take you both down to my boat. Keep out of the searchlights and you\'ll make it. Move!"'] },
       ],
       startLabel: 'Run',
       objective: 'Get Ricky over the east wall before the lockdown',

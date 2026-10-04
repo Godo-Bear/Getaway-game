@@ -30,13 +30,19 @@ import { audio } from '../../core/audio.js';
 //   Uniform      - a guard uniform in the dock office: guards only notice you
 //                  close up (the searchlights still check everyone).
 //   The cell     - hack Ricky's cell keypad (mini-game). Then the ALARM:
-//                  guards on alert, searchlights faster and hunting, and a
-//                  lockdown countdown.
+//                  a lockdown countdown. The escape is kinder than the way
+//                  in (lasers off, searchlights keep to their sweeps,
+//                  slower to be spotted: see ESCAPE_NOTICE).
 //   Ricky        - follows you once he's out (he keeps up, don't worry).
 //   The way out  - up the stairs to the top of the east wall, onto Mags's
 //                  zip line, down to her boat at the pier.
 
-const LOCKDOWN = 80;       // seconds after the alarm (x difficulty)
+const LOCKDOWN = 150;      // seconds after the alarm (x difficulty)
+// The escape (once Ricky is out) is kinder than the way in: the alarm cuts the
+// power to the corridor lasers, the searchlights keep to their sweeps instead
+// of chasing you, the guards aren't on extra alert, and it takes twice as long
+// to be spotted.
+const ESCAPE_NOTICE = 0.5;
 const UNIFORM = { hoodie: 0x24324a, trousers: 0x1a2130, mask: 0xc4946f, gloves: 0x1a2130 };
 const JUMPSUIT = { hoodie: 0xe0701c, trousers: 0xe0701c, mask: 0x8d5a3b, skin: 0x8d5a3b, gloves: 0x8d5a3b, shoes: 0x222222 };
 
@@ -131,8 +137,8 @@ export class PrisonMode {
     this.rickyBody.facing = 0;
     s.player.zipLines = this.freed ? [L.zip] : [];
     this.guards.reset();
-    this.guards.setAlert(this.alarm);
-    for (const l of this.lights) { l.reset(); l.alert = this.alarm; }
+    this.guards.setAlert(false);
+    for (const l of this.lights) { l.reset(); l.alert = false; }
     const hud = s.game.hud;
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${this.part.title}`);
     hud.setObjective(this.part.objective);
@@ -153,8 +159,8 @@ export class PrisonMode {
     this.trail = [];
     if (this.freed) this.rickyBody.pos.copy(cp.spawn).add(new THREE.Vector3(1.2, 0, 1.2));
     this.guards.reset();
-    this.guards.setAlert(this.alarm);
-    for (const l of this.lights) { l.reset(); l.alert = this.alarm; }
+    this.guards.setAlert(false);
+    for (const l of this.lights) { l.reset(); l.alert = false; }
   }
 
   _caught(title, msg) {
@@ -188,7 +194,7 @@ export class PrisonMode {
     this.uniformRing.visible = !this.disguised;
 
     // --- Searchlights and guards
-    for (const l of this.lights) l.update(dt, this.alarm ? pos : null);
+    for (const l of this.lights) l.update(dt, null);
     const lit = !s.concealed && this.lights.some((l) => l.lights(pos, p.height));
     const blending = this.disguised && p.horizontalSpeed < 5 && p.height > 1.3;
     const seenByGuard = this.guards.update(dt, p, s.concealed, { closeOnly: blending });
@@ -199,7 +205,7 @@ export class PrisonMode {
     if (lit) this.guards.alarmAt(pos); // (the tower radios the guards)
     const searching = huntMessages(this.guards, hud, 'guards');
     const fill = (lit ? dt / 0.6 : 0) + (seenByGuard ? dt / 0.8 : 0);
-    this.spotted = clamp(this.spotted + (fill ? fill * d.fill : -dt * 0.5), 0, 1);
+    this.spotted = clamp(this.spotted + (fill ? fill * d.fill * (this.freed ? ESCAPE_NOTICE : 1) : -dt * 0.5), 0, 1);
     if (!lit && !seenByGuard && searching && !this.mini) hud.setMeter(this.spotted, searching, '#ff7a1a');
     else if (this.spotted > 0.01 && !this.mini) hud.setMeter(this.spotted, lit ? 'SEARCHLIGHT! Get into cover' : seenByGuard ? 'A guard can see you!' : 'Hidden', lit || seenByGuard ? 'var(--red)' : '#8a8f9c');
     else if (!this.mini) hud.setMeter(0, '');
@@ -250,8 +256,9 @@ export class PrisonMode {
       const cycle = 1.2 + 2.0 * d.timer;
       const px = this.prevX ?? pos.x;
       for (const las of L.corridorLasers) {
-        let on = true;
-        if (las.type === 'pulse') {
+        let on = !this.freed; // (Ricky's cell alarm cut the power to the lasers)
+        for (const b of las.beams) if (this.freed) b.visible = false;
+        if (on && las.type === 'pulse') {
           const k = (s.time + las.phase * cycle) % cycle;
           on = k < 1.2;
           const warn = !on && k > cycle - 0.35;
@@ -319,12 +326,10 @@ export class PrisonMode {
     // The alarm (a cell opening without a guard's key card sets it off)
     this.alarm = true;
     this.lockdown = LOCKDOWN * diff().timer;
-    this.guards.setAlert(true);
-    for (const l of this.lights) l.alert = true;
     s.player.zipLines = [L.zip];
     audio.sfx('sting');
     hud.setObjective('Get back out of D Block with Ricky');
-    hud.toast('Ricky is out!', `${SUSPECTS.ricky.name}: "About time! That door just set off every alarm on the island. Lead the way, I'm right behind you."`, 'var(--red)', 6);
+    hud.toast('Ricky is out!', `${SUSPECTS.ricky.name}: "About time! That set off every alarm on the island, and it blew the power to the lasers. Lead the way, I'm right behind you."`, 'var(--red)', 6);
   }
 
   _updateRicky(dt) {
