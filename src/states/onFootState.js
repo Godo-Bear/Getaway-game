@@ -388,16 +388,12 @@ export class OnFootState extends PlayState {
     if (this.game.speedrun) this.game.speedrun.adminUsed = true;
   }
 
-  /** Your look: mix and match, shown live on your character (turned to face you). */
+  /** Your look: mix and match, shown live on your character (and in the card's preview). */
   showWardrobe() {
-    const back = () => { this.camera.clearViewOffset(); document.body.classList.remove('wardrobe'); this.paused = false; this.pause(); };
+    const back = () => { document.body.classList.remove('wardrobe'); this.paused = false; this.pause(); };
     this.player.facing = Math.atan2(this.camera.position.x - this.player.pos.x, this.camera.position.z - this.player.pos.z);
     this.model.update(0, this.player);
-    this.cam.distance = Math.max(this.cam.distance, 4.5); // (step back to see the whole outfit)
-    // The wardrobe card covers the right of the screen: slide the view so you stand on the left
-    const w = window.innerWidth, h = window.innerHeight;
-    this.camera.setViewOffset(w, h, w * 0.24, 0, w, h);
-    document.body.classList.add('wardrobe'); // (hides the controls help)
+    document.body.classList.add('wardrobe'); // (hides the controls help; the card shows a preview of you)
     showLookEditor(this.game, back, (look) => { this.model.setLook(look); this.mode.onLookChanged?.(); });
   }
 
@@ -429,8 +425,7 @@ export class OnFootState extends PlayState {
   }
 
   teardown() {
-    this.camera.clearViewOffset(); // (in case you left from the wardrobe)
-    document.body.classList.remove('wardrobe');
+    document.body.classList.remove('wardrobe'); // (in case you left from the wardrobe)
     this.gadgets?.dispose();
     this.weather?.dispose();
     this.weather = null;

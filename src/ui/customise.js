@@ -7,6 +7,7 @@ import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { OUTFITS, PALETTE, SKINS, FACES, HAIRS, HAIR_COLOURS, BEARDS, HATS, TOPS, currentLook } from '../player/outfits.js';
 import { CAR_COLOURS, CAR_PARTS, isColourUnlocked } from '../vehicles/carColours.js';
+import { showLookPreview } from './lookPreview.js';
 
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 const swatch = (attr, value, on, color, title) =>
@@ -62,6 +63,7 @@ export function showLookEditor(game, onBack, onChange = () => {}) {
     ${row('Gloves', colours('gloves', look.gloves, true))}
     ${row('Cash bag', `<button class="chip${look.bag ? ' on' : ''}" data-bag="1">On your back</button><button class="chip${look.bag ? '' : ' on'}" data-bag="0">No bag</button>`)}`,
   [{ label: 'Done', primary: true, onClick: onBack }], { side: true });
+  showLookPreview(look); // your character, live, beside the card
 
   bind('preset', (id) => {
     s.look = { ...OUTFITS.find((o) => o.id === id).look };

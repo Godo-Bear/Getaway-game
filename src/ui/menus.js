@@ -49,6 +49,7 @@ export function showCard(html, buttons = [], { title = false, list = false, grid
   overlay.classList.toggle('title', title);
   overlay.classList.toggle('side', side);
   overlay.classList.toggle('story', story); // compact, docked bottom-left: the game stays visible
+  overlay.classList.remove('has-preview'); // (the Your look preview: that card adds it back)
   overlay.hidden = false;
   card.scrollTop = 0;
   const first = row.querySelector('[data-focus]') || row.querySelector('.primary') || row.querySelector('button:not(:disabled)');

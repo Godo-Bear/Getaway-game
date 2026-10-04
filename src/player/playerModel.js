@@ -117,6 +117,7 @@ export class PlayerModel {
     this.runPhase = Math.random() * 6;
     this.time = Math.random() * 10;
     this.blink = 1 + Math.random() * 3;
+    this.lookAround = true; // glance around while standing still
   }
 
   /** Build (or rebuild) the meshes for a resolved look, and colour them. */
@@ -366,7 +367,7 @@ export class PlayerModel {
           t.hipL = Math.sin(this.time * 0.6) * 0.04;
           t.kneeR = 0.05 + Math.max(0, Math.sin(this.time * 0.6)) * 0.12;
           t.headPitch = Math.sin(this.time * 0.7) * 0.05;
-          t.headYaw = Math.sin(this.time * 0.31) * Math.sin(this.time * 0.17) * 0.7;
+          if (this.lookAround) t.headYaw = Math.sin(this.time * 0.31) * Math.sin(this.time * 0.17) * 0.7;
         }
         if (pc.stumbleTimer > 0) {
           // Hard landing without a roll: crouch down.

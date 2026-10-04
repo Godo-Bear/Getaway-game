@@ -738,3 +738,20 @@ body.touch .free-car-btn kbd, .overlay:not([hidden]) ~ .free-car-btn { display: 
 
 /* Your look: keep the HUD help out of the way of your character */
 body.wardrobe #hud-controls { visibility: hidden; }
+
+/* Your look: the live 3D preview beside the card (ui/lookPreview.js) */
+#look-preview { display: none; position: relative; flex: 0 0 auto; width: min(380px, calc(100vw - 560px)); height: min(560px, 100%); margin-right: auto;
+  border-radius: 16px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
+  background: radial-gradient(ellipse at 50% 42%, rgba(255, 176, 32, 0.18), rgba(13, 17, 28, 0) 62%), linear-gradient(180deg, rgba(22, 28, 46, 0.94), rgba(8, 10, 18, 0.96)); }
+.overlay.has-preview #look-preview { display: block; }
+.overlay.side.has-preview { justify-content: space-between; gap: 18px; background: rgba(6, 8, 15, 0.72); }
+#look-preview canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.lp-hint { position: absolute; top: 10px; left: 0; right: 0; text-align: center; font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; pointer-events: none; }
+.lp-bar { position: absolute; left: 0; right: 0; bottom: 10px; display: flex; justify-content: center; gap: 6px; }
+.lp-bar .chip { font-size: 12px; padding: 4px 10px; text-transform: none; background: rgba(13, 17, 28, 0.75); }
+.lp-bar .chip.on { background: var(--amber); }
+@media (max-width: 760px) {
+  .overlay.has-preview { flex-direction: column; justify-content: flex-start; gap: 10px; }
+  .overlay.has-preview #look-preview { width: 100%; max-width: 480px; height: 36vh; min-height: 190px; margin: 0 auto; }
+  .overlay.has-preview .card { flex: 1 1 auto; min-height: 0; }
+}

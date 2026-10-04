@@ -353,7 +353,7 @@ function buildHead({ face, hair, beard, hat }) {
     P.add(SPH_LO, 'mask', [0, SK.y + SK.ry - 0.005, 0], 0, [0.05, 0.02, 0.05]);
   } else {
     for (const sx of [-1, 1]) P.add(BOX, 'hair', [sx * 0.056, 0.277, 0.141], [0, 0, sx * -0.1], [0.066, 0.016, 0.02]); // eyebrows
-    P.add(rbox(0.06, 0.013, 0.012, 0.005), 'mouth', [0, 0.133, 0.135]);
+    P.add(rbox(0.06, 0.013, 0.012, 0.005), 'mouth', [0, 0.133, 0.128]);
     addHair(P, hair, !!hat);
     addBeard(P, beard);
   }
