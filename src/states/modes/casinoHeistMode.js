@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildChapter5Casino } from '../../world/levels/chapter5Casino.js';
 import { makeGlowMaterial } from '../../world/materials.js';
 import { GuardSquad, huntMessages } from '../../ai/guards.js';
+import { CASINO_SECURITY } from '../../player/people.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
@@ -46,7 +47,8 @@ const CHIP_CASH = 20;
 const PULSE_ON = 1.2;   // seconds a pulsing laser stays on
 const PULSE_OFF = 2.0;  // ... and off (longer on Easy): plenty of time to run through
 const VENT_NOISE = 20;  // seconds the guards stay on alert after the roof-vent drop
-const UNIFORM = { hoodie: 0x7a1f2e, trousers: 0x141418, mask: 0xc4946f, gloves: 0xe8e2d6 };
+// Casino staff: burgundy waistcoat-and-tie uniform with white gloves
+const UNIFORM = { hoodie: 0x7a1f2e, trousers: 0x141418, gloves: 0xe8e2d6, tie: 0x141418, style: { top: 'suit' } };
 
 export class CasinoHeistMode {
   constructor(state, params) {
@@ -108,7 +110,7 @@ export class CasinoHeistMode {
       L.group.add(g);
       return { ...c, group: g, gem };
     });
-    this.guards = new GuardSquad(L.group, L.world, L.guardRoutes.map((route) => ({ route })), { sight: diff().guardSight });
+    this.guards = new GuardSquad(L.group, L.world, L.guardRoutes.map((route) => ({ route })), { sight: diff().guardSight, look: CASINO_SECURITY });
     // The staff uniform on the rail in the lounge
     this.uniformRing = new THREE.Mesh(new THREE.RingGeometry(0.9, 1.1, 32), makeGlowMaterial(0xff7a9a, 0.8));
     this.uniformRing.rotation.x = -Math.PI / 2;

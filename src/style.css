@@ -735,3 +735,6 @@ body.touch .free-car-btn kbd, .overlay:not([hidden]) ~ .free-car-btn { display: 
   #loader .ld-tip { margin-top: 14px; font-size: 13px; }
 }
 @media (prefers-reduced-motion: reduce) { #loader .ld-logo { animation: none; } }
+
+/* Your look: keep the HUD help out of the way of your character */
+body.wardrobe #hud-controls { visibility: hidden; }

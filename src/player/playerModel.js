@@ -1,17 +1,19 @@
 import * as THREE from 'three';
-import { lookColors } from './outfits.js';
+import { lookColors, lookStyle } from './outfits.js';
 import { damp, clamp } from '../core/utils.js';
+import { partGeometry, SLOTS, RIG } from './bodyParts.js';
 
-// The player's visible character: a simple "box person" rig with a duffel
-// bag of cash on their back.
+// A person: you, the crew, guards, police, people on the street. Rounded
+// limbs, a face with eyes that blink, hair, beards, hats and clothes
+// (bodyParts.js builds the shapes). Everyone shares this rig and animation.
 //
 // Rig hierarchy (each joint is a THREE.Group we rotate):
 //
 //   root (position = feet, rotation.y = facing)
 //    └ tumble (pivot at hip height; rotates for the roll)
 //       └ hips (bobs up and down while running)
-//          ├ torso (leans forward when sprinting)
-//          │   ├ head
+//          ├ torso (leans forward when sprinting, twists with the arms)
+//          │   ├ head (+ eyes)
 //          │   ├ shoulderL ─ elbowL      (arms)
 //          │   ├ shoulderR ─ elbowR
 //          │   └ bag (duffel, swings a little)
@@ -19,113 +21,90 @@ import { damp, clamp } from '../core/utils.js';
 //          └ hipR ─ kneeR
 //
 // Animation = every frame we pick a target angle for each joint based on the
-// controller's state (idle, run, air, mantle, roll) and smoothly blend toward
-// it. Blending (instead of snapping) makes pose changes look natural.
+// controller's state (idle, walk, run, air, mantle, roll) and smoothly blend
+// toward it. Blending (instead of snapping) makes pose changes look natural.
 //
 // Rotation sign reminder (model faces +Z):
 //   rotation.x NEGATIVE swings a leg/arm FORWARD, POSITIVE swings it back.
+//
+// Looks: new PlayerModel(colors, { style }) where colors can set any of
+// hoodie (the top), trousers, shoes, skin, gloves, hair, hat, accent, shirt,
+// tie, bag... and style picks the shapes: top (hoodie, jacket, tee, sweater,
+// suit, uniform, jumpsuit, ski), hair, beard, hat, face (mask, face, shades),
+// build and height. people.js has the crew, uniforms and random passers-by.
 
-const COLORS = {
-  hoodie: 0x24252b,
-  trousers: 0x1a1e2a,
-  shoes: 0x0f0f10,
-  skin: 0xc4946f,
-  mask: 0x111318,
-  gloves: 0x151515,
-  bag: 0x3b4a2a,
-  strap: 0x1d1f16,
-  cash: 0x5fae5a,
+const DEFAULTS = {
+  hoodie: 0x24252b, trousers: 0x1a1e2a, shoes: 0x0f0f10, mask: 0x111318,
+  hair: 0x2a1c14, hat: 0x2a2b31, shirt: 0xe6e2da, tie: 0x7a1f2e,
+  metal: 0xb8bcc4, gold: 0xe8b830, belt: 0x18181a, eyeWhite: 0xeeeae2, pupil: 0x23170f,
+  lens: 0x0c0d10, bag: 0x3b4a2a, strap: 0x1d1f16, cash: 0x5fae5a, patch: 0xe8e8e8,
 };
+const STYLE = { top: 'hoodie', hair: 'short', beard: null, hat: null, face: 'face', build: 1, height: 1, badge: false, tie: false };
 
-function box(w, h, d, color, y = 0, x = 0, z = 0) {
-  const mesh = new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d),
-    new THREE.MeshLambertMaterial({ color }),
-  );
-  mesh.position.set(x, y, z);
-  mesh.castShadow = true;
-  return mesh;
-}
+const _c = new THREE.Color();
+const lum = (hex) => { _c.setHex(hex); return 0.2126 * _c.r + 0.7152 * _c.g + 0.0722 * _c.b; };
+const shade = (hex, k) => _c.setHex(hex).multiplyScalar(k).getHex();
+const mix = (a, b, k) => _c.setHex(a).lerp(new THREE.Color(b), k).getHex();
 
-/** A joint: an empty group at a pivot point, holding one hanging limb box. */
-function limb(parent, x, y, z, w, len, d, color) {
-  const joint = new THREE.Group();
-  joint.position.set(x, y, z);
-  joint.add(box(w, len, d, color, -len / 2)); // hangs down from the pivot
-  parent.add(joint);
-  return joint;
+/**
+ * Fill in every colour slot. Older callers describe faces with `mask`: a dark
+ * mask is a balaclava, a skin-coloured one is just the face.
+ */
+function resolve(colors, style) {
+  const c = { ...DEFAULTS, ...colors };
+  const s = { ...STYLE, ...style };
+  if (!style.face) s.face = colors.mask != null && lum(colors.mask) < 0.06 ? 'mask' : 'face';
+  c.skin = colors.skin ?? (colors.mask != null && s.face !== 'mask' ? colors.mask : 0xc4946f);
+  c.gloves = colors.gloves ?? (s.face === 'mask' ? 0x151515 : c.skin);
+  c.accent = colors.accent ?? shade(c.hoodie, lum(c.hoodie) < 0.02 ? 1.9 : 0.68);
+  c.sole = colors.sole ?? (lum(c.shoes) > 0.4 ? 0xf2f2ee : shade(c.shoes, 0.55));
+  c.hatBand = colors.hatBand ?? (s.hat === 'police' ? 0x0e0e12 : s.hat === 'guard' ? shade(c.hat, 0.6) : shade(c.hat, 0.78));
+  c.mouth = mix(c.skin, 0x6a2a2a, 0.35);
+  c.stubble = mix(c.skin, c.hair, 0.55);
+  return { colors: c, style: s };
 }
 
 export class PlayerModel {
   /**
-   * @param {object} [colors] - override any of COLORS (police officers, Vince...)
-   * @param {{bag?:boolean}} [opts]
+   * @param {object} [colors] - any colour slots (and optionally `style`): see above
+   * @param {{bag?:boolean, style?:object}} [opts]
    */
-  constructor(colors = {}, { bag = true } = {}) {
-    const C = { ...COLORS, ...colors };
+  constructor(colors = {}, { bag = true, style = {} } = {}) {
+    const { style: colorStyle, ...cols } = colors;
+    this.base = { colors: cols, style: { ...colorStyle, ...style, bag } };
+    this.own = null; // your own clothes (setLook); disguises go on top
+
     this.root = new THREE.Group();
     this.tumble = new THREE.Group();
     this.tumble.position.y = 0.55;
     this.root.add(this.tumble);
-
     this.hips = new THREE.Group();
-    this.hips.position.y = 0.95 - 0.55;
+    this.hips.position.y = RIG.hipY - 0.55;
     this.tumble.add(this.hips);
-
-    // --- Torso + head
     this.torso = new THREE.Group();
     this.hips.add(this.torso);
-    this.torso.add(box(0.5, 0.62, 0.28, C.hoodie, 0.34));
-    this.torso.add(box(0.44, 0.12, 0.26, C.trousers, 0.02)); // belt line
     this.head = new THREE.Group();
-    this.head.position.y = 0.72;
+    this.head.position.y = RIG.headY;
     this.torso.add(this.head);
-    this.head.add(box(0.1, 0.08, 0.1, C.skin, 0.03)); // neck
-    this.head.add(box(0.28, 0.3, 0.28, C.mask, 0.2)); // balaclava
-    this.eyes = box(0.22, 0.06, 0.02, C.skin, 0.24, 0, 0.14); // eye slit (or sunglasses)
+    this.eyes = new THREE.Group();
+    this.eyes.position.y = 0.236;
     this.head.add(this.eyes);
-    this.beanie = box(0.3, 0.07, 0.3, 0x2a2b31, 0.36); // beanie rim
-    this.head.add(this.beanie);
 
-    // --- Arms (shoulder -> elbow)
-    const armLen = 0.32, foreLen = 0.3;
-    this.shoulderL = limb(this.torso, -0.32, 0.6, 0, 0.14, armLen, 0.15, C.hoodie);
-    this.shoulderR = limb(this.torso, 0.32, 0.6, 0, 0.14, armLen, 0.15, C.hoodie);
-    this.elbowL = limb(this.shoulderL, 0, -armLen, 0, 0.12, foreLen, 0.13, C.hoodie);
-    this.elbowR = limb(this.shoulderR, 0, -armLen, 0, 0.12, foreLen, 0.13, C.hoodie);
-    this.elbowL.add(box(0.13, 0.1, 0.14, C.gloves, -foreLen - 0.04));
-    this.elbowR.add(box(0.13, 0.1, 0.14, C.gloves, -foreLen - 0.04));
+    const joint = (parent, x, y, z) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
+    this.shoulderL = joint(this.torso, -RIG.shoulderX, RIG.shoulderY, 0);
+    this.shoulderR = joint(this.torso, RIG.shoulderX, RIG.shoulderY, 0);
+    this.elbowL = joint(this.shoulderL, 0, -RIG.upperArm, 0);
+    this.elbowR = joint(this.shoulderR, 0, -RIG.upperArm, 0);
+    this.hipL = joint(this.hips, -RIG.hipX, 0, 0);
+    this.hipR = joint(this.hips, RIG.hipX, 0, 0);
+    this.kneeL = joint(this.hipL, 0, -RIG.thigh, 0);
+    this.kneeR = joint(this.hipR, 0, -RIG.thigh, 0);
+    this.bag = joint(this.torso, 0, 0.42, -0.27);
 
-    // --- Legs (hip -> knee)
-    const thigh = 0.46, shin = 0.44;
-    this.hipL = limb(this.hips, -0.13, 0, 0, 0.18, thigh, 0.2, C.trousers);
-    this.hipR = limb(this.hips, 0.13, 0, 0, 0.18, thigh, 0.2, C.trousers);
-    this.kneeL = limb(this.hipL, 0, -thigh, 0, 0.16, shin, 0.18, C.trousers);
-    this.kneeR = limb(this.hipR, 0, -thigh, 0, 0.16, shin, 0.18, C.trousers);
-    this.kneeL.add(box(0.17, 0.08, 0.28, C.shoes, -shin - 0.02, 0, 0.05));
-    this.kneeR.add(box(0.17, 0.08, 0.28, C.shoes, -shin - 0.02, 0, 0.05));
-
-    // --- Duffel bag of cash, slung across the back
-    this.bag = new THREE.Group();
-    this.bag.position.set(0, 0.42, -0.26);
-    this.bag.visible = bag;
-    this.torso.add(this.bag);
-    const bagBody = box(0.62, 0.3, 0.3, C.bag, 0);
-    bagBody.rotation.z = 0.18;
-    this.bag.add(bagBody);
-    // End caps and a zip line make it read as a duffel from a distance
-    this.bag.add(box(0.05, 0.31, 0.31, C.strap, 0.055, -0.3));
-    this.bag.add(box(0.05, 0.31, 0.31, C.strap, -0.055, 0.3));
-    const cash = box(0.18, 0.06, 0.1, C.cash, 0.17, 0.08, 0.02); // bills poking out
-    cash.rotation.z = 0.18;
-    this.bag.add(cash);
-    // Strap diagonally across the chest
-    const strap = box(0.06, 0.8, 0.02, C.strap, 0.36, 0, 0.15);
-    strap.rotation.z = 0.7;
-    strap.visible = bag;
-    this.torso.add(strap);
-    this.strap = strap;
-    this.own = null; // your own clothes (setLook); disguises go on top
+    // One material for the whole person (the colours are in the vertices)
+    this.material = new THREE.MeshLambertMaterial({ vertexColors: true });
+    this.meshes = {};
+    this._apply_look(resolve(this.base.colors, this.base.style));
 
     // Current joint angles (blended toward targets each frame)
     this.pose = {
@@ -133,42 +112,88 @@ export class PlayerModel {
       shL: 0, shR: 0, elL: 0, elR: 0,
       shLz: 0, shRz: 0,  // arms out to the side
       lean: 0, bob: 0, headPitch: 0, bagSwing: 0, sideLean: 0,
+      twist: 0, sway: 0, headYaw: 0,
     };
-    this.runPhase = 0;
-    this.time = 0;
-    // Remember each part's original colour, so outfits can be swapped (disguises)
-    this._colors = C;
-    this.root.traverse((o) => { if (o.isMesh) o.userData.baseHex = o.material.color.getHex(); });
+    this.runPhase = Math.random() * 6;
+    this.time = Math.random() * 10;
+    this.blink = 1 + Math.random() * 3;
   }
 
-  /** Your own look (outfits.js): clothes, face, hat, and whether you carry the cash bag. */
+  /** Build (or rebuild) the meshes for a resolved look, and colour them. */
+  _apply_look({ colors, style }) {
+    this.colors = colors;
+    this.style = style;
+    const b = Math.round((style.build || 1) * 20) / 20;
+    const top = style.top;
+    const parts = [
+      ['hips', this.hips, { b }],
+      ['torso', this.torso, { b, top, bag: !!style.bag, badge: !!style.badge, tie: !!style.tie }],
+      ['head', this.head, { face: style.face, hair: style.hair, beard: style.beard, hat: style.hat }],
+      ['eyes', this.eyes, {}],
+      ['upperArm', this.shoulderL, { top, sx: -1 }], ['upperArm', this.shoulderR, { top, sx: 1 }],
+      ['foreArm', this.elbowL, { top, sx: -1 }], ['foreArm', this.elbowR, { top, sx: 1 }],
+      ['thigh', this.hipL, {}], ['thigh', this.hipR, {}],
+      ['shin', this.kneeL, { top }], ['shin', this.kneeR, { top }],
+      ['bag', this.bag, {}],
+    ];
+    // Linear RGB for each slot
+    const rgb = new Float32Array(SLOTS.length * 3);
+    SLOTS.forEach((slot, i) => { _c.setHex(colors[slot] ?? 0xff00ff); rgb[i * 3] = _c.r; rgb[i * 3 + 1] = _c.g; rgb[i * 3 + 2] = _c.b; });
+    parts.forEach(([name, parent, opts], i) => {
+      const shared = partGeometry(name, opts);
+      let mesh = this.meshes[i];
+      if (!mesh || mesh.userData.shared !== shared) {
+        const geo = new THREE.BufferGeometry();
+        geo.setIndex(shared.geo.index);
+        geo.setAttribute('position', shared.geo.attributes.position);
+        geo.setAttribute('normal', shared.geo.attributes.normal);
+        geo.setAttribute('color', new THREE.BufferAttribute(new Float32Array(shared.slots.length * 3), 3));
+        geo.boundingSphere = shared.geo.boundingSphere;
+        if (mesh) mesh.geometry = geo;
+        else {
+          mesh = new THREE.Mesh(geo, this.material);
+          mesh.castShadow = name !== 'eyes';
+          parent.add(mesh);
+          this.meshes[i] = mesh;
+        }
+        mesh.userData.shared = shared;
+      }
+      const col = mesh.geometry.attributes.color;
+      const slots = shared.slots;
+      for (let v = 0; v < slots.length; v++) {
+        const k = slots[v] * 3;
+        col.array[v * 3] = rgb[k]; col.array[v * 3 + 1] = rgb[k + 1]; col.array[v * 3 + 2] = rgb[k + 2];
+      }
+      col.needsUpdate = true;
+    });
+    this.bag.visible = !!style.bag;
+    this.eyes.visible = style.face !== 'shades';
+    this.onLook?.(colors, style); // (e.g. the first-person arms follow your clothes)
+    this.root.scale.setScalar(style.height || 1);
+  }
+
+  /** Your own look (outfits.js): clothes, face, hair, hat, and whether you carry the cash bag. */
   setLook(look) {
-    this.own = lookColors(look);
-    this.hat = look.hat;
-    this.shades = look.face === 'shades';
-    this.bag.visible = look.bag;
-    this.strap.visible = look.bag;
+    this.own = { colors: lookColors(look), style: lookStyle(look) };
     this.setOutfit(null);
   }
 
   /**
-   * Wear different clothes: any of hoodie, trousers, mask, gloves...
-   * (e.g. a casino staff uniform). null = back to the original outfit.
+   * Wear different clothes on top of your own (a casino staff uniform, a
+   * guard's uniform): colours for hoodie, trousers, gloves... plus an
+   * optional style (top, hat). The balaclava comes off; your own face, skin
+   * and hair stay. null = back to your own clothes.
    */
   setOutfit(colors = null) {
-    const own = !colors;
-    colors ||= this.own;
-    this.root.traverse((o) => {
-      if (!o.isMesh) return;
-      const base = o.userData.baseHex;
-      let hex = base;
-      if (colors) for (const [k, v] of Object.entries(colors)) if (this._colors[k] === base) hex = v;
-      o.material.color.setHex(hex);
-    });
-    // Your own hat and sunglasses (a disguise brings its own beanie)
-    this.beanie.visible = !own || this.hat !== null;
-    if (own && this.hat != null) this.beanie.material.color.setHex(this.hat);
-    if (own && this.shades) this.eyes.material.color.setHex(0x0c0d10);
+    const own = this.own || this.base;
+    if (!colors) { this._apply_look(resolve(own.colors, own.style)); return; }
+    const { style = {}, mask, ...cols } = colors;
+    const mine = resolve(own.colors, own.style);
+    const face = mine.style.face === 'mask' ? 'face' : mine.style.face;
+    this._apply_look(resolve(
+      { ...own.colors, ...cols, skin: mine.colors.skin, gloves: cols.gloves ?? mine.colors.skin },
+      { ...own.style, hat: null, ...style, face },
+    ));
   }
 
   /**
@@ -177,6 +202,10 @@ export class PlayerModel {
    */
   update(dt, pc) {
     this.time += dt;
+    // Blink every few seconds
+    this.blink -= dt;
+    if (this.blink < 0) this.blink = 1.5 + Math.random() * 3.5;
+    this.eyes.scale.y = this.blink < 0.12 ? 0.15 : 1;
     this.root.position.copy(pc.pos);
     this.root.rotation.y = pc.facing;
 
@@ -224,6 +253,7 @@ export class PlayerModel {
       shL: 0.05, shR: 0.05, elL: -0.25, elR: -0.25,
       shLz: -0.08, shRz: 0.08,
       lean: 0, bob: 0, headPitch: 0, bagSwing: 0, sideLean: 0,
+      twist: 0, sway: 0, headYaw: 0,
     };
 
     switch (pc.state) {
@@ -290,7 +320,26 @@ export class PlayerModel {
         break;
       }
       case 'ground': {
-        if (speed > 0.3) {
+        if (speed > 0.3 && speed < 3.4) {
+          // Walking: shorter steps, the knee bends as the leg swings through,
+          // arms swing gently, shoulders twist against the hips.
+          this.runPhase += dt * speed * 4.4;
+          const s = Math.sin(this.runPhase), c = Math.cos(this.runPhase);
+          const amp = clamp(speed / 1.6, 0.4, 1);
+          t.hipL = -s * 0.42 * amp;
+          t.hipR = s * 0.42 * amp;
+          t.kneeL = 0.08 + Math.max(0, c) * 0.55 * amp;
+          t.kneeR = 0.08 + Math.max(0, -c) * 0.55 * amp;
+          t.shL = s * 0.34 * amp;
+          t.shR = -s * 0.34 * amp;
+          t.elL = -0.22 - Math.max(0, -s) * 0.25;
+          t.elR = -0.22 - Math.max(0, s) * 0.25;
+          t.lean = 0.04;
+          t.bob = (Math.abs(c) - 0.5) * 0.035 * amp;
+          t.twist = s * 0.1 * amp;
+          t.sway = c * 0.035 * amp;
+          t.bagSwing = s * 0.08;
+        } else if (speed >= 3.4) {
           // Running cycle: legs swing opposite to each other, arms opposite to legs.
           const sprint = clamp((speed - 6) / 4, 0, 1);
           const amp = clamp(speed / 6.5, 0.3, 1) * (0.75 + sprint * 0.35);
@@ -307,11 +356,17 @@ export class PlayerModel {
           t.elR = -1.1 - sprint * 0.3;
           t.lean = 0.12 + sprint * 0.22;
           t.bob = Math.abs(c) * 0.07 * amp;
+          t.twist = s * 0.16 * amp;
           t.bagSwing = s * 0.12;
         } else {
-          // Idle: gentle breathing.
-          t.bob = Math.sin(this.time * 2) * 0.01;
+          // Idle: breathing, shifting weight, looking around now and then.
+          t.bob = Math.sin(this.time * 2) * 0.008;
+          t.sway = Math.sin(this.time * 0.6) * 0.025;
+          t.shL = t.shR = 0.04 + Math.sin(this.time * 2) * 0.02;
+          t.hipL = Math.sin(this.time * 0.6) * 0.04;
+          t.kneeR = 0.05 + Math.max(0, Math.sin(this.time * 0.6)) * 0.12;
           t.headPitch = Math.sin(this.time * 0.7) * 0.05;
+          t.headYaw = Math.sin(this.time * 0.31) * Math.sin(this.time * 0.17) * 0.7;
         }
         if (pc.stumbleTimer > 0) {
           // Hard landing without a roll: crouch down.
@@ -402,9 +457,10 @@ export class PlayerModel {
     this.shoulderR.rotation.set(p.shR, 0, p.shRz);
     this.elbowL.rotation.x = p.elL;
     this.elbowR.rotation.x = p.elR;
-    this.torso.rotation.x = p.lean;
-    this.head.rotation.x = p.headPitch - p.lean * 0.6; // keep eyes up while leaning
+    this.torso.rotation.set(p.lean, p.twist, 0);
+    this.head.rotation.set(p.headPitch - p.lean * 0.6, p.headYaw - p.twist, 0); // keep eyes up while leaning
     this.hips.position.y = 0.4 + p.bob;
+    this.hips.rotation.z = p.sway;
     this.bag.rotation.x = p.bagSwing;
     this.tumble.rotation.z = p.sideLean;
 

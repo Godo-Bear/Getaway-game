@@ -4,6 +4,7 @@ import { makeGlowMaterial } from '../../world/materials.js';
 import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { Searchlight } from '../../ai/searchlight.js';
 import { PlayerModel } from '../../player/playerModel.js';
+import { crewLook, JUMPSUIT_LOOK, GUARD_LOOK } from '../../player/people.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
@@ -43,8 +44,9 @@ const LOCKDOWN = 150;      // seconds after the alarm (x difficulty)
 // of chasing you, the guards aren't on extra alert, and it takes twice as long
 // to be spotted.
 const ESCAPE_NOTICE = 0.5;
-const UNIFORM = { hoodie: 0x24324a, trousers: 0x1a2130, mask: 0xc4946f, gloves: 0x1a2130 };
-const JUMPSUIT = { hoodie: 0xe0701c, trousers: 0xe0701c, mask: 0x8d5a3b, skin: 0x8d5a3b, gloves: 0x8d5a3b, shoes: 0x222222 };
+const PRISON_GUARD = { ...GUARD_LOOK, hoodie: 0x24324a, trousers: 0x1a2130, hat: 0x1a2130 };
+const UNIFORM = { hoodie: 0x24324a, trousers: 0x1a2130, gloves: 0x1a2130, hat: 0x1a2130, style: { top: 'uniform', hat: 'guard', badge: true } };
+const INMATE_SKINS = [0x8d5a3b, 0xe0b090, 0xc4946f, 0x5a3a24, 0xf0c8a8], INMATE_HAIR = ['buzz', 'bald', 'short', 'curly', 'buzz'];
 
 export class PrisonMode {
   constructor(state, params) {
@@ -76,7 +78,7 @@ export class PrisonMode {
     L.spawn.yaw = L.checkpoints[0].yaw;
     this.level = L;
     this.lights = L.towers.map((t) => new Searchlight(L.group, L.world, t));
-    this.guards = new GuardSquad(L.group, L.world, L.guardRoutes.map((route) => ({ route })), { sight: diff().guardSight, look: { hoodie: 0x24324a, trousers: 0x1a2130, mask: 0xc4946f, gloves: 0x1a2130 } });
+    this.guards = new GuardSquad(L.group, L.world, L.guardRoutes.map((route) => ({ route })), { sight: diff().guardSight, look: PRISON_GUARD });
     const ring = (pos, color, r = 1.1) => {
       const m = new THREE.Mesh(new THREE.RingGeometry(r, r + 0.25, 32), makeGlowMaterial(color, 0.8));
       m.rotation.x = -Math.PI / 2;
@@ -92,12 +94,12 @@ export class PrisonMode {
     this.keycardMesh.position.set(L.spots.keycard.x, L.spots.keycard.y + 1.1, L.spots.keycard.z);
     L.group.add(this.keycardMesh);
     // Prisoners in the other cells (scenery), and Ricky
-    for (const [x, z] of L.inmates) {
-      const m = new PlayerModel(JUMPSUIT, { bag: false });
+    L.inmates.forEach(([x, z], i) => {
+      const m = new PlayerModel({ ...JUMPSUIT_LOOK, skin: INMATE_SKINS[i % 5], style: { ...JUMPSUIT_LOOK.style, hair: INMATE_HAIR[i % 5], beard: i % 3 === 1 ? 'beard' : null, build: 0.95 + (i % 4) * 0.06 } }, { bag: false });
       m.update(0, { pos: new THREE.Vector3(x, 0, z), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null });
       L.group.add(m.root);
-    }
-    this.ricky = new PlayerModel({ ...JUMPSUIT, skin: 0xc4946f, mask: 0xc4946f }, { bag: false });
+    });
+    this.ricky = new PlayerModel(crewLook('ricky', { ...JUMPSUIT_LOOK, style: { top: 'jumpsuit' } }), { bag: false });
     this.rickyBody = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
     L.group.add(this.ricky.root);
     return L;

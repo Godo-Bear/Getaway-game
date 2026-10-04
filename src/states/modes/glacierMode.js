@@ -4,6 +4,7 @@ import { makeGlowMaterial } from '../../world/materials.js';
 import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { Searchlight } from '../../ai/searchlight.js';
 import { PlayerModel } from '../../player/playerModel.js';
+import { crewLook } from '../../player/people.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { getChapterRun } from '../../story/chapterRun.js';
@@ -30,8 +31,9 @@ import { audio } from '../../core/audio.js';
 
 const ESCAPE = 75;      // seconds after the alarm (x difficulty)
 const GOLD_CASH = 120;  // per gold stack
-const GUARD_LOOK = { hoodie: 0x2a3440, trousers: 0x1c2228, mask: 0xd8b48c, gloves: 0x1c2228 };
-const JUNO_LOOK = { hoodie: 0xff9ad5, trousers: 0x2a2a3a, mask: 0xe8c4a0, skin: 0xe8c4a0, gloves: 0x2a2a3a };
+// Vault guards in grey parkas and beanies
+const GUARD_LOOK = { hoodie: 0x2a3440, trousers: 0x1c2228, gloves: 0x1c2228, hat: 0x1c2228, shirt: 0xd8a830, style: { top: 'ski', hat: 'beanie' } };
+const JUNO_LOOK = crewLook('juno', { gloves: 0x2a2a3a });
 
 export class GlacierMode {
   constructor(state, params) {

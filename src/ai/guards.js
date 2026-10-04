@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PlayerModel } from '../player/playerModel.js';
+import { GUARD_LOOK } from '../player/people.js';
 import { makeGlowMaterial } from '../world/materials.js';
 import { admin } from '../core/admin.js';
 import { owns } from '../gadgets/gadgets.js';
@@ -59,7 +60,12 @@ export class GuardSquad {
   }
 
   _make(def, i) {
-    const model = new PlayerModel(this.look || { hoodie: 0x1c1f28, trousers: 0x14161c, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1c1f28, shoes: 0x0a0a0a }, { bag: false });
+    // (each guard gets a different face and build)
+    const SKIN = [0xc4946f, 0xe0b090, 0x8d5a3b, 0xf0c8a8, 0x5a3a24], HAIR = [0x1a1410, 0x3a2416, 0x6a4422, 0x8a8680];
+    const look = this.look || GUARD_LOOK;
+    const model = new PlayerModel({ skin: SKIN[i % 5], hair: HAIR[(i * 3) % 4], ...look }, {
+      bag: false, style: { beard: [null, 'moustache', null, 'stubble'][i % 4], hair: ['short', 'buzz', 'short', 'bald'][(i * 7) % 4], build: 0.96 + ((i * 37) % 5) * 0.04, ...look.style },
+    });
     this.parent.add(model.root);
     // Vision cone on the floor (a fan)
     const geo = new THREE.CircleGeometry(1, 24, -HALF_ANGLE, HALF_ANGLE * 2);

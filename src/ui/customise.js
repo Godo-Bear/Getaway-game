@@ -1,11 +1,11 @@
-// Customise screens: Your look (mix and match your clothes) and Your car
+// Customise screens: Your look (mix and match your face, hair and clothes) and Your car
 // (paint, stripes, rims, spoiler, windows, underglow). Both save to your
 // settings straight away and call onChange so the game can show it live.
 
 import { showCard } from './menus.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
-import { OUTFITS, PALETTE, SKINS, FACES, currentLook } from '../player/outfits.js';
+import { OUTFITS, PALETTE, SKINS, FACES, HAIRS, HAIR_COLOURS, BEARDS, HATS, TOPS, currentLook } from '../player/outfits.js';
 import { CAR_COLOURS, CAR_PARTS, isColourUnlocked } from '../vehicles/carColours.js';
 
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
@@ -42,15 +42,21 @@ export function showLookEditor(game, onBack, onChange = () => {}) {
   };
   const colours = (attr, cur, withNone) =>
     (withNone ? none(attr, cur == null) : '') + PALETTE.map((c) => swatch(attr, c, cur === c, hex(c), hex(c))).join('');
+  const chips = (attr, list, cur) => list.map((o) => `<button class="chip${(cur ?? null) === o.id ? ' on' : ''}" data-${attr}="${o.id ?? 'none'}">${o.name}</button>`).join('');
 
   showCard(`
     <p class="sub kicker">Wardrobe</p><h2>Your look</h2>
     <p class="sub cz-note">Mix and match. In daylight a balaclava gets noticed: with your face showing, police and bounty hunters on the street only recognise you up close.</p>
     ${row('Start from', OUTFITS.map((o) => `<button class="chip" data-preset="${o.id}" title="${o.text}">${o.name}</button>`).join(''))}
-    ${row('Face', FACES.map((f) => `<button class="chip${look.face === f.id ? ' on' : ''}" data-face="${f.id}">${f.name}</button>`).join(''))}
+    ${row('Face', chips('face', FACES, look.face))}
     ${row('Skin', SKINS.map((c) => swatch('skin', c, look.skin === c, hex(c), 'Skin tone')).join(''))}
-    ${row('Hat', colours('hat', look.hat, true))}
-    ${row('Top', colours('top', look.top))}
+    ${row('Hair', chips('hair', HAIRS, look.hair))}
+    ${row('Hair colour', HAIR_COLOURS.map((c) => swatch('hair-colour', c, look.hairColour === c, hex(c), 'Hair colour')).join(''))}
+    ${row('Beard', chips('beard', BEARDS, look.beard))}
+    ${row('Hat', chips('hat-style', HATS, look.hat == null ? null : look.hatStyle))}
+    ${look.hat == null ? '' : row('Hat colour', colours('hat', look.hat))}
+    ${row('Top', chips('top-style', TOPS, look.topStyle))}
+    ${row('Top colour', colours('top', look.top))}
     ${row('Trousers', colours('legs', look.legs))}
     ${row('Shoes', colours('shoes', look.shoes))}
     ${row('Gloves', colours('gloves', look.gloves, true))}
@@ -65,6 +71,15 @@ export function showLookEditor(game, onBack, onChange = () => {}) {
   });
   bind('face', (v) => set('face', v));
   bind('skin', (v) => set('skin', Number(v)));
+  bind('hair', (v) => set('hair', v));
+  bind('hair-colour', (v) => set('hairColour', Number(v)));
+  bind('beard', (v) => set('beard', v === 'none' ? null : v));
+  bind('top-style', (v) => set('topStyle', v));
+  bind('hat-style', (v) => {
+    if (v === 'none') { set('hat', null); return; }
+    s.look = { ...currentLook(s), hatStyle: v, hat: currentLook(s).hat ?? 0x2a2b31 };
+    set('hatStyle', v);
+  });
   for (const k of ['hat', 'top', 'legs', 'shoes', 'gloves']) bind(k, (v) => set(k, v === 'none' ? null : Number(v)));
   bind('bag', (v) => set('bag', v === '1'));
 }

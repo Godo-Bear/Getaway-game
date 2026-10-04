@@ -8,6 +8,7 @@ import { FugitiveRunner } from '../../ai/fugitive.js';
 import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { Crowd } from '../../ai/crowd.js';
 import { PlayerModel } from '../../player/playerModel.js';
+import { crewLook, POLICE_LOOK, HUNTER_LOOK } from '../../player/people.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
@@ -48,8 +49,6 @@ import { audio } from '../../core/audio.js';
 // turned it on.
 
 const CAR_RADIUS = 3.5;
-const COP_LOOK = { hoodie: 0x1d3566, trousers: 0x151d30, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1d3566, shoes: 0x0a0a0a };
-const HUNTER_LOOK = { hoodie: 0xd8641c, trousers: 0x2a2e36, mask: 0xc4946f, skin: 0xc4946f, gloves: 0x1a1a1a, shoes: 0x0a0a0a };
 const PICKUP_RADIUS = 2.6;  // generous: running past a clue picks it up
 const CLUE_HINT = 30;       // the marker points at any clue closer than this (m)
 
@@ -83,7 +82,7 @@ export class ChapterFootMode {
     this._buildGuides();
     this._buildPeople();
     this._buildRecon();
-    this.crowd = level.crowdLanes ? new Crowd(level.group, level.world, level.crowdLanes, { perLane: 3, seed: 11 }) : null;
+    this.crowd = level.crowdLanes ? new Crowd(level.group, level.world, level.crowdLanes, { perLane: 3, seed: 11, cold: this.weather === 'snow' }) : null;
     return level;
   }
 
@@ -118,7 +117,7 @@ export class ChapterFootMode {
     if (!spots) return;
     for (const [who, pos] of Object.entries(spots)) {
       const col = parseInt(SUSPECTS[who].color.slice(1), 16);
-      const model = new PlayerModel({ hoodie: col, mask: 0xc4946f, trousers: 0x1a1e2a }, { bag: false });
+      const model = new PlayerModel(crewLook(who), { bag: false });
       const body = { pos: pos.clone(), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
       const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 40, 12, 1, true), makeGlowMaterial(col, 0.14));
       beam.position.copy(pos).setY(pos.y + 20);
@@ -258,7 +257,7 @@ export class ChapterFootMode {
     this.patrols = null;
     if (part.patrols && this.level.patrolRoutes) {
       this.patrols = new GuardSquad(s.scene, s.world, this.level.patrolRoutes.map((route) => ({ route })),
-        { sight: diff().guardSight, look: part.patrols === 'hunters' ? HUNTER_LOOK : COP_LOOK, range: 11, alertRange: 15 });
+        { sight: diff().guardSight, look: part.patrols === 'hunters' ? HUNTER_LOOK : POLICE_LOOK, range: 11, alertRange: 15 });
     }
   }
 

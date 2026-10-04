@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { PlayerController } from '../player/playerController.js';
 import { PlayerModel } from '../player/playerModel.js';
+import { POLICE_LOOK } from '../player/people.js';
 
 // Police officers who chase you across the rooftops on foot.
 //
@@ -16,9 +17,6 @@ import { PlayerModel } from '../player/playerModel.js';
 // Officers that fall or get left far behind come back out of a stairwell
 // near you a few seconds later.
 
-const OFFICER_COLORS = {
-  hoodie: 0x1b2a4a, trousers: 0x141c2e, mask: 0x1b2a4a, skin: 0xc4946f, gloves: 0x111111, shoes: 0x0b0b0b,
-};
 const CATCH_DIST = 1.25;
 const STEP = 1 / 60;
 
@@ -37,14 +35,7 @@ export class OfficerSquad {
     for (let i = 0; i < count; i++) {
       const pc = new PlayerController(world);
       pc.speedScale = speed;
-      const model = new PlayerModel(OFFICER_COLORS, { bag: false });
-      // A cap and a badge so they read as police
-      const cap = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.08, 0.38), new THREE.MeshLambertMaterial({ color: 0x0e1628 }));
-      cap.position.set(0, 0.4, 0.04);
-      model.head.add(cap);
-      const badge = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.02), new THREE.MeshBasicMaterial({ color: 0xffd060 }));
-      badge.position.set(-0.12, 0.5, 0.15);
-      model.torso.add(badge);
+      const model = new PlayerModel(POLICE_LOOK, { bag: false, style: { build: 1 + i * 0.06 } });
       scene.add(model.root);
       model.root.visible = false; // appears when the officer comes out of a stairwell
       const ctl = { moveX: 0, moveZ: 0, jumpPressed: false, jumpHeld: false, sprint: true, crouch: false,

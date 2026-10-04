@@ -96,6 +96,8 @@ export class OnFootState extends PlayState {
     // First-person arms hang off the camera, so the camera joins the scene.
     this.scene.add(this.camera);
     this.arms = new FirstPersonArms(this.camera);
+    this.arms.setColors(this.model.colors, this.model.style);
+    this.model.onLook = (colors, style) => this.arms.setColors(colors, style); // (disguises, Your look)
     this.setFirstPerson(!!s.firstPerson);
 
     this.sprintOn = false;
@@ -372,7 +374,7 @@ export class OnFootState extends PlayState {
   pauseButtons() {
     const marker = this.game.hud.markerPos;
     return [
-      { label: 'Your look', sub: 'Mix and match your clothes', onClick: () => this.showWardrobe() },
+      { label: 'Your look', sub: 'Face, hair and clothes', onClick: () => this.showWardrobe() },
       ...(admin.on && marker ? [{ label: 'Admin: teleport to the marker', sub: 'Jump straight to the objective', onClick: () => { this.resume(); this.adminTeleport(marker); } }] : []),
     ];
   }
@@ -388,10 +390,14 @@ export class OnFootState extends PlayState {
 
   /** Your look: mix and match, shown live on your character (turned to face you). */
   showWardrobe() {
-    const back = () => { this.paused = false; this.pause(); };
+    const back = () => { this.camera.clearViewOffset(); document.body.classList.remove('wardrobe'); this.paused = false; this.pause(); };
     this.player.facing = Math.atan2(this.camera.position.x - this.player.pos.x, this.camera.position.z - this.player.pos.z);
     this.model.update(0, this.player);
     this.cam.distance = Math.max(this.cam.distance, 4.5); // (step back to see the whole outfit)
+    // The wardrobe card covers the right of the screen: slide the view so you stand on the left
+    const w = window.innerWidth, h = window.innerHeight;
+    this.camera.setViewOffset(w, h, w * 0.24, 0, w, h);
+    document.body.classList.add('wardrobe'); // (hides the controls help)
     showLookEditor(this.game, back, (look) => { this.model.setLook(look); this.mode.onLookChanged?.(); });
   }
 
@@ -423,6 +429,8 @@ export class OnFootState extends PlayState {
   }
 
   teardown() {
+    this.camera.clearViewOffset(); // (in case you left from the wardrobe)
+    document.body.classList.remove('wardrobe');
     this.gadgets?.dispose();
     this.weather?.dispose();
     this.weather = null;

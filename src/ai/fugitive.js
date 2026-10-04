@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PlayerModel } from '../player/playerModel.js';
+import { crewLook } from '../player/people.js';
 import { Car, CAR_SPECS } from '../vehicles/car.js';
 import { makeCarMesh } from '../vehicles/carModel.js';
 import { driveToward, handleStuck, makeAiState } from './driver.js';
@@ -15,10 +16,7 @@ import { driveToward, handleStuck, makeAiState } from './driver.js';
 // FugitiveCar - a car fleeing through the city to a destination. It picks
 //   turns that head for the destination, with the odd random detour.
 
-const RUNNER_COLORS = {
-  vince: { hoodie: 0x4a3322, trousers: 0x23201c, mask: 0xd2a27f, skin: 0xd2a27f, gloves: 0xd2a27f, bag: 0x2a2a2a },
-  marla: { hoodie: 0x1f6a4a, trousers: 0x1a1c22, mask: 0xc98f6a, skin: 0xc98f6a, gloves: 0x111111, bag: 0x3a2a1a },
-};
+const RUNNER_BAGS = { vince: 0x2a2a2a, marla: 0x3a2a1a };
 
 export class FugitiveRunner {
   /**
@@ -37,7 +35,7 @@ export class FugitiveRunner {
     this.s = 0;               // distance travelled along the path
     this.running = false;
     this.pos = path[0].clone();
-    this.model = new PlayerModel(RUNNER_COLORS[colors] || RUNNER_COLORS.vince, { bag: true });
+    this.model = new PlayerModel(crewLook(colors, { bag: RUNNER_BAGS[colors] ?? 0x2a2a2a }), { bag: true });
     scene.add(this.model.root);
     // A fake "controller" the animation code can read
     this.body = { pos: this.pos, vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0,

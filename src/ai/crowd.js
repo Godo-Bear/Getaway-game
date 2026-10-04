@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { PlayerModel } from '../player/playerModel.js';
+import { randomPerson } from '../player/people.js';
 import { makeRng } from '../core/utils.js';
 
 // Pedestrians for daytime streets.
@@ -9,8 +10,6 @@ import { makeRng } from '../core/utils.js';
 // BLENDING IN. Walk (don't sprint) right next to someone and police
 // patrols can't pick you out of the crowd.
 
-const OUTFITS = [0x3b6fb6, 0xc24a4a, 0x4a9a5a, 0xd9a441, 0x7a5aa8, 0x2e2e36, 0xe0e0e0, 0x8a5a3a, 0xd46a9a, 0x3aa3a0];
-const SKINS = [0xc4946f, 0xe0b48f, 0x8d5a3b, 0xf1c9a5, 0x6b4128];
 const BLEND_RADIUS = 2.4;
 
 export class Crowd {
@@ -18,19 +17,15 @@ export class Crowd {
    * @param {THREE.Object3D} parent
    * @param {CollisionWorld} world
    * @param {{a:number[], b:number[]}[]} lanes - pavement stretches [x, z] -> [x, z]
-   * @param {{perLane?:number, seed?:number}} opts
+   * @param {{perLane?:number, seed?:number, cold?:boolean}} opts - cold: dressed for snow
    */
-  constructor(parent, world, lanes, { perLane = 2, seed = 3 } = {}) {
+  constructor(parent, world, lanes, { perLane = 2, seed = 3, cold = false } = {}) {
     const rng = makeRng(seed);
     this.parent = parent;
     this.people = [];
     for (const lane of lanes) {
       for (let i = 0; i < perLane; i++) {
-        const skin = SKINS[Math.floor(rng() * SKINS.length)];
-        const model = new PlayerModel({
-          hoodie: OUTFITS[Math.floor(rng() * OUTFITS.length)], trousers: OUTFITS[Math.floor(rng() * OUTFITS.length)],
-          mask: skin, skin, gloves: skin, shoes: 0x1a1a1a,
-        }, { bag: rng() < 0.3 });
+        const model = new PlayerModel(randomPerson(rng, { cold }), { bag: rng() < 0.12 });
         parent.add(model.root);
         const t = rng();
         const pos = new THREE.Vector3(lane.a[0] + (lane.b[0] - lane.a[0]) * t, 0, lane.a[1] + (lane.b[1] - lane.a[1]) * t);

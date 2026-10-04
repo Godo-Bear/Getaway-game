@@ -14,17 +14,26 @@ export class FirstPersonArms {
     this.group.visible = false;
     camera.add(this.group);
 
-    const sleeveMat = new THREE.MeshLambertMaterial({ color: 0x2c2d34, depthTest: false });
-    const gloveMat = new THREE.MeshLambertMaterial({ color: 0x151515, depthTest: false });
+    this.sleeveMat = new THREE.MeshLambertMaterial({ color: 0x2c2d34, depthTest: false });
+    this.cuffMat = new THREE.MeshLambertMaterial({ color: 0x1c1d22, depthTest: false });
+    this.gloveMat = new THREE.MeshLambertMaterial({ color: 0x151515, depthTest: false });
+    const sleeveGeo = new THREE.CapsuleGeometry(0.065, 0.42, 3, 10).rotateX(Math.PI / 2);
+    const cuffGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 12, 1, true).rotateX(Math.PI / 2);
+    const handGeo = new THREE.SphereGeometry(1, 10, 8).scale(0.06, 0.05, 0.075);
+    const thumbGeo = new THREE.CapsuleGeometry(0.018, 0.04, 2, 6).rotateX(Math.PI / 2);
     this.arms = [-1, 1].map((side) => {
       const arm = new THREE.Group();
-      const sleeve = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.13, 0.55), sleeveMat);
+      const sleeve = new THREE.Mesh(sleeveGeo, this.sleeveMat);
       sleeve.position.z = -0.22;
-      sleeve.renderOrder = 10;
-      const glove = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.15), gloveMat);
+      const cuff = new THREE.Mesh(cuffGeo, this.cuffMat);
+      cuff.position.z = -0.47;
+      const glove = new THREE.Mesh(handGeo, this.gloveMat);
       glove.position.z = -0.55;
-      glove.renderOrder = 11;
-      arm.add(sleeve, glove);
+      const thumb = new THREE.Mesh(thumbGeo, this.gloveMat);
+      thumb.position.set(-side * 0.045, 0.02, -0.53);
+      thumb.rotation.y = side * 0.5;
+      [sleeve, cuff, glove, thumb].forEach((m, i) => { m.renderOrder = 10 + i; });
+      arm.add(sleeve, cuff, glove, thumb);
       this.group.add(arm);
       return { arm, side, x: side * 0.28, y: -0.32, z: -0.28, rx: 0.15 };
     });
@@ -33,6 +42,14 @@ export class FirstPersonArms {
 
   setVisible(on) {
     this.group.visible = on;
+  }
+
+  /** Match your body's colours (PlayerModel.colors): sleeves, cuffs and gloves (or bare hands). */
+  setColors(colors, style) {
+    const bare = style?.top === 'tee';
+    this.sleeveMat.color.setHex(bare ? colors.skin : colors.hoodie);
+    this.cuffMat.color.setHex(bare ? colors.skin : style?.top === 'suit' ? colors.shirt : colors.accent);
+    this.gloveMat.color.setHex(colors.gloves);
   }
 
   /**

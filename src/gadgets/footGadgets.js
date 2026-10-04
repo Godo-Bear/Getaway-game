@@ -96,7 +96,8 @@ export class FootGadgets {
   _decoy() {
     this._clearDecoy();
     const pc = this.state.player;
-    const model = new PlayerModel({ hoodie: 0x39e6ff, trousers: 0x1a8aa8, mask: 0x39e6ff, skin: 0x8af4ff, gloves: 0x39e6ff, shoes: 0x1a8aa8 }, { bag: true });
+    const model = new PlayerModel({ hoodie: 0x39e6ff, trousers: 0x1a8aa8, mask: 0x39e6ff, skin: 0x8af4ff, gloves: 0x39e6ff, shoes: 0x1a8aa8, hair: 0x1a8aa8, hat: 0x1a8aa8 },
+      { bag: true, style: { ...this.state.model?.style } }); // (shaped like you)
     model.root.traverse((o) => {
       if (o.isMesh) {
         o.material = o.material.clone();
