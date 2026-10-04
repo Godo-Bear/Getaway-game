@@ -5,7 +5,7 @@ import { Weather, pickWeather } from '../world/weather.js';
 import { generateStreetCity } from '../world/streetCity.js';
 import { makeGlowMaterial } from '../world/materials.js';
 import { Car, CAR_SPECS, collideCarWithWorld, collideCars } from '../vehicles/car.js';
-import { makeCarMesh } from '../vehicles/carModel.js';
+import { makeCarMesh, updateUnderglow } from '../vehicles/carModel.js';
 import { Traffic } from '../vehicles/traffic.js';
 import { ParticleSystem } from '../vehicles/particles.js';
 import { PoliceForce } from '../ai/police.js';
@@ -399,6 +399,7 @@ export class DrivingState extends PlayState {
     this.city.trafficLights.update(frozen ? 0 : dt);
     this.city.train.update(frozen ? 0 : dt);
     this.playerMesh.userData.flames.visible = p.boosting;
+    updateUnderglow(this.playerMesh, this.time, p.airborne);
     this.playerMesh.userData.tailMat.color.setHex(p.controls.throttle < 0 ? 0xff2030 : 0x881018);
     this.beacon.ring.rotation.z += dt;
 

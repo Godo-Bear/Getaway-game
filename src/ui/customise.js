@@ -1,4 +1,5 @@
-// Customise screens: Your look (mix and match your face, hair and clothes) and Your car
+// Customise screens (each with a live 3D preview beside the card, ui/lookPreview.js):
+// Your look (mix and match your face, hair and clothes) and Your car
 // (paint, stripes, rims, spoiler, windows, underglow). Both save to your
 // settings straight away and call onChange so the game can show it live.
 
@@ -6,8 +7,8 @@ import { showCard } from './menus.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { OUTFITS, PALETTE, SKINS, FACES, HAIRS, HAIR_COLOURS, BEARDS, HATS, TOPS, currentLook } from '../player/outfits.js';
-import { CAR_COLOURS, CAR_PARTS, isColourUnlocked } from '../vehicles/carColours.js';
-import { showLookPreview } from './lookPreview.js';
+import { CAR_COLOURS, CAR_PARTS, isColourUnlocked, playerCarColour, playerCarStyle } from '../vehicles/carColours.js';
+import { showLookPreview, showCarPreview } from './lookPreview.js';
 
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
 const swatch = (attr, value, on, color, title) =>
@@ -115,6 +116,7 @@ export function showGarage(game, onBack, onChange = () => {}) {
     ${row('Windows', part('windows'))}
     ${row('Underglow', part('glow'))}`,
   [{ label: 'Done', primary: true, onClick: onBack }], { side: true });
+  showCarPreview(playerCarColour(), playerCarStyle()); // your car, live, beside the card
 
   bind('paint', (id) => { s.carColour = id; save.write(); onChange(); redraw(() => showGarage(game, onBack, onChange)); });
   for (const k of Object.keys(CAR_PARTS)) bind(`part-${k}`, (v) => set(k, v));

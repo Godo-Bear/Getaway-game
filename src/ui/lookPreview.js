@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { PlayerModel } from '../player/playerModel.js';
+import { makeCarMesh, updateUnderglow } from '../vehicles/carModel.js';
 
-// The live preview next to the "Your look" card: your character on a little
-// lit turntable that turns slowly by itself. Drag it to spin it round, or
-// switch to a close-up to check your face, hair and hat.
+// The live preview next to the "Your look" and "Your car" cards: your
+// character (or your car) on a little lit turntable that turns slowly by
+// itself. Drag it to spin it round, or switch to a close-up.
 //
 // It has its own small renderer (so it works from the title screen too,
 // where there's no character in the scene). It lives inside the menu overlay
@@ -11,9 +12,10 @@ import { PlayerModel } from '../player/playerModel.js';
 // menu card removes that class (menus.js), so it can't get left behind.
 
 const VIEWS = {
-  body: { y: 1.02, dist: 5.6 },
-  face: { y: 1.72, dist: 1.55 },
+  look: { body: { y: 1.02, dist: 5.6, up: 0.25 }, face: { y: 1.72, dist: 1.55, up: 0.04 } },
+  car: { body: { y: 0.7, dist: 10.5, up: 2.4 }, face: { y: 0.65, dist: 6.2, up: 1.1 } },
 };
+const LABELS = { look: ['Whole body', 'Close-up'], car: ['Whole car', 'Close-up'] };
 const AUTO_SPIN = 0.45; // radians a second, until you drag it
 
 let P = null;
@@ -72,6 +74,12 @@ function build() {
   shadow.rotation.x = -Math.PI / 2;
   shadow.position.y = 0.005;
   scene.add(spot, shadow);
+  // A dark floor for the car (so the underglow has something to light up)
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(4.2, 48), new THREE.MeshBasicMaterial({ map: radial('rgba(10,12,18,0.95)', 'rgba(10,12,18,0)'), transparent: true, depthWrite: false }));
+  floor.rotation.x = -Math.PI / 2;
+  floor.position.y = -0.002;
+  floor.visible = false;
+  scene.add(floor);
 
   const camera = new THREE.PerspectiveCamera(26, 1, 0.1, 50);
   const model = new PlayerModel();
@@ -80,7 +88,7 @@ function build() {
   const body = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), facing: 0.45, state: 'ground', horizontalSpeed: 0,
     mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
 
-  const p = { el, overlay, canvas, renderer, scene, camera, model, body, view: 'body', camY: VIEWS.body.y, camDist: VIEWS.body.dist,
+  const p = { el, overlay, canvas, renderer, scene, camera, model, body, floor, spot, shadow, car: null, subject: 'look', view: 'body', camY: VIEWS.look.body.y, camDist: VIEWS.look.body.dist,
     dragging: false, lastX: 0, spinVel: 0, sinceDrag: 99, running: false, last: 0 };
 
   // Drag (mouse or finger) to turn; it keeps spinning a little when you let go
@@ -106,7 +114,7 @@ function build() {
     b.addEventListener('click', () => {
       p.view = b.dataset.lp;
       for (const o of el.querySelectorAll('[data-lp]')) o.classList.toggle('on', o === b);
-      if (p.view === 'face') { body.facing = 0.25; p.sinceDrag = 0; } // (turn to face you)
+      if (p.view === 'face') { body.facing = p.subject === 'car' ? 0.6 : 0.25; p.sinceDrag = 0; } // (turn to face you)
     });
   }
   return p;
@@ -134,19 +142,45 @@ function frame(now) {
     P.body.facing += P.spinVel * dt;
     if (P.sinceDrag > 2.5 && P.view === 'body') P.body.facing += AUTO_SPIN * dt;
   }
-  P.model.update(dt, P.body);
+  if (P.subject === 'car') {
+    P.car.rotation.y = P.body.facing;
+    updateUnderglow(P.car, now / 1000);
+  } else P.model.update(dt, P.body);
 
-  // Camera eases between the whole-body view and the close-up. Tall boxes
-  // (portrait) need the camera further back to fit you in.
-  const v = VIEWS[P.view];
-  const fit = P.view === 'body' ? Math.max(1, 0.62 / Math.max(0.3, P.camera.aspect)) : 1;
+  // Camera eases between the whole view and the close-up. Tall boxes
+  // (portrait) need the camera further back to fit everything in.
+  const v = VIEWS[P.subject][P.view];
+  const fit = P.view === 'body' ? Math.max(1, (P.subject === 'car' ? 1.1 : 0.62) / Math.max(0.3, P.camera.aspect)) : 1;
   P.camY += (v.y - P.camY) * Math.min(1, dt * 6);
   P.camDist += (v.dist * fit - P.camDist) * Math.min(1, dt * 6);
-  P.camera.position.set(0, P.camY + (P.view === 'body' ? 0.25 : 0.04), P.camDist);
+  P.camera.position.set(0, P.camY + v.up, P.camDist);
   P.camera.lookAt(0, P.camY, 0);
 
   P.renderer.render(P.scene, P.camera);
   requestAnimationFrame(frame);
+}
+
+/** Switch what's on the turntable ('look' or 'car') and start drawing. */
+function start(subject) {
+  if (P.subject !== subject) {
+    P.subject = subject;
+    P.view = 'body';
+    const v = VIEWS[subject].body;
+    P.camY = v.y; P.camDist = v.dist * (subject === 'car' ? 1.5 : 1);
+    P.body.facing = subject === 'car' ? 0.7 : 0.45;
+    P.el.querySelectorAll('[data-lp]').forEach((b, i) => { b.textContent = LABELS[subject][i]; b.classList.toggle('on', i === 0); });
+  }
+  P.model.root.visible = subject === 'look';
+  P.shadow.visible = subject === 'look';
+  P.floor.visible = subject === 'car';
+  if (P.car) P.car.visible = subject === 'car';
+  P.el.querySelector('canvas').setAttribute('aria-label', subject === 'car' ? 'Your car' : 'Your character');
+  P.overlay.classList.add('has-preview');
+  if (!P.running) {
+    P.running = true;
+    P.last = performance.now();
+    requestAnimationFrame(frame);
+  }
 }
 
 /** Show (or update) the preview with this look. Call after showing the "Your look" card. */
@@ -154,10 +188,16 @@ export function showLookPreview(look) {
   if (!P) P = build();
   if (!P) return;
   P.model.setLook(look);
-  P.overlay.classList.add('has-preview');
-  if (!P.running) {
-    P.running = true;
-    P.last = performance.now();
-    requestAnimationFrame(frame);
-  }
+  start('look');
+}
+
+/** Show (or update) the preview with your car. Call after showing the "Your car" card. */
+export function showCarPreview(color, style) {
+  if (!P) P = build();
+  if (!P) return;
+  if (P.car) P.scene.remove(P.car);
+  P.car = makeCarMesh({ kind: 'player', color, style });
+  P.car.userData.beam.visible = false;
+  P.scene.add(P.car);
+  start('car');
 }

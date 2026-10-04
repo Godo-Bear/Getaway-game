@@ -186,6 +186,11 @@ export class Car {
     if (this.mesh.userData.wheels) {
       for (const w of this.mesh.userData.wheels) w.rotation.x = this.wheelSpin;
     }
+    // Front wheels turn with the steering
+    if (this.mesh.userData.steer) {
+      this.steerVis = damp(this.steerVis || 0, (this.controls.steer || 0) * 0.42, 12, 1 / 60);
+      for (const s of this.mesh.userData.steer) s.rotation.y = this.steerVis;
+    }
   }
 }
 
