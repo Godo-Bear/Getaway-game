@@ -14,6 +14,10 @@ export class StateMachine {
     this.states = new Map();
     this.current = null;
     this.currentName = null;
+    // Optional loading screen for states that take a moment to build (levels):
+    // { heavy: Set of state names, show(name, params), hide() }
+    this.loader = null;
+    this.pending = null; // a level waiting for the loading screen to appear
   }
 
   add(name, state) {
@@ -22,8 +26,28 @@ export class StateMachine {
   }
 
   change(name, params = {}) {
+    if (!this.states.get(name)) throw new Error(`Unknown state: ${name}`);
+    if (!this.loader?.heavy.has(name)) {
+      this.pending = null; // (a quick switch cancels a level that was waiting)
+      this._switch(name, params);
+      return;
+    }
+    // A level: show the loading screen, wait until it has been drawn (building a
+    // level blocks the page, so it would never appear otherwise), then build.
+    const waiting = !!this.pending;
+    this.pending = { name, params }; // (asked twice? the latest one wins)
+    if (waiting) return;
+    this.loader.show(name, params);
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(() => {
+      const p = this.pending;
+      this.pending = null;
+      if (p) this._switch(p.name, p.params);
+      requestAnimationFrame(() => this.loader.hide());
+    }, 0)));
+  }
+
+  _switch(name, params) {
     const next = this.states.get(name);
-    if (!next) throw new Error(`Unknown state: ${name}`);
     this.current?.exit?.();
     this.current = next;
     this.currentName = name;
@@ -31,6 +55,7 @@ export class StateMachine {
   }
 
   update(dt) {
+    if (this.pending) return; // (hold still while the next level loads)
     this.current?.update?.(dt);
   }
 

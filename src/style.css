@@ -708,3 +708,30 @@ body.touch .free-car-btn kbd, .overlay:not([hidden]) ~ .free-car-btn { display: 
 @media (max-height: 700px) { .neon-logo { width: clamp(260px, 34vw, 440px); } }
 @media (max-height: 520px) { .neon-logo { width: clamp(220px, 30vw, 330px); margin: -4px 0 2px -8px; } }
 @media (max-width: 480px) { .neon-logo { width: min(300px, 80vw); } }
+
+/* ===== Loading screen (index.html #loader, ui/loader.js) ===== */
+#loader { position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 20px; background: #04050c; transition: opacity 0.3s; }
+#loader[hidden] { display: none; }
+#loader.fade { opacity: 0; pointer-events: none; }
+#loader .ld-bg { position: absolute; inset: -3%; background: url('./assets/title/keyart.webp') 68% 55% / cover no-repeat; filter: blur(6px) brightness(0.45) saturate(1.15); transform: scale(1.04); }
+#loader .ld-box { position: relative; width: min(560px, 90vw); text-align: center; }
+#loader .ld-logo { width: min(440px, 76vw); margin: 0 auto 18px; animation: ld-hum 3.2s ease-in-out infinite; }
+#loader .ld-logo .nl-w { filter: url(#ld-wide); }
+#loader .ld-logo .nl-g { filter: url(#ld-soft); }
+#loader .ld-logo .nl-t { stroke: url(#ld-tube); }
+@keyframes ld-hum { 0%, 100% { opacity: 1; } 47% { opacity: 1; } 48% { opacity: 0.55; } 49% { opacity: 1; } 51% { opacity: 0.75; } 52% { opacity: 1; } }
+#loader .ld-kicker { margin: 0; font: 700 12px var(--body); letter-spacing: 0.18em; text-transform: uppercase; color: var(--amber); }
+#loader .ld-title { margin: 4px 0 18px; font: 400 30px/1 var(--display); color: var(--ink); letter-spacing: 0.02em; }
+#loader .ld-bar { position: relative; height: 6px; margin: 0 14px 0 4px; border-radius: 3px; background: rgba(255, 255, 255, 0.1); }
+#loader .ld-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 4%; border-radius: 3px; background: linear-gradient(90deg, rgba(255, 90, 20, 0.15), #ff8a1a 70%, #ffd36a); box-shadow: 0 0 14px rgba(255, 150, 40, 0.6); transition: width 0.25s ease-out; }
+#loader .ld-car { position: absolute; left: 4%; top: 50%; width: 46px; height: auto; transform: translate(-82%, -78%); transition: left 0.25s ease-out; filter: drop-shadow(0 0 6px rgba(255, 170, 60, 0.7)); }
+#loader .ld-tip { margin: 22px auto 0; max-width: 460px; min-height: 2.6em; font-size: 14px; line-height: 1.35; color: #c3cbe0; }
+#loader .ld-tip b { color: var(--amber); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; margin-right: 6px; }
+#loader .ld-tip span { transition: opacity 0.2s; }
+#loader .ld-tip span.swap { opacity: 0; }
+@media (max-height: 520px) {
+  #loader .ld-logo { width: min(320px, 50vw); margin-bottom: 10px; }
+  #loader .ld-title { font-size: 24px; margin-bottom: 12px; }
+  #loader .ld-tip { margin-top: 14px; font-size: 13px; }
+}
+@media (prefers-reduced-motion: reduce) { #loader .ld-logo { animation: none; } }

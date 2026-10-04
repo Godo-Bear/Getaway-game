@@ -16,6 +16,7 @@ import { PostFx } from './world/postFx.js';
 import { AutoQuality } from './core/autoQuality.js';
 import { syncOnStart, cloud } from './core/cloud.js';
 import { ABILITIES, admin } from './core/admin.js';
+import { showLoader, hideLoader, loaderLabel, initLoader } from './ui/loader.js';
 
 // ============================================================
 //  GETAWAY - entry point
@@ -37,6 +38,7 @@ function createRenderer() {
   } catch (err) {
     console.error(err);
     document.getElementById('webgl-error').hidden = false;
+    document.getElementById('loader').hidden = true; // (don't hide the message)
     return null;
   }
 }
@@ -98,6 +100,10 @@ function start(renderer) {
     if (e.target.closest?.('.btn, .chip, .swatch')) audio.sfx('click', { vol: 0.6 });
   }, true);
 
+  // Loading screen while a level is built (and during the first load, from index.html)
+  game.sm.loader = { heavy: new Set(['onFoot', 'driving']), show: (name, p) => showLoader(loaderLabel(name, p)), hide: hideLoader };
+  initLoader();
+
   game.sm
     .add('title', new TitleState(game))
     .add('onFoot', new OnFootState(game))
@@ -133,6 +139,8 @@ function start(renderer) {
   else if (/^deduce\d$/.test(mode || '')) game.sm.change('deduction', { chapterId: `chapter${mode.slice(-1)}` });
   else if (mode === 'editor') game.sm.change('title', { editor: decodeLevel(params.get('level') || '') || null });
   else game.sm.change('title');
+  // (the first load: hide the loading screen once the title is drawn; a level hides it itself)
+  if (!game.sm.pending) requestAnimationFrame(() => requestAnimationFrame(hideLoader));
 
   // Signed in? Fetch the online save (in case you played on another device)
   // and redraw the title screen if it changed.

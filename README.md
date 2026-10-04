@@ -44,6 +44,10 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 The title matches the app icon: **GETAWAY** is an amber neon-tube sign (each letter drawn from the title font's outline as a glass tube with a hot core and a glow, golden at the top and deep orange at the bottom; it flickers on the first time, the W buzzes now and then, and a glint twinkles on the G; `src/ui/neonLogo.js`), over the same rainy neon city as the icon (`src/assets/title/keyart.webp`, rendered from a 3D scene) that slowly drifts, with rain falling over it (`src/states/titleState.js`). There's no 3D city to build or draw on the title, so it opens fast on phones.
 
+## Loading screen
+
+While the game downloads, and whenever a level is being built (a chapter part, Free Run, Street Chase, a custom level), a loading screen shows the neon **GETAWAY** sign over the blurred rainy city, what's loading (e.g. *Chapter 1 · The Harbor Trust Job / The heist*), a progress bar with a little getaway car driving along it, and a gameplay tip that changes every few seconds. Code: `src/ui/loader.js` (the markup is in `index.html` so it shows straight away); `src/core/stateMachine.js` shows it and builds the level a frame later so it's on screen first.
+
 ## App icon (Add to Home Screen)
 
 The icon is a see-through amber **neon-tube G** (the title font, slanted like the logo, golden at the top and deep orange at the bottom, with a glint on the glass) glowing over a 3D-rendered rainy night city: a wet avenue with soft reflections, lit office windows, neon shop signs, street lamps and long-exposure car light trails (`public/icons/`). `public/manifest.webmanifest` makes **Add to Home Screen** use it and open the game full-screen in landscape like an app. Use the GitHub Pages address (https://godo-bear.github.io/Getaway-game/) in Safari (Share > Add to Home Screen) or Chrome (menu > Add to Home screen / Install app): a page shown inside another site (like a claude.ai link) gets that site's icon instead. The icon links carry a version (`?v=neon`) so phones fetch a new icon after it changes; if an old one still shows, delete the home-screen icon and add it again.
