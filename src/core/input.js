@@ -34,6 +34,7 @@ export const BINDINGS = {
   pause: ['KeyP', 'Escape'],
   help: ['KeyH'],
   car: ['KeyT'],            // Free Run on foot: straight into your car
+  punch: ['Mouse0', 'KeyB'], // on foot: punch (left click)
   debug: ['F3', 'Backquote'],
 };
 
@@ -55,6 +56,7 @@ export const PAD_BINDINGS = {
   caseBoard: [8],     // View / Back
   pause: [9],         // Menu / Start
   help: [12],         // d-pad up
+  punch: [7],         // RT: punch (on foot)
 };
 const DEADZONE = 0.18;
 const deadzone = (v) => (Math.abs(v) < DEADZONE ? 0 : (v - Math.sign(v) * DEADZONE) / (1 - DEADZONE));
@@ -138,6 +140,20 @@ export class Input {
       if (!this.pointerLocked) this._dragging = true;
     });
     window.addEventListener('mouseup', () => (this._dragging = false));
+    // Left click = "Mouse0" (punch on foot). With the mouse locked, every
+    // click counts; without the lock (drag to look), only a quick click that
+    // doesn't move. Real mice only: a tap on a phone is for looking around.
+    let downAt = null;
+    this.target.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'mouse' || e.button !== 0) return;
+      if (this.pointerLocked) this.pressed.add('Mouse0');
+      else if (this.lockDisabled || this.pointerLockFailed) downAt = { x: e.clientX, y: e.clientY, t: performance.now() };
+    });
+    this.target.addEventListener('pointerup', (e) => {
+      if (!downAt || e.pointerType !== 'mouse') return;
+      if (Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) < 6 && performance.now() - downAt.t < 350) this.pressed.add('Mouse0');
+      downAt = null;
+    });
   }
 
   /** Ask the browser to lock the mouse. Must be called from a click. */

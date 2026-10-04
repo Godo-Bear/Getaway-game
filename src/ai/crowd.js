@@ -37,8 +37,26 @@ export class Crowd {
     }
   }
 
+  /** Punched: they fall over backwards, then get up and carry on. */
+  knockDown(p, fx, fz) {
+    p.knock = 2.4;
+    p.body.pos.x += fx * 0.7;
+    p.body.pos.z += fz * 0.7;
+    p.body.facing = Math.atan2(-fx, -fz); // (facing you as they fall)
+  }
+
   update(dt) {
     for (const p of this.people) {
+      if (p.knock > 0) {
+        p.knock -= dt;
+        p.body.horizontalSpeed = 0;
+        p.model.update(dt, p.body);
+        const down = p.knock > 0.6;
+        p.model.root.rotation.x = down ? -Math.PI / 2 : 0;
+        p.model.root.position.y = p.body.pos.y + (down ? 0.25 : 0);
+        if (p.knock <= 0) p.pause = 0.6; // (dust themselves off)
+        continue;
+      }
       const { a, b } = p.lane;
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
       if (p.pause > 0) {

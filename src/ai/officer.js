@@ -90,6 +90,13 @@ export class OfficerSquad {
         u.pc.update(dt, u.ctl);
         u.pc.events.length = 0;
         u.model.update(dt, u.pc);
+        // Punched (on foot): flat on the floor until the stun wears off
+        if (u.floored) {
+          const down = u.stunned > 0.5;
+          u.model.root.rotation.x = down ? -Math.PI / 2 : 0;
+          u.model.root.position.y = u.pc.pos.y + (down ? 0.25 : 0);
+          if (u.stunned <= 0) u.floored = false;
+        }
         continue;
       }
       // Fixed small steps, like the player

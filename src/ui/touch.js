@@ -71,6 +71,7 @@ export class TouchControls {
       btn.hidden = !label;
       btn.classList.remove('latched');
     }
+    this.setAction(this._actLabel ?? null);
   }
 
   /** Light a button up while its action is switched on (e.g. sprint). */
@@ -82,9 +83,14 @@ export class TouchControls {
 
   /** A big contextual button for the action you can do right now (null hides it). */
   setAction(label) {
+    this._actLabel = label;
     const b = this.actBtn || (this.actBtn = this.root.querySelector('.t-act'));
-    if (b.hidden !== !label) b.hidden = !label;
-    if (label && b.textContent !== label) b.textContent = label;
+    // On foot with nothing to do here, the same button punches
+    const punch = !label && this.mode === 'onFoot';
+    const text = label || (punch ? 'Punch' : null);
+    if (b.hidden !== !text) b.hidden = !text;
+    if (text && b.textContent !== text) b.textContent = text;
+    b.classList.toggle('punch', punch);
   }
 
   /** Show/hide the ghost mode button and light it up while ghost mode is on. */
@@ -175,7 +181,7 @@ export class TouchControls {
     }
     this.root.querySelector('.t-act').addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this.input.touch.pressed.add('interact');
+      this.input.touch.pressed.add(e.currentTarget.classList.contains('punch') ? 'punch' : 'interact');
     });
     this.root.querySelector('.t-pause').addEventListener('pointerdown', (e) => {
       e.preventDefault();

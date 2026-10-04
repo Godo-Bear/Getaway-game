@@ -264,6 +264,7 @@ export class OnFootState extends PlayState {
       }
       this.gadgets.update(dt);
       this.mode.update(dt);
+      this._punch();
       this._streetHelp(dt);
     }
 
@@ -386,6 +387,67 @@ export class OnFootState extends PlayState {
     this.player.zip = null;
     this.placePlayer(new THREE.Vector3(m.x, y, m.z), this.cam.yaw);
     if (this.game.speedrun) this.game.speedrun.adminUsed = true;
+  }
+
+  /**
+   * Punch (left click, B, RT, or the Punch button on a phone) whoever is in
+   * front of you. A guard hit from behind is knocked out; from the front
+   * they're stunned for a moment (hit them again to knock them down).
+   * Rooftop police go down for a few seconds; people on the street fall
+   * over and get back up.
+   */
+  _punch() {
+    const p = this.player, hud = this.game.hud;
+    if (!this.game.input.wasPressed('punch') || this.mode.inputLocked || this.model.punchT > 0.12) return;
+    if (p.state !== 'ground' && p.state !== 'air') return;
+    this.model.punch();
+    audio.sfx('whoosh', { vol: 0.45 });
+    const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+    const reach = 1.8 + Math.min(0.8, p.horizontalSpeed * 0.08); // (a running punch reaches further)
+    const inFront = (q) => {
+      const dx = q.x - p.pos.x, dz = q.z - p.pos.z, d = Math.hypot(dx, dz);
+      return d < reach && Math.abs(q.y - p.pos.y) < 1.3 && (d < 0.6 || (dx * fx + dz * fz) / d > 0.5);
+    };
+    const hit = () => { audio.sfx('land', { vol: 1 }); this.cam.addLandingDip?.(4); };
+    const m = this.mode;
+    // Guards, police patrols, bounty hunters
+    for (const sq of [m.guards, m.patrols, m.mailGuard].filter(Boolean)) {
+      for (const u of sq.units) {
+        if (u.down || !inFront(u.pc.pos)) continue;
+        let a = Math.atan2(p.pos.x - u.pc.pos.x, p.pos.z - u.pc.pos.z) - u.pc.facing;
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        hit();
+        if (Math.abs(a) > 1.9 || u.stunned > 0) {
+          sq.takedown(u);
+          hud.toast('Knocked out!', 'Keep moving: if someone finds them, everyone goes on alert.', 'var(--amber)', 3);
+        } else {
+          u.stunned = Math.max(u.stunned || 0, 2.5);
+          hud.toast('Stunned!', 'Hit them again before they shake it off.', 'var(--amber)', 2.5);
+        }
+        return;
+      }
+    }
+    // Rooftop police chasing you
+    if (m.officers && m.officers !== m.guards && m.officers !== m.patrols) { // (some modes call their guards "officers" for the gadgets)
+      for (const u of m.officers.units) {
+        if (u.waitTimer > 0 || !u.model.root.visible || !inFront(u.pc.pos)) continue;
+        hit();
+        u.stunned = 3;
+        u.floored = true;
+        hud.toast('Officer down!', 'Run: they\'ll be back up in a few seconds.', 'var(--amber)', 2.5);
+        return;
+      }
+    }
+    // People on the street
+    if (m.crowd) {
+      for (const c of m.crowd.people) {
+        if (c.knock > 0 || !inFront(c.body.pos)) continue;
+        hit();
+        m.crowd.knockDown(c, fx, fz);
+        return;
+      }
+    }
   }
 
   /** Your look: mix and match, shown live on your character (and in the card's preview). */

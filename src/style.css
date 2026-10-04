@@ -755,3 +755,13 @@ body.wardrobe #hud-controls { visibility: hidden; }
   .overlay.has-preview #look-preview { width: 100%; max-width: 480px; height: 36vh; min-height: 190px; margin: 0 auto; }
   .overlay.has-preview .card { flex: 1 1 auto; min-height: 0; }
 }
+
+/* Chapter screen: where the crew lives (they move every few chapters) */
+.btn.ch-place { grid-column: 1 / -1; display: flex !important; flex-direction: column; align-items: flex-start; gap: 1px; background: none !important; border: none !important;
+  box-shadow: none !important; padding: 10px 2px 2px; min-height: 0; opacity: 1 !important; cursor: default; text-align: left; }
+.btn.ch-place:first-child { padding-top: 0; }
+.ch-place-name { font-family: var(--display); font-size: 22px; letter-spacing: 0.02em; color: var(--amber); }
+.ch-place-where { font-size: 12px; font-weight: 500; color: var(--muted); }
+.btn.ch-place.soon .ch-place-name { color: var(--muted); }
+.ch-soon { font-size: 13px; font-weight: 500; color: var(--muted); }
+#touch .t-act.punch { background: rgba(13, 17, 28, 0.45); border-color: rgba(255, 255, 255, 0.35); font-size: 13px; }

@@ -4,7 +4,7 @@
 // just some HTML plus a list of buttons with click handlers.
 
 import { save } from '../core/save.js';
-import { CHAPTER_LIST, CHAPTERS } from '../story/chapters.js';
+import { CHAPTER_LIST, CHAPTERS, PLACES, placeOf } from '../story/chapters.js';
 import { showCaseBoard } from './caseBoard.js';
 import { buyClue } from '../story/chapterFlow.js';
 import { formatTime } from '../core/utils.js';
@@ -71,12 +71,12 @@ export const CONTROLS = {
     Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it, either way (even uphill): hold <kbd>S</kbd> to turn round, <kbd>Space</kbd> to let go.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
-    <kbd>E</kbd> action when one shows on screen (knock out a guard from behind)<br>
+    <kbd>Click</kbd> punch (from behind it knocks a guard out; from the front it stuns them) &nbsp; <kbd>E</kbd> action when one shows on screen<br>
     <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
     <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>X</kbd> action (knock out)<br>
-    <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
+    <kbd>Click</kbd> or <kbd>B</kbd> punch &nbsp; <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
     <kbd>Shift</kbd> handbrake (drift) &nbsp; <kbd>Space</kbd> nitro<br>
@@ -244,6 +244,12 @@ function showFreeRunMenu(actions, back) {
   render();
 }
 
+/** A heading on the chapter screen: where the crew lives for these chapters. */
+function placeHeader(pl, soon = false) {
+  return { label: `<span class="ch-place-name">${soon ? 'Coming soon · ' : ''}${pl.name}</span><span class="ch-place-where">Chapters ${pl.from}–${pl.to} · ${pl.where}</span>`,
+    cls: `ch-place${soon ? ' soon' : ''}`, disabled: true, onClick: () => {} };
+}
+
 /** Chapter select: a clean grid of chapter cards (status and your rank on this difficulty). */
 export function showChapterSelect(actions) {
   const p = save.data.progress;
@@ -266,9 +272,21 @@ export function showChapterSelect(actions) {
       onClick: () => showChapterParts(c.id, actions, () => showChapterSelect(actions)),
     };
   });
+  // Grouped by where the crew lives (they move every few chapters)
+  const grouped = [];
+  let place = null;
+  CHAPTER_LIST.forEach((c, i) => {
+    const pl = placeOf(c.number);
+    if (pl !== place) { place = pl; grouped.push(placeHeader(pl)); }
+    grouped.push(cards[i]);
+  });
+  const last = CHAPTER_LIST[CHAPTER_LIST.length - 1].number;
+  const after = PLACES.find((pl) => pl.from > last);
+  if (placeOf(last).to > last) grouped.push({ label: `<span class="ch-soon">Chapters ${last + 1}–${placeOf(last).to}: more jobs in ${placeOf(last).name}, coming soon</span>`, cls: 'ch-place soon', disabled: true, onClick: () => {} });
+  if (after) grouped.push(placeHeader(after, true));
   showCard(`<div class="ch-head"><div><p class="sub kicker">Story</p><h2>Chapters</h2></div>
       <div class="ch-diff">${DIFFICULTY_LIST.map((d) => `<button class="${d.id === diff().id ? 'on' : ''}" data-diff="${d.id}">${d.name}</button>`).join('')}</div></div>`,
-  [...cards, { label: 'Back', cls: 'ch-back', onClick: () => showTitle(actions) }], { list: true, rowCls: 'ch-grid', wide: true });
+  [...grouped, { label: 'Back', cls: 'ch-back', onClick: () => showTitle(actions) }], { list: true, rowCls: 'ch-grid', wide: true });
   for (const b of document.querySelectorAll('#card .ch-diff [data-diff]')) {
     b.addEventListener('click', (e) => { e.stopPropagation(); setDifficulty(b.dataset.diff); showChapterSelect(actions); });
   }

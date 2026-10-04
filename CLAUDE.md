@@ -21,6 +21,16 @@ end). From now on:
 - Keep the crew from Chapter 5 (Mags, Theo, Ricky) as the loyal core team;
   new members can join, and they should stay loyal.
 
+- **The crew moves every few chapters.** About every 3 chapters they leave
+  for a new city or country, and the chapters in between happen there (new
+  look, new places to rob, new ways to get away). Chapters 1-7 are in
+  Harbor City; Chapter 8 moves them to **Frostvale**, a snowy ski town in
+  the mountains: their new home for Chapters 8-10 (use the alpine street
+  city `generateStreetCity({ alpine: true })` and the alpine rooftop town
+  for it). After Chapter 10 they move abroad (Chapters 11-13), and so on.
+  Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
+  groups chapters under where the crew lives.
+
 Chapters 1-5 keep their existing mole stories and deductions as they are.
 
 ## Working in this repo

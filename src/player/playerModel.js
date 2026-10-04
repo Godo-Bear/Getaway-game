@@ -39,6 +39,7 @@ const DEFAULTS = {
   metal: 0xb8bcc4, gold: 0xe8b830, belt: 0x18181a, eyeWhite: 0xeeeae2, pupil: 0x23170f,
   lens: 0x0c0d10, bag: 0x3b4a2a, strap: 0x1d1f16, cash: 0x5fae5a, patch: 0xe8e8e8,
 };
+const PUNCH_TIME = 0.32;
 const STYLE = { top: 'hoodie', hair: 'short', beard: null, hat: null, face: 'face', build: 1, height: 1, badge: false, tie: false };
 
 const _c = new THREE.Color();
@@ -118,6 +119,14 @@ export class PlayerModel {
     this.time = Math.random() * 10;
     this.blink = 1 + Math.random() * 3;
     this.lookAround = true; // glance around while standing still
+    this.punchT = 0;        // > 0 while throwing a punch
+    this.punchSide = 1;
+  }
+
+  /** Throw a punch (left and right in turn). */
+  punch() {
+    this.punchT = PUNCH_TIME;
+    this.punchSide = -this.punchSide;
   }
 
   /** Build (or rebuild) the meshes for a resolved look, and colour them. */
@@ -213,8 +222,9 @@ export class PlayerModel {
     const speed = pc.horizontalSpeed;
     const target = this._targetPose(dt, pc, speed);
 
-    // Blend every joint toward its target. Mantles/rolls blend faster.
-    const rate = pc.state === 'mantle' || pc.state === 'roll' ? 22 : 14;
+    // Blend every joint toward its target. Mantles/rolls (and punches) blend faster.
+    if (this.punchT > 0) this.punchT -= dt;
+    const rate = this.punchT > 0 ? 30 : pc.state === 'mantle' || pc.state === 'roll' ? 22 : 14;
     for (const k in target) this.pose[k] = damp(this.pose[k], target[k], rate, dt);
     this._apply(pc);
   }
@@ -444,6 +454,16 @@ export class PlayerModel {
         t.bob = -0.25;
         break;
       }
+    }
+    if (this.punchT > 0) {
+      // Punch: the arm shoots straight out in front, the shoulders turn into it
+      const k = this.punchT / PUNCH_TIME; // 1 -> 0
+      const out = k > 0.35 ? 1 : k / 0.35;  // (pulls back at the end)
+      const r = this.punchSide > 0;
+      if (r) { t.shR = -1.55 * out; t.elR = -0.08; t.shRz = 0.12 * out; t.shL = 0.3; t.elL = -1.6; }
+      else { t.shL = -1.55 * out; t.elL = -0.08; t.shLz = -0.12 * out; t.shR = 0.3; t.elR = -1.6; }
+      t.twist += (r ? -0.45 : 0.45) * out;
+      t.lean += 0.12 * out;
     }
     return t;
   }

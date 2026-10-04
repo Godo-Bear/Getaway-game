@@ -15,7 +15,7 @@ const ESCAPE_CITY = {
   forceKinds: { '6,0': 'tunnel', '1,6': 'buildings', '3,3': 'park', '4,5': 'park' },
 };
 const MOUNTAIN_ROAD = {
-  seed: 8282, blocks: 8,
+  seed: 8282, blocks: 8, alpine: true, // (Frostvale: chalets, pines and mountains)
   forceKinds: { '6,6': 'cabin', '1,1': 'park', '3,4': 'park', '5,2': 'park' },
 };
 

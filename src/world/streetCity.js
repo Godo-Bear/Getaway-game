@@ -4,6 +4,7 @@ import { CollisionWorld } from '../core/collision.js';
 import { MeshBatcher } from './meshBatcher.js';
 import { getMaterials, getGlowTexture, makeTextTexture, FACADE_UV } from './materials.js';
 import { RoadGraph } from '../ai/roadGraph.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 
 // Street-level city for the driving modes.
 //
@@ -18,6 +19,11 @@ import { RoadGraph } from '../ai/roadGraph.js';
 //
 // Like the rooftop city, everything static is merged or instanced so the
 // whole city costs only a few dozen draw calls.
+//
+// alpine: a snowy mountain town instead (Frostvale): low wooden chalets
+// with snow on their pitched roofs, pine trees, snowbanks along the kerbs,
+// warm shop windows, a pine forest outside the town and mountains all round.
+// No elevated railway.
 
 const ROAD = 18;           // road width (two lanes each way)
 const BLOCK = 50;          // block size between roads
@@ -38,6 +44,8 @@ const LANDMARKS = {
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];
+const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4, 0x7a5236, 0xb8a080];
+const SNOW = 0xe8eef5;
 
 /**
  * @param {object} opts
@@ -45,11 +53,13 @@ const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 
  * @param {number} opts.blocks - blocks per side
  * @param {Object<string,string>} opts.forceKinds - e.g. { '4,4': 'park', '7,0': 'safehouse' }
  *        to force what goes on a block (story levels need fixed landmarks)
+ * @param {boolean} [opts.alpine] - a snowy mountain town (see above)
  */
-export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {}) {
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
+  const batch2 = new MeshBatcher(); // (alpine snowbanks)
   const mats = getMaterials();
   const group = new THREE.Group();
 
@@ -65,6 +75,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   const lamps = [];
   const trees = [];
   const buildingsList = [];
+  const roofs = [];     // alpine: pitched roofs to put on the buildings [x0, z0, x1, z1, h]
+  const banks = [];     // alpine: snowbanks along the kerbs
   const minimapShapes = []; // for drawing the minimap: { type, x0, z0, x1, z1 }
 
   const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
@@ -77,8 +89,9 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   const wallT = 1.5, wallH = 2.2;
   const edge = (x0, z0, x1, z1) => {
     world.addBox(x0, 0, z0, x1, wallH, z1, { tag: 'wall' });
-    batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: wallH, z: z1 },
-      { side: 'concrete', top: 'concrete', color: 0x9a9a9a, uvScale: [4, 4], topScale: [4, 4] });
+    batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: wallH, z: z1 }, alpine
+      ? { side: 'plain', top: 'plain', color: SNOW } // (a bank of snow)
+      : { side: 'concrete', top: 'concrete', color: 0x9a9a9a, uvScale: [4, 4], topScale: [4, 4] });
   };
   edge(outer - wallT, outer - wallT, outerMax + wallT, outer);
   edge(outer - wallT, outerMax, outerMax + wallT, outerMax + wallT);
@@ -87,7 +100,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   // Hazard stripes on top of the wall so you can see it at night
   // Filler skyline outside the wall (visual only: no collision, so these must
   // never end up inside the city, or you'd drive straight through them)
-  for (let i = 0; i < 70; i++) {
+  for (let i = 0; i < (alpine ? 0 : 70); i++) {
     const a = rng() * Math.PI * 2;
     const r = half + ROAD + rng.range(20, 140);
     let x = Math.cos(a) * r, z = Math.sin(a) * r;
@@ -98,6 +111,19 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     const m = Math.max(Math.abs(x), Math.abs(z));
     if (m < need) { x *= need / m; z *= need / m; }
     batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), 0], topScale: [6, 6] });
+  }
+
+  // Alpine: a pine forest outside the wall and mountains all round (visual only)
+  const forest = [];
+  if (alpine) {
+    for (let i = 0; i < 420; i++) {
+      const a = rng() * Math.PI * 2, r = outerMax + wallT + rng.range(6, 120);
+      let x = Math.cos(a) * r, z = Math.sin(a) * r;
+      const m = Math.max(Math.abs(x), Math.abs(z)), need = outerMax + wallT + 4;
+      if (m < need) { x *= need / m; z *= need / m; }
+      forest.push([x, z, rng.range(1.1, 2.2)]);
+    }
+    group.add(buildMountains(rng, outerMax));
   }
 
   // --- Blocks ------------------------------------------------------------
@@ -142,6 +168,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
       // Sidewalk slab (visual only - too low to block the car)
       batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.15, z: z1 },
         { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
+      if (alpine) banks.push([x0, z0, x1, z1]);
 
       const ix0 = x0 + SIDEWALK, ix1 = x1 - SIDEWALK, iz0 = z0 + SIDEWALK, iz1 = z1 - SIDEWALK;
       if (kind === 'garage') {
@@ -179,13 +206,20 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
       for (let r = 0; r < rows; r++) {
         const bx0 = x0 + ((x1 - x0) * c) / cols, bx1 = x0 + ((x1 - x0) * (c + 1)) / cols;
         const bz0 = z0 + ((z1 - z0) * r) / rows, bz1 = z0 + ((z1 - z0) * (r + 1)) / rows;
-        const h = rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
+        const h = alpine ? rng.range(6, 10.5) : rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
         world.addBox(bx0, 0, bz0, bx1, h, bz1, { tag: 'building' });
         batch.addBox({ x: bx0, y: 0, z: bz0 }, { x: bx1, y: h, z: bz1 },
-          { side: 'wall', top: 'roof', color: rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), Math.floor(rng() * 8) / 8], topScale: [6, 6] });
-        // Glowing shop front along the bottom
-        if (rng() < 0.5) {
-          const glow = rng.pick([0xffa040, 0xff4fa0, 0x40d0ff, 0x60ff90, 0xffe070]);
+          { side: 'wall', top: 'roof', color: rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), Math.floor(rng() * 8) / 8], topScale: [6, 6] });
+        if (alpine) {
+          roofs.push([bx0, bz0, bx1, bz1, h]);
+          if (rng() < 0.5) { // a stone chimney
+            const cx = rng.range(bx0 + 2, bx1 - 2), cz = rng.range(bz0 + 2, bz1 - 2);
+            batch.addBlock(cx, h, cz, 1.2, Math.min(bx1 - bx0, bz1 - bz0) * 0.45 + 1.5, 1.2, { side: 'concrete', top: 'plain', color: 0x7a7470, uvScale: [1, 2] });
+          }
+        }
+        // Glowing shop front along the bottom (warm windows in the mountains)
+        if (rng() < (alpine ? 0.4 : 0.5)) {
+          const glow = alpine ? rng.pick([0xffa040, 0xffc870, 0xff9050]) : rng.pick([0xffa040, 0xff4fa0, 0x40d0ff, 0x60ff90, 0xffe070]);
           batch.addBox({ x: bx0 - 0.05, y: 0.4, z: bz0 - 0.05 }, { x: bx1 + 0.05, y: 2.8, z: bz1 + 0.05 },
             { side: 'glow', top: null, color: new THREE.Color(glow).multiplyScalar(0.35).getHex() });
         }
@@ -203,7 +237,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     const depth = 22, half = 8, H = 5, t = 0.6;
     const cz = (z0 + z1) / 2;
     const gx1 = x0 + depth;
-    const look = { side: 'concrete', top: 'concrete', color: 0x8c8c90, uvScale: [3, 3], topScale: [3, 3] };
+    const look = alpine ? { side: 'plain', top: 'plain', color: 0x6b5236 } // (a big wooden barn)
+      : { side: 'concrete', top: 'concrete', color: 0x8c8c90, uvScale: [3, 3], topScale: [3, 3] };
     const solid = (ax0, ay0, az0, ax1, ay1, az1, lk = look) => {
       world.addBox(ax0, ay0, az0, ax1, ay1, az1, { tag: 'building' });
       batch.addBox({ x: ax0, y: ay0, z: az0 }, { x: ax1, y: ay1, z: az1 }, lk);
@@ -213,9 +248,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     solid(gx1 - t, 0, cz - half, gx1, H, cz + half);         // back wall
     // Roof and two more parking decks above (visual; too high for the car)
     solid(x0 + 1, H, cz - half - t, gx1, H + 0.5, cz + half + t);
-    batch.addBox({ x: x0 + 1, y: H + 0.5, z: cz - half - t }, { x: gx1, y: H * 3, z: cz + half + t },
-      { side: 'wall', top: 'roof', color: 0x77777c, uvScale: FACADE_UV, topScale: [4, 4] });
-    world.addBox(x0 + 1, H + 0.5, cz - half - t, gx1, H * 3, cz + half + t, { tag: 'building' });
+    const deckTop = alpine ? H * 1.6 : H * 3;
+    batch.addBox({ x: x0 + 1, y: H + 0.5, z: cz - half - t }, { x: gx1, y: deckTop, z: cz + half + t },
+      { side: 'wall', top: 'roof', color: alpine ? 0x7a5236 : 0x77777c, uvScale: FACADE_UV, topScale: [4, 4] });
+    world.addBox(x0 + 1, H + 0.5, cz - half - t, gx1, deckTop, cz + half + t, { tag: 'building' });
+    if (alpine) roofs.push([x0 + 1, cz - half - t, gx1, cz + half + t, deckTop]);
     // Dim floor, a blue light strip over the entrance and a "P" sign
     batch.addBox({ x: x0 + 1, y: 0.02, z: cz - half }, { x: gx1 - t, y: 0.03, z: cz + half }, { side: null, top: 'asphalt', color: 0x55555c, topScale: [6, 6] });
     batch.addBox({ x: x0 + 0.9, y: H - 0.35, z: cz - half }, { x: x0 + 1, y: H, z: cz + half }, { side: 'glow', top: null, color: 0x1a4a9a });
@@ -238,7 +275,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     parks.push({ x0, x1, z0, z1 });
     minimapShapes.push({ type: 'park', x0, z0, x1, z1 });
     batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.06, z: z1 },
-      { side: 'plain', top: 'plain', color: 0x1d3a22 });
+      { side: 'plain', top: 'plain', color: alpine ? SNOW : 0x1d3a22 });
     // Paths in a cross
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     batch.addBox({ x: cx - 3, y: 0.06, z: z0 }, { x: cx + 3, y: 0.08, z: z1 }, { side: null, top: 'concrete', color: 0x6a6258, topScale: [3, 3] });
@@ -281,6 +318,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     fillBuildings(x0 + SIDEWALK, z1 - 16, x1 - SIDEWALK, z1 - SIDEWALK);
     const wx0 = x0 + SIDEWALK, wx1 = x1 - SIDEWALK - 10, wz0 = z0 + 18, wz1 = z1 - 18;
     world.addBox(wx0, 0, wz0, wx1, L.height, wz1, { tag: 'building' });
+    if (alpine) roofs.push([wx0, wz0, wx1, wz1, L.height]);
     batch.addBox({ x: wx0, y: 0, z: wz0 }, { x: wx1, y: L.height, z: wz1 },
       { side: L.windows ? 'wall' : 'concrete', top: 'roof', color: L.tint, uvScale: L.windows ? FACADE_UV : [4, 4], topScale: [6, 6] });
     // Glowing door / entrance
@@ -350,8 +388,9 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
   // Pillars stand along both kerbs, the deck runs 8 m up. Driving underneath
   // helps you lose the police, like alleys and parks.
   const elK = Math.floor(n / 2) - 1;
-  const elZ = roadC(elK);
+  const elZ = alpine ? 1e6 : roadC(elK); // (no railway in the mountains)
   const EL_HALF = 6.5, EL_Y = 8;
+  if (!alpine) {
   const pillarLook = { side: 'plain', top: 'plain', color: 0x3b4048 };
   for (let x = outer + 6; x < outerMax - 6; x += 17) {
     const nearNode = Math.abs(x - roadC(Math.round((x - roadC(0)) / PITCH))) < ROAD / 2 + 3;
@@ -374,18 +413,34 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     }
   }
   minimapShapes.push({ type: 'bridge', x0: outer, z0: elZ - EL_HALF, x1: outerMax, z1: elZ + EL_HALF });
+  }
 
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));
   group.add(buildRampMeshes(ramps));
-  group.add(buildTrees(trees));
+  group.add(buildTrees(trees, alpine));
+  if (alpine) {
+    group.add(buildTrees(forest, true));
+    group.add(buildRoofs(roofs));
+    // Snowbanks along the kerbs (low, visual only), broken at the corners
+    for (const [x0, z0, x1, z1] of banks) {
+      const look = { side: 'plain', top: 'plain', color: SNOW };
+      batch2.addBox({ x: x0 + 4, y: 0.15, z: z0 + 0.1 }, { x: x1 - 4, y: 0.6, z: z0 + 0.9 }, look);
+      batch2.addBox({ x: x0 + 4, y: 0.15, z: z1 - 0.9 }, { x: x1 - 4, y: 0.6, z: z1 - 0.1 }, look);
+      batch2.addBox({ x: x0 + 0.1, y: 0.15, z: z0 + 4 }, { x: x0 + 0.9, y: 0.6, z: z1 - 4 }, look);
+      batch2.addBox({ x: x1 - 0.9, y: 0.15, z: z0 + 4 }, { x: x1 - 0.1, y: 0.6, z: z1 - 4 }, look);
+    }
+    group.add(batch2.build(mats));
+  }
   group.add(buildLamps(lamps));
   const trafficLights = new TrafficLights(graph, ROAD);
   group.add(trafficLights.group);
 
   // Neon signs on some buildings facing the road
   const signGroup = new THREE.Group();
-  const signTex = [['THE ANCHOR', '#ffb020'], ['MOTEL', '#ff3fa4'], ['DINER', '#2fe0ff'], ['PAWN', '#4dffa6'], ['BAR', '#ff5a3a'], ['GARAGE', '#c070ff']]
+  const signTex = (alpine
+    ? [['SKI HIRE', '#39e6ff'], ['HOTEL', '#ffb020'], ['CAFE', '#ff9ad5'], ['BAKERY', '#ffd070'], ['FONDUE', '#ff8a3d'], ['LIFT PASS', '#7dff8a']]
+    : [['THE ANCHOR', '#ffb020'], ['MOTEL', '#ff3fa4'], ['DINER', '#2fe0ff'], ['PAWN', '#4dffa6'], ['BAR', '#ff5a3a'], ['GARAGE', '#c070ff']])
     .map(([t, c]) => makeTextTexture(t, { color: c }));
   for (const b of buildingsList) {
     if (rng() > 0.12) continue;
@@ -410,7 +465,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {} } = {
     return 0;
   }
 
-  const train = new ElevatedTrain(outer, outerMax, elZ + 2.8, EL_Y + 1.35);
+  const train = alpine ? { group: new THREE.Group(), update() {} } : new ElevatedTrain(outer, outerMax, elZ + 2.8, EL_Y + 1.35);
   group.add(train.group);
 
   const inRect = (x, z, r, pad = 0) => x > r.x0 - pad && x < r.x1 + pad && z > r.z0 - pad && z < r.z1 + pad;
@@ -465,9 +520,26 @@ function buildRampMeshes(ramps) {
   return g;
 }
 
-function buildTrees(trees) {
+function buildTrees(trees, alpine = false) {
   const g = new THREE.Group();
   if (!trees.length) return g;
+  if (alpine) {
+    // Snowy pines: a trunk, two layers of branches and snow on the top
+    const trunk = new THREE.CylinderGeometry(0.2, 0.28, 2, 6); trunk.translate(0, 1, 0);
+    const low = new THREE.ConeGeometry(2.0, 3.4, 7); low.translate(0, 3.2, 0);
+    const high = new THREE.ConeGeometry(1.45, 2.8, 7); high.translate(0, 5.0, 0);
+    const snow = new THREE.ConeGeometry(0.75, 1.3, 7); snow.translate(0, 6.0, 0);
+    const branches = mergeGeometries([low, high], false);
+    const meshes = [
+      new THREE.InstancedMesh(trunk, new THREE.MeshLambertMaterial({ color: 0x3a2a1c }), trees.length),
+      new THREE.InstancedMesh(branches, new THREE.MeshLambertMaterial({ color: 0x1c3a2a, flatShading: true }), trees.length),
+      new THREE.InstancedMesh(snow, new THREE.MeshLambertMaterial({ color: 0xf0f4f8, flatShading: true }), trees.length),
+    ];
+    const m = new THREE.Matrix4();
+    trees.forEach(([x, z, s], i) => { m.makeScale(s, s, s).setPosition(x, 0, z); for (const im of meshes) im.setMatrixAt(i, m); });
+    for (const im of meshes) { im.castShadow = true; g.add(im); }
+    return g;
+  }
   const trunkGeo = new THREE.CylinderGeometry(0.22, 0.3, 3, 6);
   trunkGeo.translate(0, 1.5, 0);
   const leafGeo = new THREE.IcosahedronGeometry(2.2, 0);
@@ -628,4 +700,61 @@ class ElevatedTrain {
     }
     this.group.position.x = this.x;
   }
+}
+
+/** Alpine: pitched roofs with snow on them (the gable ends are wood). */
+function buildRoofs(roofs) {
+  const pos = [], col = [];
+  const snow = new THREE.Color(0xf2f6fa), wood = new THREE.Color(0x5a3e28), eave = new THREE.Color(0x3a2a1c);
+  const tri = (a, b, c, color) => { pos.push(...a, ...b, ...c); for (let i = 0; i < 3; i++) col.push(color.r, color.g, color.b); };
+  const quad = (a, b, c, d, color) => { tri(a, b, c, color); tri(a, c, d, color); };
+  for (const [bx0, bz0, bx1, bz1, h] of roofs) {
+    const o = 0.7, x0 = bx0 - o, x1 = bx1 + o, z0 = bz0 - o, z1 = bz1 + o;
+    const alongX = (bx1 - bx0) >= (bz1 - bz0);
+    const rise = Math.min(5, Math.min(bx1 - bx0, bz1 - bz0) * 0.38);
+    const y = h, top = h + rise;
+    if (alongX) {
+      const zm = (z0 + z1) / 2;
+      quad([x0, y, z0], [x0, top, zm], [x1, top, zm], [x1, y, z0], snow);  // north slope
+      quad([x1, y, z1], [x1, top, zm], [x0, top, zm], [x0, y, z1], snow);  // south slope
+      tri([x0, y, z1], [x0, top, zm], [x0, y, z0], wood);                   // gables
+      tri([x1, y, z0], [x1, top, zm], [x1, y, z1], wood);
+    } else {
+      const xm = (x0 + x1) / 2;
+      quad([x1, y, z0], [xm, top, z0], [xm, top, z1], [x1, y, z1], snow);
+      quad([x0, y, z1], [xm, top, z1], [xm, top, z0], [x0, y, z0], snow);
+      tri([x0, y, z0], [xm, top, z0], [x1, y, z0], wood);
+      tri([x1, y, z1], [xm, top, z1], [x0, y, z1], wood);
+    }
+    quad([x0, y - 0.25, z0], [x1, y - 0.25, z0], [x1, y - 0.25, z1], [x0, y - 0.25, z1], eave); // underside of the eaves
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  g.computeVertexNormals();
+  const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
+  mesh.castShadow = mesh.receiveShadow = true;
+  return mesh;
+}
+
+/** Alpine: rocky mountains with snowy tops all round the town (visual only). */
+function buildMountains(rng, outerMax) {
+  const rockGeo = new THREE.ConeGeometry(1, 1, 7); rockGeo.translate(0, 0.5, 0);
+  const capGeo = new THREE.ConeGeometry(0.43, 0.43, 7); capGeo.translate(0, 1 - 0.43 / 2 + 0.003, 0);
+  const n = 26;
+  const rock = new THREE.InstancedMesh(rockGeo, new THREE.MeshLambertMaterial({ color: 0x55606e, flatShading: true }), n);
+  const cap = new THREE.InstancedMesh(capGeo, new THREE.MeshLambertMaterial({ color: 0xf2f6fa, flatShading: true }), n);
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + rng.range(-0.1, 0.1);
+    const r = rng.range(90, 170), h = rng.range(110, 230);
+    const d = outerMax * 1.42 + r * 0.7 + rng.range(20, 110);
+    q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), rng() * 6.3);
+    m.compose(p.set(Math.cos(a) * d, -2, Math.sin(a) * d), q, sc.set(r, h, r));
+    rock.setMatrixAt(i, m);
+    cap.setMatrixAt(i, m);
+  }
+  const g = new THREE.Group();
+  g.add(rock, cap);
+  return g;
 }
