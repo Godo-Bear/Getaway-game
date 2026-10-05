@@ -161,6 +161,8 @@ export class GuardSquad {
       u.seesPlayer = false;
       u.investigate = null;
       u.block = u.counter = u.trip = 0;
+      u.glance = 0;
+      u.model.standUp();
       this._mark(u, null);
     });
   }
@@ -239,18 +241,20 @@ export class GuardSquad {
     return null;
   }
 
-  /** Knock a guard out: they drop and stay down until the level restarts. */
-  takedown(u) {
+  /**
+   * Knock a guard out: they topple over and stay down until the level
+   * restarts. forward: on their face (hit from behind), else on their back.
+   */
+  takedown(u, { forward = true } = {}) {
     u.down = true;
+    u.downT = 0;
     u.seesPlayer = false;
     u.cone.visible = false;
     u.investigate = null;
     u.block = u.counter = u.trip = 0;
     this._mark(u, null);
     u.pc.horizontalSpeed = 0;
-    u.model.update(0, u.pc);
-    u.model.root.rotation.x = -Math.PI / 2; // (lying on the floor)
-    u.model.root.position.y = u.pc.pos.y + 0.25;
+    u.model.knockDown({ forward });
   }
 
   get downCount() { return this.units.filter((u) => u.down).length; }
@@ -287,7 +291,7 @@ export class GuardSquad {
    * or 'break' (the uppercut smashed through their block: dazed).
    */
   punched(u, { behind = false, heavy = false, blockChance = 0.35 } = {}) {
-    if (behind || u.stunned > 0) { this.takedown(u); return 'ko'; }
+    if (behind || u.stunned > 0) { this.takedown(u, { forward: behind }); return 'ko'; }
     if (u.block > 0) {
       if (!heavy) { u.block = Math.max(u.block, 0.4); u.model.block(u.block); return 'block'; }
       u.block = u.counter = 0;
@@ -309,11 +313,12 @@ export class GuardSquad {
 
   /** Slide-tackled: knocked off their feet, then dazed. From behind: out cold. */
   trip(u, behind) {
-    if (behind) { this.takedown(u); return 'ko'; }
+    if (behind) { this.takedown(u, { forward: true }); return 'ko'; }
     u.block = u.counter = 0;
     u.investigate = null;
     u.stunned = Math.max(u.stunned || 0, 2.8);
     u.trip = 1.2;
+    u.model.knockDown({ upIn: 0.8 }); // (on their back, then up again, still dazed)
     return 'trip';
   }
 
@@ -368,20 +373,18 @@ export class GuardSquad {
     }
     for (const u of this.units) {
       const b = u.pc;
-      if (u.down) continue;
+      if (u.down) {
+        // (keep animating until they've hit the floor, then leave them be)
+        if ((u.downT += dt) < 1) { b.horizontalSpeed = 0; u.model.update(dt, b); }
+        continue;
+      }
       if (u.stunned > 0) {
         // Dazed (a punch, a flashbang): stand still, cone off
         u.stunned -= dt;
         b.horizontalSpeed = 0;
         u.cone.visible = false;
         u.model.update(dt, b);
-        if (u.trip > 0) {
-          // Slide-tackled: on the floor for a moment, then back up
-          u.trip -= dt;
-          const down = u.trip > 0.35;
-          u.model.root.rotation.x = down ? -Math.PI / 2 : 0;
-          u.model.root.position.y = b.pos.y + (down ? 0.25 : 0);
-        }
+        if (u.trip > 0) u.trip -= dt; // (slide-tackled: the model falls and gets up by itself)
         this._mark(u, null);
         continue;
       }
@@ -392,10 +395,25 @@ export class GuardSquad {
         u.model.punch('cross');
         this.shove = u;
       }
+      // Footsteps: someone sprinting close by makes them stop and turn round
+      // to look (walk, or crouch, and they won't hear you)
+      if (u.glanceCool > 0) u.glanceCool -= dt;
+      if (!u.hunting && !u.investigate && !(u.block > 0) && !u.seesPlayer && !(u.glanceCool > 0) && player.state === 'ground'
+        && player.horizontalSpeed > 6.2 && Math.abs(player.pos.y - b.pos.y) < 2.5
+        && Math.hypot(player.pos.x - b.pos.x, player.pos.z - b.pos.z) < 6.5) {
+        u.glance = 1.4;
+        u.glanceAt = Math.atan2(player.pos.x - b.pos.x, player.pos.z - b.pos.z);
+        u.glanceCool = 3.5;
+      }
       if (u.block > 0 || u.counter > 0) {
         // Blocking: stand and face you
         b.horizontalSpeed = 0;
         b.facing = turnTo(b.facing, Math.atan2(player.pos.x - b.pos.x, player.pos.z - b.pos.z), 10 * dt);
+      } else if (u.glance > 0 && !u.hunting) {
+        // Heard running: stop and turn to look
+        u.glance -= dt;
+        b.horizontalSpeed = 0;
+        b.facing = turnTo(b.facing, u.glanceAt, 7 * dt);
       } else if (u.hunting && this.hunt) {
         // Running to where you were last seen, then looking around for you
         const h = this.hunt.pos, d = Math.hypot(h.x - b.pos.x, h.z - b.pos.z);
@@ -456,7 +474,7 @@ export class GuardSquad {
       u.cone.scale.setScalar(r);
       u.seesPlayer = !hidden && !admin.flag('unseen') && this._sees(u, player, closeOnly ? Math.min(r, DISGUISE_RANGE) : r);
       if (u.seesPlayer) { seen = true; this.alarmAt(player.pos); }
-      this._mark(u, u.hunting && this.hunt ? '!' : u.investigate ? '?' : null);
+      this._mark(u, u.hunting && this.hunt ? '!' : u.investigate || u.glance > 0 ? '?' : null);
       // Spotting a knocked-out colleague
       for (const o of this.units) {
         if (o.down && !o.found && this._sees(u, { pos: o.pc.pos, height: 0.5 }, r)) { o.found = true; this.bodyFound = o; }

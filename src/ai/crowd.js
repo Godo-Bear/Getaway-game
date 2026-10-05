@@ -9,6 +9,10 @@ import { makeRng } from '../core/utils.js';
 // with a random outfit and pace. They're scenery, plus one mechanic:
 // BLENDING IN. Walk (don't sprint) right next to someone and police
 // patrols can't pick you out of the crowd.
+//
+// They react to you: sprint right past and they flinch and step out of
+// your way; a coin landing nearby makes them look; punched or tackled,
+// they fall over and get back up.
 
 const BLEND_RADIUS = 2.4;
 
@@ -32,7 +36,7 @@ export class Crowd {
         const g = world.groundHeight(pos.x, pos.z, 1.2);
         pos.y = Number.isFinite(g) ? g : 0;
         const body = { pos, vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
-        this.people.push({ lane, t, dir: rng() < 0.5 ? 1 : -1, speed: 1.1 + rng() * 0.6, pause: 0, model, body });
+        this.people.push({ lane, t, dir: rng() < 0.5 ? 1 : -1, speed: 1.1 + rng() * 0.6, pause: 0, model, body, dodge: 0, flinchCool: 0 });
       }
     }
   }
@@ -46,45 +50,72 @@ export class Crowd {
   /** Punched: they fall over backwards, then get up and carry on. */
   knockDown(p, fx, fz) {
     p.knock = 2.4;
-    p.body.pos.x += fx * 0.7;
-    p.body.pos.z += fz * 0.7;
+    // Knocked back 0.7 m (along the pavement, and across it)
+    const lx = p.lane.b[0] - p.lane.a[0], lz = p.lane.b[1] - p.lane.a[1], len = Math.hypot(lx, lz) || 1;
+    p.t = Math.min(1, Math.max(0, p.t + ((fx * lx + fz * lz) / len) * 0.7 / len));
+    p.dodge += ((fx * -lz + fz * lx) / len) * 0.7;
+    p.dodgeTo = 0;
     p.body.facing = Math.atan2(-fx, -fz); // (facing you as they fall)
+    p.model.knockDown({ upIn: 1.1 });
   }
 
-  update(dt) {
+  /** A coin landed: the people nearby look at it. */
+  hear(pos, radius = 10) {
     for (const p of this.people) {
+      if (p.knock > 0) continue;
+      const d = Math.hypot(p.body.pos.x - pos.x, p.body.pos.z - pos.z);
+      if (d < radius) p.model.glance(pos.x, pos.z, 1.6 + Math.random() * 0.8);
+    }
+  }
+
+  /** @param {object} [player] - the PlayerController (they flinch when you sprint past) */
+  update(dt, player = null) {
+    for (const p of this.people) {
+      const { a, b } = p.lane;
+      const lx = b[0] - a[0], lz = b[1] - a[1], len = Math.hypot(lx, lz) || 1;
       if (p.knock > 0) {
+        // On the floor (the model falls over and gets up by itself)
         p.knock -= dt;
         p.body.horizontalSpeed = 0;
-        p.model.update(dt, p.body);
-        const down = p.knock > 0.6;
-        p.model.root.rotation.x = down ? -Math.PI / 2 : 0;
-        p.model.root.position.y = p.body.pos.y + (down ? 0.25 : 0);
         if (p.knock <= 0) p.pause = 0.6; // (dust themselves off)
-        continue;
-      }
-      if (p.noticeIn > 0 && (p.noticeIn -= dt) <= 0) {
-        // "Hey... where's my wallet?" They stop and look back the way they came
-        p.pause = 2.6;
-        p.body.facing += Math.PI;
-      }
-      const { a, b } = p.lane;
-      const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;
-      if (p.pause > 0) {
-        p.pause -= dt;
-        p.body.horizontalSpeed = 0;
       } else {
-        p.t += (p.dir * p.speed * dt) / len;
-        if (p.t > 1 || p.t < 0) {
-          p.t = Math.min(1, Math.max(0, p.t));
-          p.dir = -p.dir;
-          p.pause = 0.8 + Math.random() * 2;
+        // Someone sprinting right past: flinch, look, and step out of the way
+        if (p.flinchCool > 0) p.flinchCool -= dt;
+        if (player && !(p.flinchCool > 0) && player.horizontalSpeed > 6) {
+          const dx = player.pos.x - p.body.pos.x, dz = player.pos.z - p.body.pos.z;
+          if (Math.abs(dx) < 2.2 && Math.abs(dz) < 2.2 && Math.abs(player.pos.y - p.body.pos.y) < 1.5 && Math.hypot(dx, dz) < 2.2) {
+            p.model.flinch(player.pos.x, player.pos.z);
+            p.flinchCool = 2.5;
+            p.pause = Math.max(p.pause, 0.7);
+            p.dodgeTo = ((dx * -lz + dz * lx) / len > 0 ? -1 : 1) * 0.8; // (across the pavement, away from you)
+          }
         }
-        p.body.pos.x = a[0] + (b[0] - a[0]) * p.t;
-        p.body.pos.z = a[1] + (b[1] - a[1]) * p.t;
-        p.body.facing = Math.atan2((b[0] - a[0]) * p.dir, (b[1] - a[1]) * p.dir);
-        p.body.horizontalSpeed = p.speed;
+        if (p.noticeIn > 0 && (p.noticeIn -= dt) <= 0) {
+          // "Hey... where's my wallet?" They stop and look back the way they came
+          p.pause = 2.6;
+          p.body.facing += Math.PI;
+        }
+        if (p.pause > 0) {
+          p.pause -= dt;
+          p.body.horizontalSpeed = 0;
+        } else {
+          p.t += (p.dir * p.speed * dt) / len;
+          if (p.t > 1 || p.t < 0) {
+            p.t = Math.min(1, Math.max(0, p.t));
+            p.dir = -p.dir;
+            p.pause = 0.8 + Math.random() * 2;
+          }
+          p.body.facing = Math.atan2(lx * p.dir, lz * p.dir);
+          p.body.horizontalSpeed = p.speed;
+        }
       }
+      // A quick sidestep, then they drift back to their line
+      if (p.dodgeTo) {
+        p.dodge += (p.dodgeTo - p.dodge) * Math.min(1, dt * 8);
+        if (Math.abs(p.dodgeTo - p.dodge) < 0.02) p.dodgeTo = 0;
+      } else if (p.dodge && !(p.knock > 0)) p.dodge *= Math.exp(-dt * 0.8);
+      p.body.pos.x = a[0] + lx * p.t - (lz / len) * p.dodge;
+      p.body.pos.z = a[1] + lz * p.t + (lx / len) * p.dodge;
       p.model.update(dt, p.body);
     }
   }

@@ -462,6 +462,7 @@ export class OnFootState extends PlayState {
         hit();
         u.stunned = 3;
         u.floored = true;
+        u.model.knockDown({ upIn: 1.9 });
         hud.toast('Officer down!', 'Run: they\'ll be back up in a few seconds.', 'var(--amber)', 2.5);
         return;
       }
@@ -501,6 +502,7 @@ export class OnFootState extends PlayState {
     const m = this.mode;
     let heard = 0;
     for (const sq of [m.guards, m.patrols, m.mailGuard]) if (sq?.hear) heard += sq.hear(pos);
+    m.crowd?.hear(pos); // (people nearby look round at it too)
     if (heard && !this.coinTip) {
       this.coinTip = true;
       this.game.hud.toast(heard === 1 ? 'Someone heard it' : `${heard} of them heard it`, 'They\'re going to look. Sneak past while they\'re busy, or come up behind them.', 'var(--amber)', 3.5);
@@ -551,6 +553,7 @@ export class OnFootState extends PlayState {
           if (u.waitTimer > 0 || u.floored || !u.model.root.visible || !ahead(u.pc.pos)) continue;
           u.stunned = 3;
           u.floored = true;
+          u.model.knockDown({ upIn: 1.9 });
           audio.sfx('land', { vol: 1 });
           hud.toast('Slide tackle!', 'Officer down. Run!', 'var(--amber)', 2.5);
         }

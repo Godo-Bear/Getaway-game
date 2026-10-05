@@ -581,7 +581,7 @@ export class ChapterFootMode {
     }
 
     // --- Police on the beat (and the crowd you can hide in)
-    this.crowd?.update(dt);
+    this.crowd?.update(dt, this.state.player);
     this.blending = false;
     if (this.patrols) this._updatePatrols(dt);
 

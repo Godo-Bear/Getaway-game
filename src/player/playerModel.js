@@ -41,7 +41,13 @@ const DEFAULTS = {
 };
 const PUNCH_TIME = 0.32;
 const UPPER_TIME = 0.42; // (the uppercut that ends a combo is slower and bigger)
+const FALL_TIME = 0.42;  // s to topple over when knocked down
+const GETUP_TIME = 1.0;  // s to get back up
 const STYLE = { top: 'hoodie', hair: 'short', beard: null, hat: null, face: 'face', build: 1, height: 1, badge: false, tie: false };
+
+const blend = (a, b, t) => a + (b - a) * t;
+/** 0 below a, 1 above b, a smooth S-curve between. */
+const smooth = (a, b, x) => { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); };
 
 const _c = new THREE.Color();
 const lum = (hex) => { _c.setHex(hex); return 0.2126 * _c.r + 0.7152 * _c.g + 0.0722 * _c.b; };
@@ -77,6 +83,7 @@ export class PlayerModel {
     this.own = null; // your own clothes (setLook); disguises go on top
 
     this.root = new THREE.Group();
+    this.root.rotation.order = 'YXZ'; // (falls tip over along the way you face, whichever way that is)
     this.tumble = new THREE.Group();
     this.tumble.position.y = 0.55;
     this.root.add(this.tumble);
@@ -127,6 +134,50 @@ export class PlayerModel {
     this.blockT = 0;        // > 0: forearms up, blocking (guards)
     this.hitT = 0;          // > 0: rocked back by a punch
     this.reachT = 0;        // > 0: a quick hand into someone's pocket
+    this.fallen = null;     // knocked down: { t, forward, upAt }
+    this.lookT = 0;         // > 0: looking at something (lookYaw, head turned)
+    this.lookYaw = 0;
+    this.flinchT = 0;       // > 0: startled
+  }
+
+  /**
+   * Knocked down: topple over (backwards, or on your face when hit from
+   * behind), bounce, lie there, and get back up after `upIn` seconds
+   * (Infinity: stay down, out cold, until getUp()).
+   */
+  knockDown({ forward = false, upIn = Infinity } = {}) {
+    if (this.fallen && this.fallen.t < this.fallen.upAt) return; // (already down)
+    this.fallen = { t: 0, forward, upAt: upIn };
+  }
+
+  /** Start getting up (if down). */
+  getUp() {
+    const f = this.fallen;
+    if (f && f.t < f.upAt) f.upAt = Math.max(f.t, FALL_TIME + 0.2);
+  }
+
+  /** Straight back on their feet (a level restart). */
+  standUp() {
+    this.fallen = null;
+    this.root.rotation.x = 0;
+  }
+
+  /** On the floor, or still getting up. */
+  get isDown() { return !!this.fallen; }
+
+  /** Turn the head toward a point for a moment (heard something). */
+  glance(x, z, dur = 1.5) {
+    const f = this.root.rotation.y, dx = x - this.root.position.x, dz = z - this.root.position.z;
+    const lx = dx * Math.cos(f) - dz * Math.sin(f), lz = dx * Math.sin(f) + dz * Math.cos(f);
+    this.lookYaw = clamp(Math.atan2(lx, lz), -1.3, 1.3);
+    this.lookT = dur;
+  }
+
+  /** Startled (someone sprinted right past): flinch away with the hands up, and look. */
+  flinch(x, z) {
+    this.glance(x, z, 1.3);
+    this.flinchT = this.flinchLen = 0.55;
+    this.flinchSide = this.lookYaw >= 0 ? 1 : -1;
   }
 
   /**
@@ -246,10 +297,32 @@ export class PlayerModel {
     if (this.blockT > 0) this.blockT -= dt;
     if (this.hitT > 0) this.hitT -= dt;
     if (this.reachT > 0) this.reachT -= dt;
-    const fast = this.punchT > 0 || this.blockT > 0 || this.hitT > 0;
+    if (this.lookT > 0) this.lookT -= dt;
+    if (this.flinchT > 0) this.flinchT -= dt;
+    const fast = this.punchT > 0 || this.blockT > 0 || this.hitT > 0 || this.flinchT > 0 || !!this.fallen;
     const rate = fast ? 30 : pc.state === 'mantle' || pc.state === 'roll' ? 22 : 14;
     for (const k in target) this.pose[k] = damp(this.pose[k], target[k], rate, dt);
     this._apply(pc);
+    if (this.fallen) this._fallTilt(dt, pc);
+  }
+
+  /** Knocked down: tip the whole body over (and back up again). */
+  _fallTilt(dt, pc) {
+    const f = this.fallen;
+    f.t += dt;
+    let tilt; // 0 standing .. 1 flat on the floor
+    if (f.t < f.upAt) {
+      const k = Math.min(1, f.t / FALL_TIME);
+      tilt = k * k; // (slow, then fast: gravity)
+      const b = f.t - FALL_TIME; // a little bounce when they hit the ground
+      if (b > 0 && b < 0.3) tilt -= Math.sin((b / 0.3) * Math.PI) * 0.06;
+    } else {
+      const k = (f.t - f.upAt) / GETUP_TIME;
+      if (k >= 1) { this.standUp(); return; }
+      tilt = 1 - smooth(0.12, 0.95, k);
+    }
+    this.root.rotation.x = (f.forward ? 1 : -1) * tilt * Math.PI / 2;
+    this.root.position.y += Math.sin(tilt * Math.PI / 2) * 0.22; // (lying: the body is off the floor by its thickness)
   }
 
   /** A delta-wing hang glider, attached above the shoulders (hidden until used). */
@@ -354,54 +427,45 @@ export class PlayerModel {
         break;
       }
       case 'ground': {
-        if (speed > 0.3 && speed < 3.4) {
-          // Walking: shorter steps, the knee bends as the leg swings through,
-          // arms swing gently, shoulders twist against the hips.
-          this.runPhase += dt * speed * 4.4;
-          const s = Math.sin(this.runPhase), c = Math.cos(this.runPhase);
-          const amp = clamp(speed / 1.6, 0.4, 1);
-          t.hipL = -s * 0.42 * amp;
-          t.hipR = s * 0.42 * amp;
-          t.kneeL = 0.08 + Math.max(0, c) * 0.55 * amp;
-          t.kneeR = 0.08 + Math.max(0, -c) * 0.55 * amp;
-          t.shL = s * 0.34 * amp;
-          t.shR = -s * 0.34 * amp;
-          t.elL = -0.22 - Math.max(0, -s) * 0.25;
-          t.elR = -0.22 - Math.max(0, s) * 0.25;
-          t.lean = 0.04;
-          t.bob = (Math.abs(c) - 0.5) * 0.035 * amp;
-          t.twist = s * 0.1 * amp;
-          t.sway = c * 0.035 * amp;
-          t.bagSwing = s * 0.08;
-        } else if (speed >= 3.4) {
-          // Running cycle: legs swing opposite to each other, arms opposite to legs.
-          const sprint = clamp((speed - 6) / 4, 0, 1);
-          const amp = clamp(speed / 6.5, 0.3, 1) * (0.75 + sprint * 0.35);
-          this.runPhase += dt * speed * 1.45;
-          const s = Math.sin(this.runPhase), c = Math.cos(this.runPhase);
-          t.hipL = -s * amp;
-          t.hipR = s * amp;
-          // Knee bends most while that leg swings forward (recovery phase).
-          t.kneeL = 0.15 + Math.max(0, c) * amp * 1.5;
-          t.kneeR = 0.15 + Math.max(0, -c) * amp * 1.5;
-          t.shL = s * amp * 0.9;
-          t.shR = -s * amp * 0.9;
-          t.elL = -1.1 - sprint * 0.3;
-          t.elR = -1.1 - sprint * 0.3;
-          t.lean = 0.12 + sprint * 0.22;
-          t.bob = Math.abs(c) * 0.07 * amp;
-          t.twist = s * 0.16 * amp;
-          t.bagSwing = s * 0.12;
-        } else {
-          // Idle: breathing, shifting weight, looking around now and then.
-          t.bob = Math.sin(this.time * 2) * 0.008;
-          t.sway = Math.sin(this.time * 0.6) * 0.025;
-          t.shL = t.shR = 0.04 + Math.sin(this.time * 2) * 0.02;
-          t.hipL = Math.sin(this.time * 0.6) * 0.04;
-          t.kneeR = 0.05 + Math.max(0, Math.sin(this.time * 0.6)) * 0.12;
-          t.headPitch = Math.sin(this.time * 0.7) * 0.05;
-          if (this.lookAround) t.headYaw = Math.sin(this.time * 0.31) * Math.sin(this.time * 0.17) * 0.7;
-        }
+        // One gait that blends smoothly from standing to walking to running
+        // to sprinting: the legs keep the same rhythm through the change
+        // (strides per second grow with speed), so nothing jumps.
+        const runK = smooth(2.6, 4.4, speed);   // 0 walking .. 1 running
+        const moveK = smooth(0.1, 0.6, speed);  // 0 standing .. 1 moving
+        const freq = blend(0.55 + 0.3 * Math.min(speed, 3.6), 1 + 0.12 * speed, runK); // strides per second
+        if (speed > 0.05) this.runPhase += dt * freq * Math.PI * 2;
+        const s = Math.sin(this.runPhase), c = Math.cos(this.runPhase);
+        // Walking: shorter steps, the knee bends as the leg swings through,
+        // arms swing gently, shoulders twist against the hips.
+        const wa = clamp(speed / 1.4, 0.3, 1);
+        // Running: legs swing opposite to each other, arms opposite to legs.
+        const sprint = clamp((speed - 6) / 4, 0, 1);
+        const ra = clamp(speed / 6.5, 0.3, 1) * (0.75 + sprint * 0.35);
+        const W = this._gW || (this._gW = {}), R = this._gR || (this._gR = {}), I = this._gI || (this._gI = {});
+        W.hipL = -s * 0.42 * wa; W.hipR = s * 0.42 * wa;
+        W.kneeL = 0.08 + Math.max(0, c) * 0.55 * wa; W.kneeR = 0.08 + Math.max(0, -c) * 0.55 * wa;
+        W.shL = s * 0.34 * wa; W.shR = -s * 0.34 * wa;
+        W.elL = -0.22 - Math.max(0, -s) * 0.25; W.elR = -0.22 - Math.max(0, s) * 0.25;
+        W.lean = 0.04; W.bob = (Math.abs(c) - 0.5) * 0.035 * wa;
+        W.twist = s * 0.1 * wa; W.sway = c * 0.035 * wa; W.bagSwing = s * 0.08;
+        W.headPitch = 0; W.headYaw = 0;
+        R.hipL = -s * ra; R.hipR = s * ra;
+        R.kneeL = 0.15 + Math.max(0, c) * ra * 1.5; R.kneeR = 0.15 + Math.max(0, -c) * ra * 1.5; // (most bend while that leg swings forward)
+        R.shL = s * ra * 0.9; R.shR = -s * ra * 0.9;
+        R.elL = R.elR = -1.1 - sprint * 0.3;
+        R.lean = 0.12 + sprint * 0.22; R.bob = Math.abs(c) * 0.07 * ra;
+        R.twist = s * 0.16 * ra; R.sway = 0; R.bagSwing = s * 0.12;
+        R.headPitch = 0; R.headYaw = 0;
+        // Standing: breathing, shifting weight, looking around now and then.
+        I.hipL = Math.sin(this.time * 0.6) * 0.04; I.hipR = 0;
+        I.kneeL = 0.05; I.kneeR = 0.05 + Math.max(0, Math.sin(this.time * 0.6)) * 0.12;
+        I.shL = I.shR = 0.04 + Math.sin(this.time * 2) * 0.02;
+        I.elL = I.elR = -0.25;
+        I.lean = 0; I.bob = Math.sin(this.time * 2) * 0.008;
+        I.twist = 0; I.sway = Math.sin(this.time * 0.6) * 0.025; I.bagSwing = 0;
+        I.headPitch = Math.sin(this.time * 0.7) * 0.05;
+        I.headYaw = this.lookAround ? Math.sin(this.time * 0.31) * Math.sin(this.time * 0.17) * 0.7 : 0;
+        for (const k in W) t[k] = blend(I[k], blend(W[k], R[k], runK), moveK);
         if (pc.stumbleTimer > 0) {
           // Hard landing without a roll: crouch down.
           t.kneeL = t.kneeR = 1.4;
@@ -424,12 +488,13 @@ export class PlayerModel {
           t.bagSwing = 0.4;
           break;
         }
-        const rising = pc.vel.y > 0;
-        // Tuck on the way up, legs reach for the ground on the way down.
-        t.hipL = rising ? -1.1 : -0.5;
-        t.kneeL = rising ? 1.5 : 0.6;
-        t.hipR = rising ? 0.3 : 0.1;
-        t.kneeR = rising ? 0.7 : 0.4;
+        // Tuck on the way up, legs reach for the ground on the way down
+        // (blended through the top of the jump, so there's no snap)
+        const up = smooth(-2.5, 2.5, pc.vel.y);
+        t.hipL = blend(-0.5, -1.1, up);
+        t.kneeL = blend(0.6, 1.5, up);
+        t.hipR = blend(0.1, 0.3, up);
+        t.kneeR = blend(0.4, 0.7, up);
         t.shL = -0.9;
         t.shR = 0.5;
         t.shLz = -0.5;
@@ -437,7 +502,7 @@ export class PlayerModel {
         t.elL = -0.6;
         t.elR = -0.4;
         t.lean = 0.15;
-        t.bagSwing = rising ? -0.2 : 0.25;
+        t.bagSwing = blend(0.25, -0.2, up);
         break;
       }
       case 'mantle': {
@@ -450,20 +515,15 @@ export class PlayerModel {
           t.hipL = -1.3; t.kneeL = 1.2;
           t.hipR = -1.1; t.kneeR = 1.4;
           t.lean = 0.35;
-        } else if (k < 0.55) {
-          // Climb phase 1: arms up on the ledge, pulling, legs tucked.
-          t.shL = t.shR = -2.8 + k * 1.5;
-          t.elL = t.elR = -0.3 - k;
-          t.hipL = -1.2; t.kneeL = 1.6;
-          t.hipR = -0.4; t.kneeR = 1.2;
-          t.lean = 0.45;
         } else {
-          // Climb phase 2: pushing up and stepping over.
-          t.shL = t.shR = 0.2;
-          t.elL = t.elR = -0.3;
-          t.hipL = -0.8; t.kneeL = 1.2;
-          t.hipR = 0.2; t.kneeR = 0.4;
-          t.lean = 0.5;
+          // Climb: arms up on the ledge pulling with the legs tucked, then
+          // pushing up and stepping over (blended, not switched)
+          const m = smooth(0.4, 0.7, k);
+          t.shL = t.shR = blend(-2.8 + k * 1.5, 0.2, m);
+          t.elL = t.elR = blend(-0.3 - k, -0.3, m);
+          t.hipL = blend(-1.2, -0.8, m); t.kneeL = blend(1.6, 1.2, m);
+          t.hipR = blend(-0.4, 0.2, m); t.kneeR = blend(1.2, 0.4, m);
+          t.lean = blend(0.45, 0.5, m);
         }
         break;
       }
@@ -520,6 +580,42 @@ export class PlayerModel {
       const k = this.hitT / this.hitLen;
       t.lean -= 0.4 * k; t.headPitch -= 0.45 * k; t.bob -= 0.04 * k;
       t.shL += 0.3 * k; t.shR += 0.3 * k;
+    }
+    if (this.lookT > 0) {
+      // Looking at something: head (and shoulders a little) turned toward it
+      t.headYaw = this.lookYaw;
+      t.twist += this.lookYaw * 0.25;
+    }
+    if (this.flinchT > 0) {
+      // Startled: lean away, hands up
+      const k = Math.sin((1 - this.flinchT / this.flinchLen) * Math.PI); // 0 -> 1 -> 0
+      t.lean -= 0.18 * k;
+      t.sideLean += this.flinchSide * 0.2 * k;
+      t.shL = blend(t.shL, -1.1, k); t.shR = blend(t.shR, -1.1, k);
+      t.elL = blend(t.elL, -1.7, k); t.elR = blend(t.elR, -1.7, k);
+      t.shLz = blend(t.shLz, 0.5, k); t.shRz = blend(t.shRz, -0.5, k);
+    }
+    if (this.fallen) {
+      const f = this.fallen;
+      if (f.t < f.upAt) {
+        // Falling and lying there: arms flung out, legs loose, head lolling
+        const k = Math.min(1, f.t / FALL_TIME);
+        t.shL = t.shR = (f.forward ? -2.5 : -1.0) * k; // (forward: hands out to break the fall)
+        t.shLz = -0.9 * k; t.shRz = 0.9 * k;
+        t.elL = t.elR = -0.45;
+        t.hipL = -0.3; t.hipR = 0.1; t.kneeL = 0.55; t.kneeR = 0.2;
+        t.lean = t.twist = t.bob = t.sway = t.sideLean = 0;
+        t.headPitch = f.forward ? -0.4 : 0.25; t.headYaw = 0.5;
+      } else {
+        // Getting up: knees tuck under, hands push off the floor, then stand
+        const k = clamp((f.t - f.upAt) / GETUP_TIME, 0, 1);
+        const c = Math.sin(Math.min(1, k * 1.15) * Math.PI); // 0 -> 1 -> 0
+        t.hipL = t.hipR = -1.3 * c; t.kneeL = t.kneeR = 1.7 * c;
+        t.shL = t.shR = 0.5 * c; t.elL = t.elR = -0.3;
+        t.shLz = -0.35 * c; t.shRz = 0.35 * c;
+        t.lean = 0.35 * c; t.bob = -0.22 * c;
+        t.headYaw = 0;
+      }
     }
     return t;
   }
