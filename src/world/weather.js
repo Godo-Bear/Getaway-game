@@ -16,7 +16,10 @@ import { getMaterials } from './materials.js';
 //  - Snow (Chapter 8): slow white flakes drifting down, an overcast sky, and
 //    snow on the roofs and roads (see NightLighting.setSnow).
 //
-// kind: 'clear' | 'rain' | 'storm' | 'snow'
+//  - Blizzard (Frostvale): snow blowing sideways, and a whiteout fog that
+//    hides everything past a few car lengths (for you and the police).
+//
+// kind: 'clear' | 'rain' | 'storm' | 'snow' | 'blizzard'
 
 const BOX = { x: 70, y: 40, z: 70 };
 const FALL_SPEED = 28;          // m/s
@@ -40,9 +43,9 @@ export class Weather {
     this.nextStrike = 6 + Math.random() * 6;
     this.thunderIn = -1;
     this.rain = null;
-    lighting.setSnow?.(kind === 'snow');
+    lighting.setSnow?.(kind === 'snow' || kind === 'blizzard', kind === 'blizzard');
     if (kind === 'clear') return;
-    if (kind === 'snow') { this._makeSnow(scene, lighting, quality); return; }
+    if (kind === 'snow' || kind === 'blizzard') { this._makeSnow(scene, lighting, quality, kind === 'blizzard'); return; }
 
     lighting.setStorm(kind === 'storm' ? 1 : 0.55);
     // Shiny wet surfaces cost more to draw: only on high graphics.
@@ -100,9 +103,10 @@ export class Weather {
   }
 
   /** Snowflakes: points in a box round the camera, falling slowly and swaying. */
-  _makeSnow(scene, lighting, quality) {
-    lighting.setStorm(0.3);
-    const n = { low: 700, medium: 1400, high: 2400 }[quality] ?? 1400;
+  _makeSnow(scene, lighting, quality, blizzard = false) {
+    lighting.setStorm(blizzard ? 0.6 : 0.3);
+    this.blizzard = blizzard;
+    const n = ({ low: 700, medium: 1400, high: 2400 }[quality] ?? 1400) * (blizzard ? 1.8 : 1);
     this.count = n;
     this.flakes = new Float32Array(n * 3);
     this.sway = new Float32Array(n);
@@ -126,9 +130,9 @@ export class Weather {
     const hx = BOX.x / 2, hz = BOX.z / 2, oy = center.y - BOX.y * 0.35;
     for (let i = 0; i < n; i++) {
       const k = i * 3;
-      f[k + 1] -= 1.6 * dt;
+      f[k + 1] -= (this.blizzard ? 3.2 : 1.6) * dt;
       if (f[k + 1] < 0) f[k + 1] += BOX.y;
-      f[k] += Math.sin(this.t * 0.8 + this.sway[i]) * 0.6 * dt + 0.4 * dt;
+      f[k] += Math.sin(this.t * 0.8 + this.sway[i]) * 0.6 * dt + (this.blizzard ? 9 : 0.4) * dt; // (a blizzard blows sideways)
       let x = f[k] - center.x, z = f[k + 2] - center.z;
       x = ((((x + hx) % BOX.x) + BOX.x) % BOX.x) - hx;
       z = ((((z + hz) % BOX.z) + BOX.z) % BOX.z) - hz;
@@ -216,7 +220,7 @@ export class Weather {
  */
 export function pickWeather(settings, wanted = 'clear') {
   if (wanted === 'indoor') return 'clear';
-  if (wanted === 'snow') return 'snow'; // (the mountains always have snow)
+  if (wanted === 'snow' || wanted === 'blizzard') return wanted; // (the mountains always have snow)
   if (settings.weather === 'off') return 'clear';
   if (settings.weather === 'rain' && wanted === 'clear') return 'rain';
   return wanted;

@@ -212,9 +212,10 @@ export class NightLighting {
     this._apply();
   }
 
-  /** Snow on the roofs and roads (Chapter 8's mountains). */
-  setSnow(on) {
+  /** Snow on the roofs and roads (Frostvale). blizzard: thick whiteout fog too. */
+  setSnow(on, blizzard = false) {
     this.snow = !!on;
+    this.blizzard = !!blizzard;
     this._apply();
   }
 
@@ -249,6 +250,12 @@ export class NightLighting {
     if (k > 0) grey(fog.color, k * 0.6).multiplyScalar(1 - k * 0.2);
     fog.near = (L.sun > 0.5 ? 80 : 60) - k * 25;
     fog.far = (L.sun > 0.5 ? 380 : 320) - k * 110;
+    if (this.blizzard) {
+      // Whiteout: everything past a few car lengths disappears into the snow
+      fog.color.lerp(_a.setRGB(0.42, 0.46, 0.52).multiplyScalar(0.35 + L.sun * 0.9), 0.75);
+      fog.near = 6;
+      fog.far = 70;
+    }
     this.scene.background.copy(fog.color);
     // Lit windows and street-lamp glows fade out in daylight
     const mats = getMaterials();

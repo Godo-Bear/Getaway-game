@@ -8,7 +8,7 @@ import { FugitiveRunner } from '../../ai/fugitive.js';
 import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { Crowd } from '../../ai/crowd.js';
 import { PlayerModel } from '../../player/playerModel.js';
-import { crewLook, POLICE_LOOK, HUNTER_LOOK } from '../../player/people.js';
+import { crewLook, POLICE_LOOK, HUNTER_LOOK, SENTINEL_LOOK } from '../../player/people.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
@@ -41,6 +41,15 @@ import { audio } from '../../core/audio.js';
 //   meetings  - people to meet on the way (Chapter 5): walk up to them, talk,
 //               and maybe pass their test (a hacking or safe mini-game).
 //               goal.requireMeetings: meet everyone before the goal counts.
+//   levelOpts - options for the level (Frostvale: where you start and end,
+//               who to meet, the festival...)
+//   patrols: 'sentinel' - Sentinel Security in black parkas (Frostvale)
+//   loot      - { ids, value }: cash bags at the level's lootSpots to grab.
+//               goal.requireLoot: all of them first.
+//   fireworks - { every, blind }: every few seconds the fireworks go up and
+//               the patrols are dazzled for a moment (they can't see you)
+//   avalanche - { startZ, speed, height }: a wall of snow coming down the
+//               town (+z); if it reaches you below its top, you're caught
 //
 // GHOST MODE (G, the pause menu or the ghost button on touch screens):
 // the helicopter and officers vanish so you can roam freely. A marker points
@@ -73,7 +82,7 @@ export class ChapterFootMode {
   // Level
   // ------------------------------------------------------------------
   build() {
-    const level = LEVELS[this.part.level]();
+    const level = LEVELS[this.part.level](this.part.levelOpts || {});
     level.spawn = level.checkpoints[0].spawn.clone();
     level.spawn.yaw = level.checkpoints[0].yaw;
     this.level = level;
@@ -82,6 +91,9 @@ export class ChapterFootMode {
     this._buildGuides();
     this._buildPeople();
     this._buildRecon();
+    this._buildLoot();
+    if (this.part.avalanche) this._buildAvalanche();
+    if (this.part.fireworks) this._buildFireworks();
     this.crowd = level.crowdLanes ? new Crowd(level.group, level.world, level.crowdLanes, { perLane: 3, seed: 11, cold: this.weather === 'snow' }) : null;
     return level;
   }
@@ -103,6 +115,135 @@ export class ChapterFootMode {
       this.level.group.add(g);
       this.recon.push({ ...r, pos, group: g, ring, taken: false });
     }
+  }
+
+  /** Cash bags to grab (Frostvale festival): a gold ring, a bag, a tall gold beam. */
+  _buildLoot() {
+    this.loot = [];
+    const L = this.part.loot;
+    if (!L) return;
+    const bagGeo = new THREE.SphereGeometry(0.4, 10, 8);
+    bagGeo.scale(1, 0.85, 0.8);
+    const bagMat = new THREE.MeshLambertMaterial({ color: 0x3a6a2a, emissive: 0x1a3a10 });
+    for (const id of L.ids) {
+      const pos = this.level.lootSpots?.[id];
+      if (!pos) continue;
+      const g = new THREE.Group();
+      g.position.copy(pos);
+      const bag = new THREE.Mesh(bagGeo, bagMat);
+      bag.position.y = 0.4;
+      const tie = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.14, 0.2, 8), bagMat);
+      tie.position.y = 0.82;
+      const sign = new THREE.Mesh(new THREE.CircleGeometry(0.16, 16), new THREE.MeshBasicMaterial({ color: 0xffd040, toneMapped: false }));
+      sign.position.set(0, 0.45, 0.33);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.05, 28), makeGlowMaterial(0xffd040, 0.8));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.05;
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 26, 8, 1, true), makeGlowMaterial(0xffd040, 0.22));
+      beam.position.y = 13;
+      g.add(bag, tie, sign, ring, beam);
+      this.level.group.add(g);
+      this.loot.push({ id, pos, group: g, bag, taken: false });
+    }
+  }
+
+  /** The avalanche: a wall of snow with billowing clouds along its front. */
+  _buildAvalanche() {
+    const a = this.part.avalanche;
+    const g = new THREE.Group();
+    const snow = new THREE.MeshLambertMaterial({ color: 0xe6ecf4 });
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(420, a.height, 60), snow);
+    wall.position.set(0, a.height / 2, -30);
+    g.add(wall);
+    const puffs = [];
+    const pg = new THREE.SphereGeometry(1, 10, 7);
+    for (let i = 0; i < 70; i++) {
+      const m = new THREE.Mesh(pg, new THREE.MeshLambertMaterial({ color: 0xf2f6fa, transparent: true, opacity: 0.9 }));
+      const r = 3 + Math.random() * 4;
+      m.scale.setScalar(r);
+      m.position.set(-200 + i * 5.8 + Math.random() * 3, a.height * (0.4 + Math.random() * 0.7), Math.random() * 3);
+      m.userData = { base: m.position.y, r, ph: Math.random() * 6 };
+      g.add(m);
+      puffs.push(m);
+    }
+    this.level.group.add(g);
+    this.aval = { group: g, puffs, z: a.startZ, speed: a.speed, height: a.height };
+  }
+
+  /** Fireworks: bursts of coloured sparks high over the festival. */
+  _buildFireworks() {
+    this.bursts = [];
+    this.fwTimer = this.part.fireworks.first ?? 8;
+    this.blindT = 0;
+  }
+
+  _launchFireworks() {
+    const at = this.level.fireworksAt || new THREE.Vector3();
+    const colors = [0xff4d6a, 0xffc040, 0x4dffa6, 0x39b8ff, 0xff8ad8, 0xffffff];
+    for (let b = 0; b < 4; b++) {
+      const n = 70;
+      const pos = new Float32Array(n * 3), vel = [];
+      for (let i = 0; i < n; i++) {
+        const u = Math.random() * 2 - 1, th = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u);
+        vel.push([r * Math.cos(th), u, r * Math.sin(th)]);
+      }
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+      const pts = new THREE.Points(geo, new THREE.PointsMaterial({ color: colors[(Math.random() * colors.length) | 0], size: 1.1, transparent: true, opacity: 1, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+      pts.frustumCulled = false;
+      const c = new THREE.Vector3(at.x + (Math.random() - 0.5) * 60, 45 + Math.random() * 25, at.z + (Math.random() - 0.5) * 60);
+      this.level.group.add(pts);
+      this.bursts.push({ pts, vel, c, t: -b * 0.35, n });
+    }
+  }
+
+  _updateFireworks(dt) {
+    const f = this.part.fireworks, hud = this.state.game.hud;
+    this.fwTimer -= dt;
+    this.blindT = Math.max(0, this.blindT - dt);
+    if (this.fwTimer <= 0) {
+      this.fwTimer = f.every ?? 18;
+      this.blindT = f.blind ?? 3.5;
+      this._launchFireworks();
+      audio.sfx('land', { vol: 1 });
+      hud.toast('BOOM!', 'The fireworks are up: the guards are looking at the sky. Move now!', '#ffc040', 2.5);
+    } else if (this.fwTimer < 3 && !this.fwWarned) {
+      this.fwWarned = true;
+      hud.toast('Fireworks in 3...', 'Get ready to move.', '#ffc040', 2);
+    }
+    if (this.fwTimer > 3) this.fwWarned = false;
+    for (let i = this.bursts.length - 1; i >= 0; i--) {
+      const b = this.bursts[i];
+      b.t += dt;
+      if (b.t < 0) { b.pts.visible = false; continue; }
+      b.pts.visible = true;
+      const r = 14 * (1 - Math.exp(-b.t * 2.2)), drop = b.t * b.t * 2.5;
+      const a = b.pts.geometry.attributes.position.array;
+      for (let k = 0; k < b.n; k++) {
+        a[k * 3] = b.c.x + b.vel[k][0] * r; a[k * 3 + 1] = b.c.y + b.vel[k][1] * r - drop; a[k * 3 + 2] = b.c.z + b.vel[k][2] * r;
+      }
+      b.pts.geometry.attributes.position.needsUpdate = true;
+      b.pts.material.opacity = Math.max(0, 1 - b.t / 2.2);
+      if (b.t > 2.3) { this.level.group.remove(b.pts); b.pts.geometry.dispose(); b.pts.material.dispose(); this.bursts.splice(i, 1); }
+    }
+  }
+
+  _updateAvalanche(dt) {
+    const av = this.aval, s = this.state, p = s.player;
+    if (this.ghost) return;
+    av.z += av.speed * dt * Math.min(1, 0.4 + s.time / 6); // (it picks up speed)
+    av.group.position.z = av.z;
+    for (const m of av.puffs) m.position.y = m.userData.base + Math.sin(s.time * 2 + m.userData.ph) * 0.6;
+    const behind = av.z - p.pos.z; // (> 0: the front has passed you)
+    if (behind > -1 && p.pos.y < av.height + 0.5) {
+      this._caught('The avalanche buried you. Back to the last checkpoint: RUN!');
+      return;
+    }
+    if (!this.avalWarned && behind > -30) {
+      this.avalWarned = true;
+      s.game.hud.toast('It\'s right behind you!', 'Sprint! Don\'t look back.', 'var(--red)', 2.5);
+    }
+    if (behind < -45) this.avalWarned = false;
   }
 
   /** Ground-level parts are played in the street: no "climb back up" help. */
@@ -222,6 +363,9 @@ export class ChapterFootMode {
     this._closeMini();
     for (const n of this.npcs) { n.talked = false; n.beam.visible = !!n.def; }
     for (const r of this.recon) { r.taken = false; r.group.visible = true; }
+    for (const l of this.loot) { l.taken = false; l.group.visible = true; }
+    if (this.aval) this.aval.z = this.part.avalanche.startZ;
+    if (this.bursts) { this.fwTimer = this.part.fireworks.first ?? 8; this.blindT = 0; }
 
     this._spawnPolice();
     this.heliAnnounced = false;
@@ -257,7 +401,7 @@ export class ChapterFootMode {
     this.patrols = null;
     if (part.patrols && this.level.patrolRoutes) {
       this.patrols = new GuardSquad(s.scene, s.world, this.level.patrolRoutes.map((route) => ({ route })),
-        { sight: diff().guardSight, look: part.patrols === 'hunters' ? HUNTER_LOOK : POLICE_LOOK, range: 11, alertRange: 15 });
+        { sight: diff().guardSight, look: part.patrols === 'hunters' ? HUNTER_LOOK : part.patrols === 'sentinel' ? SENTINEL_LOOK : POLICE_LOOK, range: 11, alertRange: 15 });
     }
   }
 
@@ -330,6 +474,7 @@ export class ChapterFootMode {
     this.officers?.scatter(s.player.pos);
     this.patrols?.reset();
     this.fugitive?.resetNear(cp.spawn);
+    if (this.aval) this.aval.z = Math.min(this.aval.z, cp.spawn.z - 40); // (the avalanche starts again behind you)
   }
 
   _caught(message) {
@@ -456,6 +601,23 @@ export class ChapterFootMode {
       }
     }
 
+    // --- Cash bags (Frostvale festival)
+    for (const l of this.loot) {
+      if (l.taken) continue;
+      l.bag.rotation.y += dt * 1.5;
+      if (!this.ghost && Math.hypot(p.pos.x - l.pos.x, p.pos.z - l.pos.z) < 2 && Math.abs(p.pos.y - l.pos.y) < 2.5) {
+        l.taken = true;
+        l.group.visible = false;
+        const value = part.loot.value ?? 2500;
+        earn(s.game, value, 'Cash bag', { quiet: true });
+        audio.sfx('clue', { vol: 0.8 });
+        const left = this.loot.filter((x) => !x.taken).length;
+        hud.toast(`Cash bag! +$${value.toLocaleString('en-US')}`, left ? `${left} more to find (the gold beams).` : 'That\'s every bag. Get out of here!', 'var(--safe)', 3);
+      }
+    }
+    if (this.bursts) this._updateFireworks(dt);
+    if (this.aval) { this._updateAvalanche(dt); if (this.done) return; }
+
     // --- Fugitive
     if (this.fugitive) {
       this.fugitive.update(dt, p.pos, this.ghost);
@@ -474,6 +636,8 @@ export class ChapterFootMode {
     const found = this.run.clues.size;
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span>` +
       (total ? `<span>Clues <b>${found}/${total}</b></span>` : '') +
+      (this.loot.length ? `<span>Cash bags <b>${this.loot.filter((l) => l.taken).length}/${this.loot.length}</b></span>` : '') +
+      (this.bursts && this.blindT > 0 ? '<span><b style="color:#ffc040">FIREWORKS!</b></span>' : '') +
       (this.ghost ? '<span><b style="color:var(--cyan)">GHOST MODE</b></span>' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`) +
       (this.hidden ? '<span><b style="color:var(--safe)">HIDDEN</b></span>' : '') +
       (this.blending ? '<span><b style="color:var(--safe)">IN THE CROWD</b></span>' : ''));
@@ -483,7 +647,10 @@ export class ChapterFootMode {
       const g = this.level.goalPos;
       if (Math.hypot(p.pos.x - g.x, p.pos.z - g.z) < CAR_RADIUS && Math.abs(p.pos.y - g.y) < 2.5) {
         if (this.ghost) this._ghostNotice('Turn ghost mode off to finish this part.');
-        else if (part.goal.requireRecon && this.recon.some((r) => !r.taken)) {
+        else if (part.goal.requireLoot && this.loot.some((l) => !l.taken)) {
+          this.warnTimer -= dt;
+          if (this.warnTimer <= 0) { this.warnTimer = 4; hud.toast('Not yet!', `Grab every cash bag first (${this.loot.filter((l) => !l.taken).length} left: the gold beams).`, 'var(--amber)'); }
+        } else if (part.goal.requireRecon && this.recon.some((r) => !r.taken)) {
           this.warnTimer -= dt;
           if (this.warnTimer <= 0) { this.warnTimer = 4; hud.toast('Not yet!', 'Take all the recon photos first (the cyan beams).', 'var(--amber)'); }
         } else if (part.goal.requireMeetings && this._nextMeeting()) {
@@ -514,14 +681,14 @@ export class ChapterFootMode {
       this.lookTip = true;
       hud.toast('Broad daylight', 'A balaclava gets noticed. Pause and pick "Your look" to change into everyday clothes: police only recognise you up close.', 'var(--amber)', 6);
     }
-    const seen = this.patrols.update(dt, p, this.hidden || s.concealed || !!this.mini || this.blending);
+    const seen = this.patrols.update(dt, p, this.hidden || s.concealed || !!this.mini || this.blending || this.blindT > 0); // (fireworks: they're looking at the sky)
     if (this.patrols.bodyFound && !this.patrols.alert) {
       this.patrols.setAlert(true);
       hud.toast('Officer down!', 'Another cop found the officer you knocked out. They\'re all on alert now: they see further and walk faster.', 'var(--red)', 6);
     }
     const d = diff();
     this.spotted = clamp(this.spotted + (seen ? (dt / 0.9) * d.fill : -dt * 0.5), 0, 1);
-    const searching = huntMessages(this.patrols, hud, this.part.patrols === 'hunters' ? 'bounty hunters' : 'police');
+    const searching = huntMessages(this.patrols, hud, this.part.patrols === 'hunters' ? 'bounty hunters' : this.part.patrols === 'sentinel' ? 'Sentinel guards' : 'police');
     hud.setMeter(this.spotted, seen ? 'SEEN! Get out of sight' : searching || 'Keep a low profile', seen ? 'var(--red)' : searching ? '#ff7a1a' : '#8a8f9c');
     if (this.spotted >= 1) { this._caught('A police officer recognised you. Back to the last checkpoint.'); return; }
     // Sneak takedown: behind an officer, press E (X on a gamepad, the button on a phone)

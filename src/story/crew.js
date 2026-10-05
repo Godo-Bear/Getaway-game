@@ -58,6 +58,19 @@ export const SUSPECTS = {
     color: '#ff9ad5',
     bio: 'Ex-ski patrol in Frostvale. Knows every slope, cable and crevasse on the mountain, and flies a wingsuit for fun. Theo\'s cousin.',
   },
+  // ---- Frostvale (Chapters 9-12): not crew, just people in the story
+  lindqvist: {
+    name: 'Mr. Lindqvist',
+    role: 'The buyer',
+    color: '#e8e0d0',
+    bio: 'Buys gold with no questions asked, from a suite at the Summit Hotel. Smiles a lot.',
+  },
+  hask: {
+    name: 'Commander Hask',
+    role: 'Sentinel Security',
+    color: '#ff4050',
+    bio: 'Runs the private army the Glacier Bank hired after the vault job. Thinks the town belongs to him now.',
+  },
 };
 
 /** The old crew (and the detective): the suspects in Chapters 1-4. */

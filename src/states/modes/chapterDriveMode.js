@@ -46,6 +46,9 @@ export class ChapterDriveMode {
     this.fugitive = null;
   }
 
+  /** 'car' or 'snowmobile' (the part decides). */
+  get vehicle() { return this.part.vehicle || 'car'; }
+
   cityOptions() {
     return this.part.city;
   }
@@ -94,7 +97,7 @@ export class ChapterDriveMode {
     this.done = false;
     this.catchMeter = 0;
     this.timeLeft = part.goal.timer != null ? part.goal.timer * diff().timer : null;
-    s.player.gripFactor = part.ice ? 0.62 : 1; // (snow and ice on the roads: the car slides)
+    s.player.gripFactor = part.ice ? (part.vehicle === 'snowmobile' ? 0.9 : 0.62) : 1; // (snow and ice on the roads: the car slides; skis grip)
     this.clueFound = part.clue ? this.run.clues.has(part.clue.id) : true;
     if (this.clue) this.clue.group.visible = !this.clueFound;
 
@@ -104,7 +107,7 @@ export class ChapterDriveMode {
     const f = part.fugitive;
     if (f) {
       const dest = s.city.landmarks[part.goal.block].node;
-      this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color);
+      this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color, f.kind);
       const fn = g.node(f.startNode[0], f.startNode[1]);
       this.fugitive.place(fn, f.heading ?? Math.PI);
       this.fugitiveSpeed = diff().fugitive * 0.9;

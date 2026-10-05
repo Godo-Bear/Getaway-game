@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeGlowMaterial, getGlowTexture } from '../world/materials.js';
+import { PlayerModel } from '../player/playerModel.js';
 
 // Car meshes (the player's getaway car, police cruisers, traffic, vans, taxis).
 // Cars face +Z: headlights at +Z, tail lights at -Z.
@@ -599,3 +600,102 @@ export function updateUnderglow(mesh, time, airborne = false) {
 }
 
 export const CIVILIAN_COLORS = [0x8a1c1c, 0x1f3f8a, 0xd8d4cc, 0x2e2e33, 0x5a6a3a, 0x9a9a9a, 0x6b2f4a, 0x2f6b6b];
+
+// ---------------------------------------------------------------- snowmobile
+/**
+ * A snowmobile (Frostvale): a sled body with a windscreen and handlebars, a
+ * rubber track at the back, two skis at the front that steer, and you riding
+ * it (in your own look). Same userData as a car, so the driving code doesn't
+ * care which one you're on.
+ * @param {{color:number, style?:object, look?:object}} opts
+ */
+export function makeSnowmobileMesh({ color = 0xff9f1a, style = null, look = null } = {}) {
+  const st = style || { stripe: 0x151515, rims: 0x777777, glow: null };
+  const g = new THREE.Group();
+  const body = new THREE.Group();
+  g.add(body);
+  const bodyMat = paintMat(color);
+  const dark = trim();
+  // Sled body: a side profile extruded across, rounded edges
+  const parts = geo('sled', () => {
+    const prof = new THREE.Shape();
+    const pts = [[-1.25, 0.32], [-1.3, 0.62], [-0.15, 0.7], [0.3, 0.86], [0.95, 0.82], [1.45, 0.48], [1.32, 0.3]];
+    prof.moveTo(pts[0][0], pts[0][1]);
+    for (const [z, y] of pts.slice(1)) prof.lineTo(z, y);
+    prof.lineTo(pts[0][0], pts[0][1]);
+    const shell = extrudeAcross(prof, 1.05, 0.08, 2);
+    const seat = new THREE.CapsuleGeometry(0.24, 0.95, 3, 8); seat.rotateX(PI / 2); seat.scale(1.05, 0.55, 1); seat.translate(0, 0.86, -0.6);
+    const track = merge([box(0.72, 0.36, 1.75, 0, 0.24, -0.55), ...Array.from({ length: 9 }, (_, i) => box(0.74, 0.05, 0.06, 0, 0.06, -1.35 + i * 0.2))]);
+    const bars = merge([box(0.9, 0.05, 0.05, 0, 1.12, 0.2), box(0.05, 0.3, 0.05, 0, 0.98, 0.28),
+      ...[-1, 1].map((sx) => box(0.08, 0.08, 0.14, sx * 0.45, 1.12, 0.2))]);
+    const struts = merge([-1, 1].flatMap((sx) => [box(0.06, 0.35, 0.06, sx * 0.52, 0.32, 0.95, 0.3, 0, 0), box(0.4, 0.05, 0.06, sx * 0.35, 0.42, 0.95)]));
+    const shield = new THREE.PlaneGeometry(0.9, 0.42); shield.rotateX(-0.75); shield.translate(0, 1.05, 0.55);
+    const stripe = merge([-1, 1].map((sx) => box(0.012, 0.08, 1.6, sx * 0.535, 0.62, 0.2)));
+    const lights = box(0.5, 0.1, 0.05, 0, 0.62, 1.44, 0.6, 0, 0);
+    const tail = box(0.5, 0.08, 0.04, 0, 0.58, -1.33);
+    return { shell, seat, track, bars, struts, shield, stripe, lights, tail };
+  });
+  addMesh(body, parts.shell, bodyMat);
+  addMesh(body, parts.seat, dark);
+  addMesh(body, parts.track, mat('track', () => new THREE.MeshLambertMaterial({ color: 0x1a1a1c })));
+  addMesh(body, parts.bars, chrome());
+  addMesh(body, parts.struts, dark);
+  addMesh(body, parts.stripe, lambert(st.stripe ?? 0x151515), { shadow: false });
+  const shield = new THREE.Mesh(parts.shield, mat('shield', () => new THREE.MeshPhongMaterial({ color: 0x2a3a50, specular: 0xaabbcc, shininess: 100, transparent: true, opacity: 0.55, side: THREE.DoubleSide })));
+  body.add(shield);
+  const headMat = mat('head', () => new THREE.MeshBasicMaterial({ color: 0xfff1c4, toneMapped: false }));
+  const tailMat = new THREE.MeshBasicMaterial({ color: 0x881018, toneMapped: false });
+  addMesh(body, parts.lights, headMat, { shadow: false });
+  addMesh(body, parts.tail, tailMat, { shadow: false });
+
+  // Skis (steer with the handlebars)
+  const steer = [];
+  const skiGeo = geo('ski', () => merge([box(0.2, 0.05, 1.5, 0, 0.03, 0), box(0.2, 0.05, 0.3, 0, 0.1, 0.82, -0.6, 0, 0)]));
+  for (const sx of [-1, 1]) {
+    const pivot = new THREE.Group();
+    pivot.position.set(sx * 0.52, 0, 0.95);
+    const ski = new THREE.Mesh(skiGeo, dark);
+    ski.castShadow = true;
+    pivot.add(ski);
+    g.add(pivot);
+    steer.push(pivot);
+  }
+  // Track wheels (spin with speed; you see them through the gaps)
+  const wheels = [];
+  const wGeo = geo('trackWheel', () => { const c = new THREE.CylinderGeometry(0.16, 0.16, 0.76, 10); c.rotateZ(PI / 2); return c; });
+  for (const z of [-1.2, -0.55, 0.1]) {
+    const w = new THREE.Mesh(wGeo, chrome());
+    w.position.set(0, 0.2, z);
+    g.add(w);
+    wheels.push(w);
+  }
+
+  // You, riding it: sitting on the seat, hands on the bars
+  const rider = new PlayerModel();
+  if (look) rider.setLook(look);
+  const p = rider.pose;
+  p.hipL = p.hipR = -1.35; p.kneeL = p.kneeR = 1.5;
+  p.shL = p.shR = -1.05; p.elL = p.elR = -0.35; p.shLz = -0.3; p.shRz = 0.3;
+  p.lean = 0.25;
+  rider._apply({ state: 'ground', gliding: false });
+  rider.root.position.set(0, 0.08, -0.62);
+  body.add(rider.root);
+
+  // Headlight beam on the snow, nitro flames, underglow
+  const beam = new THREE.Mesh(geo('beam', () => { const pl = new THREE.PlaneGeometry(4.5, 12); pl.rotateX(-PI / 2); pl.translate(0, 0.06, 8.5); return pl; }),
+    new THREE.MeshBasicMaterial({ map: getGlowTexture(), color: 0xfff0c0, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  beam.material.userData.nightGlow = true;
+  g.add(beam);
+  const flames = new THREE.Group();
+  const f = new THREE.Mesh(geo('flame', () => { const c = new THREE.ConeGeometry(0.16, 1.2, 8); c.rotateX(-PI / 2); c.translate(0, 0, -0.6); return c; }), makeGlowMaterial(0x40b0ff, 0.85));
+  f.position.set(0, 0.5, -1.35);
+  flames.add(f);
+  flames.visible = false;
+  g.add(flames);
+  let underglow = null;
+  if (st.glow != null) underglow = addUnderglow(g, st.glow, { wheelZ: 1.0, arch: 0.25 });
+
+  mergeStatic(body, new Set([tailMat, shield.material]));
+  g.userData = { wheels, steer, sirens: null, flames, body, beam, tailMat, underglow, paint: bodyMat, rider };
+  return g;
+}

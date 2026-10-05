@@ -128,7 +128,7 @@ function start(renderer) {
   if (params.has('nolock')) game.input.pointerLockFailed = game.input.lockDisabled = true;
   const mode = params.get('mode');
   // Story: ?mode=chapter2&part=1&ghost  (part is 0-based)
-  const story = /^chapter(\d)$/.exec(mode || '');
+  const story = /^chapter(\d+)$/.exec(mode || '');
   if (story) startPart(game, mode, Number(params.get('part') || 0), { ghost: params.has('ghost'), fresh: true });
   else if (mode === 'rooftop') game.sm.change('onFoot', { mode: 'survival' });
   else if (mode === 'free') game.sm.change('onFoot', { mode: 'free' });

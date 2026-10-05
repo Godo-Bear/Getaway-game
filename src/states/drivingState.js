@@ -5,7 +5,8 @@ import { Weather, pickWeather } from '../world/weather.js';
 import { generateStreetCity } from '../world/streetCity.js';
 import { makeGlowMaterial } from '../world/materials.js';
 import { Car, CAR_SPECS, collideCarWithWorld, collideCars } from '../vehicles/car.js';
-import { makeCarMesh, updateUnderglow } from '../vehicles/carModel.js';
+import { makeCarMesh, makeSnowmobileMesh, updateUnderglow } from '../vehicles/carModel.js';
+import { currentLook } from '../player/outfits.js';
 import { Traffic } from '../vehicles/traffic.js';
 import { ParticleSystem } from '../vehicles/particles.js';
 import { PoliceForce } from '../ai/police.js';
@@ -88,9 +89,9 @@ export class DrivingState extends PlayState {
     this.scene.add(this.city.group);
 
     // Player car + a real headlight (the only moving real light)
-    this.playerMesh = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle() });
+    this.playerMesh = this._makePlayerMesh();
     this.scene.add(this.playerMesh);
-    this.player = new Car(CAR_SPECS.player, this.playerMesh);
+    this.player = new Car(this.mode.vehicle === 'snowmobile' ? CAR_SPECS.snowmobile : CAR_SPECS.player, this.playerMesh);
     this.player.active = true;
     this.player.isPlayer = true;
     const head = new THREE.SpotLight(0xfff0d0, 120, 60, 0.55, 0.6, 1.2);
@@ -122,7 +123,7 @@ export class DrivingState extends PlayState {
     const tod = pickTime(game.settings, this.mode.time);
     this.lighting.setTime(tod.hour);
     this.timeCycle = tod.cycle;
-    this.police.sightScale = 1 + 0.3 * this.lighting.daylight; // cops see further in daylight
+    this.police.sightScale = (1 + 0.3 * this.lighting.daylight) * (this.mode.weather === 'blizzard' ? 0.5 : 1); // cops see further in daylight, much less in a blizzard
     // Rain / storm (the story part decides; the Weather setting can override)
     this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
 
@@ -343,11 +344,19 @@ export class DrivingState extends PlayState {
     return [{ label: 'Your car', sub: 'Paint, stripes, wheels, underglow', onClick: () => showGarage(this.game, () => { this.paused = false; this.pause(); }, () => this.rebuildCar()) }];
   }
 
+  /** Your car (or, in Frostvale, a snowmobile with you riding it). */
+  _makePlayerMesh() {
+    const color = playerCarColour(), style = playerCarStyle();
+    return this.mode.vehicle === 'snowmobile'
+      ? makeSnowmobileMesh({ color, style, look: currentLook(this.game.settings) })
+      : makeCarMesh({ kind: 'player', color, style });
+  }
+
   /** Your car changed (Your car): swap in a newly built car, same place, same headlight. */
   rebuildCar() {
     const old = this.playerMesh;
     if (!old) return;
-    const mesh = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle() });
+    const mesh = this._makePlayerMesh();
     mesh.position.copy(old.position);
     mesh.rotation.copy(old.rotation);
     for (const c of [...old.children]) if (c.isLight || c === old.children.find((x) => x.isLight)?.target || c.type === 'Object3D') mesh.add(c);

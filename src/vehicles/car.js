@@ -27,6 +27,12 @@ export const CAR_SPECS = {
     grip: 9, driftGrip: 2, steerLow: 2.5, steerHigh: 1.1,
     nitroAccel: 0, nitroMaxFactor: 1, mass: 1.1,
   },
+  // Frostvale: lighter and twitchier than the car, and its skis grip on snow
+  snowmobile: {
+    maxSpeed: 39, accel: 20, brake: 38, reverseMax: 8,
+    grip: 11, driftGrip: 2.2, steerLow: 3.1, steerHigh: 1.45,
+    nitroAccel: 20, nitroMaxFactor: 1.3, mass: 0.7,
+  },
   civilian: {
     maxSpeed: 20, accel: 9, brake: 30, reverseMax: 6,
     grip: 10, driftGrip: 2, steerLow: 2.2, steerHigh: 1.2,

@@ -41,6 +41,12 @@ const LANDMARKS = {
   freightyard: { height: 7, tint: 0x6a5a48, door: 0xc0551e, sign: 'FREIGHT YARD', signColor: '#ff8a3d' },
   tunnel: { height: 12, tint: 0x4a4c52, door: 0xffd040, sign: 'HIGHWAY NORTH', signColor: '#ffd040' },
   cabin: { height: 6, tint: 0x6b5236, door: 0x1f9a58, sign: 'PINE LODGE', signColor: '#7dff8a' },
+  // Frostvale (Chapters 9-12)
+  hotel: { height: 14, tint: 0xd2c4aa, door: 0xffb020, sign: 'SUMMIT HOTEL', signColor: '#ffd070', windows: true },
+  pass: { height: 10, tint: 0x55606e, door: 0xffd040, sign: 'MOUNTAIN PASS', signColor: '#ffd040' },
+  sentinel: { height: 12, tint: 0x2a2e36, door: 0xff3040, sign: 'SENTINEL', signColor: '#ff4050' },
+  church: { height: 16, tint: 0xe0d6c4, door: 0x7dff8a, sign: 'ST. ANNA', signColor: '#9fd4ff' },
+  airstrip: { height: 7, tint: 0x6a7480, door: 0x39e6ff, sign: 'LAKE AIRSTRIP', signColor: '#39e6ff' },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];

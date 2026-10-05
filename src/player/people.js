@@ -20,6 +20,10 @@ export const CREW_LOOKS = {
     style: { top: 'jacket', hair: 'short', beard: 'beard', build: 1.1 } },
   marla: { hoodie: 0x1f6a4a, trousers: 0x1a1c22, skin: 0xc98f6a, hair: 0x9a3a1a, gloves: 0x111111,
     style: { top: 'hoodie', hair: 'long', build: 0.92 } },
+  lindqvist: { hoodie: 0xe8e0d0, trousers: 0x2a2a30, shoes: 0x1a1410, skin: 0xf0c8a8, hair: 0xd8d4cc, shirt: 0x1a1b20, tie: 0x8a1f2e,
+    style: { top: 'suit', hair: 'short', beard: 'goatee', build: 1.1 } },
+  hask: { hoodie: 0x16181c, trousers: 0x16181c, hat: 0x16181c, skin: 0xe0b090, hair: 0x6a6660, shoes: 0x0a0a0a,
+    style: { top: 'uniform', hat: 'guard', badge: true, beard: 'stubble', build: 1.2 } },
   dex: { hoodie: 0x2a3a5a, trousers: 0x1a1e2a, skin: 0x5a3a24, hair: 0x1a1410, style: { top: 'tee', hair: 'buzz', build: 1.15 } },
   hale: { hoodie: 0x6a5a48, trousers: 0x3a3630, skin: 0xe0b090, hair: 0x6a4422, style: { top: 'suit', hair: 'short', beard: 'moustache' } },
 };
@@ -38,6 +42,9 @@ export const HUNTER_LOOK = { hoodie: 0xc8301e, trousers: 0x2a2e36, hat: 0x1a1b20
   style: { top: 'jacket', hat: 'beanie', beard: 'stubble', build: 1.1 } };
 export const CASINO_SECURITY = { hoodie: 0x16161a, trousers: 0x16161a, shoes: 0x0a0a0a, tie: 0x16161a,
   style: { top: 'suit', face: 'shades', build: 1.12 } };
+// Sentinel Security (Frostvale): black parkas, red stripe, black beanies
+export const SENTINEL_LOOK = { hoodie: 0x1a1c22, trousers: 0x14161a, hat: 0x101114, shirt: 0xc8202e, shoes: 0x0a0a0a, gloves: 0x101114,
+  style: { top: 'ski', hat: 'beanie', build: 1.12 } };
 export const JUMPSUIT_LOOK = { hoodie: 0xe0701c, trousers: 0xe0701c, shoes: 0x222222, style: { top: 'jumpsuit', hair: 'buzz' } };
 
 // ---- People on the street

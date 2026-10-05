@@ -25,9 +25,10 @@ end). From now on:
   for a new city or country, and the chapters in between happen there (new
   look, new places to rob, new ways to get away). Chapters 1-7 are in
   Harbor City; Chapter 8 moves them to **Frostvale**, a snowy ski town in
-  the mountains: their new home for Chapters 8-10 (use the alpine street
+  the mountains: their new home for Chapters 8-12 (use the alpine street
   city `generateStreetCity({ alpine: true })` and the alpine rooftop town
-  for it). After Chapter 10 they move abroad (Chapters 11-13), and so on.
+  `ch8Town` with its `levelOpts` for it). At the end of Chapter 12 they fly
+  abroad (Chapters 13-15), and so on.
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
 

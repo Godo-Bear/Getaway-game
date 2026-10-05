@@ -9,6 +9,15 @@ import { makeTextTexture, makeGlowMaterial } from '../materials.js';
 //  its security hut, its town office), then go to your new home: the cabin.
 //  Bounty hunters walk the streets (your faces are on every wanted poster):
 //  blend into the crowd, crouch behind parked cars, or take the roofs.
+//
+//  Chapters 9-12 come back here with different options (opts):
+//    spawnAt / goalAt - named places: busStop, cabin, shop, station, office,
+//                       hotel, shed, church, palace
+//    meet             - { who: place } people to meet (default: Juno at the shop)
+//    festival         - the Winter Festival: lanterns over every street, a
+//                       big tree, the Ice Palace, a fireworks stage
+//    lootSpots        - cash bags hidden round the festival (Chapter 11)
+//    avalanche        - the route for the avalanche run (Chapter 10)
 // ======================================================================
 
 const BLOCKS = 4;
@@ -17,7 +26,7 @@ const C = (i) => (i - (BLOCKS - 1) / 2) * PITCH;   // block centre
 const ST = (i) => C(i) + PITCH / 2;                // street centre (after block i)
 const PAV = 22.3;                                   // pavement line from a block centre
 
-export function buildChapter8Town() {
+export function buildChapter8Town(opts = {}) {
   const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS, alpine: true });
   const w = city.world;
   const g = city.group;
@@ -95,18 +104,67 @@ export function buildChapter8Town() {
     [C(2) - 6, C(2) - 25.2, Math.PI / 2, 0x6a8a3a], [C(3) - 10, C(3) + 25.2, Math.PI / 2, 0xc8a040], [ST(1) - 3.2, C(2) + 10, 0, 0xd8d8d8]]
     .forEach(([x, z, h, c]) => car(x, z, h, c));
 
-  const meetingSpots = { juno: new THREE.Vector3(shop.x + 2, 0.05, shop.z) };
+  // --- More places in town (Chapters 9-12)
+  const hotel = { x: C(2), z: C(2) + PAV };
+  sign('SUMMIT HOTEL', hotel.x, 4.4, C(2) + 21.05, 0, '#ffd070', 6);
+  const shed = { x: C(0), z: C(3) + PAV };
+  sign('SNOWMOBILE HIRE', shed.x, 4.2, C(3) + 21.05, 0, '#39e6ff', 6);
+  for (const dx of [-3, 0, 3]) box(shed.x + dx, 0, shed.z + 1.2, 1.1, 0.9, 2.4, [0xff9f1a, 0xc0182a, 0x1f5fd1][dx / 3 + 1]); // snowmobiles out front
+  const church = { x: C(0), z: C(0) - PAV };
+  sign('ST. ANNA', church.x, 5.2, C(0) - 21.05, Math.PI, '#9fd4ff', 4);
+  const palace = { x: ST(1), z: ST(1) };
+  // Covered porches: shelter from a helicopter's searchlight (hide under them)
+  const hideSpots = [];
+  const porch = (x, z) => {
+    for (const [dx, dz] of [[-1.3, -1.1], [1.3, -1.1], [-1.3, 1.1], [1.3, 1.1]]) box(x + dx, 0, z + dz, 0.18, 2.6, 0.18, 0x4a3222, false);
+    box(x, 2.6, z, 3.2, 0.25, 2.8, 0x4a3222);
+    box(x, 2.85, z, 3.4, 0.2, 3, 0xd2dae6, false);
+    hideSpots.push(new THREE.Vector3(x, 0.05, z));
+  };
+  porch(ST(0) - 3.5, C(1) - 12); porch(C(1) + 14, ST(1) + 3.5); porch(ST(2) + 3.5, C(2) + 12); porch(C(2) - 12, ST(2) - 3.5);
+
+  const places = {
+    busStop: { pos: spawn, yaw: Math.PI },
+    cabin: { pos: new THREE.Vector3(cabin.x - 6, 0.05, cabin.z), yaw: -Math.PI / 2 },
+    shop: { pos: new THREE.Vector3(shop.x - 5, 0.05, shop.z), yaw: -Math.PI / 2 },
+    station: { pos: new THREE.Vector3(station.x - 0.5, 0.05, station.z + 6), yaw: Math.PI },
+    office: { pos: new THREE.Vector3(office.x, 0.05, office.z), yaw: 0 },
+    hotel: { pos: new THREE.Vector3(hotel.x, 0.05, hotel.z + 0.4), yaw: 0 },
+    shed: { pos: new THREE.Vector3(shed.x + 6, 0.05, shed.z), yaw: Math.PI / 2 },
+    church: { pos: new THREE.Vector3(church.x, 0.05, church.z - 0.4), yaw: Math.PI },
+    palace: { pos: new THREE.Vector3(palace.x + 6, 0.05, palace.z + 6), yaw: 0 },
+  };
+  const place = (name) => places[name] || places.busStop;
+
+  const meetingSpots = {};
+  for (const [who, where] of Object.entries(opts.meet || { juno: 'shopFront' })) {
+    meetingSpots[who] = where === 'shopFront' ? new THREE.Vector3(shop.x + 2, 0.05, shop.z) : place(where).pos.clone().add(new THREE.Vector3(2, 0, 0));
+  }
   const reconSpots = {
     station: new THREE.Vector3(station.x - 0.5, 0.05, station.z + 4),
     hut: new THREE.Vector3(hut.x - 3, 0.05, hut.z),
     office: new THREE.Vector3(office.x, 0.05, office.z),
+    palace: new THREE.Vector3(palace.x + 5.5, 0.05, palace.z),
+    stage: new THREE.Vector3(ST(2) - 5, 0.05, ST(2)),
+    van: new THREE.Vector3(C(2) - 6, 0.05, C(2) - 21.5),
   };
+  if (opts.festival) buildFestival(g, w, box, sign);
 
   const area = (x, z, r = 5) => ({ minX: x - r, maxX: x + r, minZ: z - r, maxZ: z + r, h: 0 });
-  const checkpoints = [
-    { name: 'The bus stop', spawn: spawn.clone(), yaw: Math.PI, roof: area(spawn.x, spawn.z) },
-    { name: 'The ski hire shop', spawn: new THREE.Vector3(shop.x - 5, 0.05, shop.z), yaw: -Math.PI / 2, roof: area(shop.x, shop.z, 6) },
-  ];
+  const start = place(opts.spawnAt || 'busStop');
+  const checkpoints = opts.spawnAt || opts.goalAt
+    ? [{ name: 'Start', spawn: start.pos.clone(), yaw: start.yaw, roof: area(start.pos.x, start.pos.z) },
+      ...(opts.checkpoints || []).map(([name, x, z, yaw]) => ({ name, spawn: new THREE.Vector3(x, 0.05, z), yaw, roof: area(x, z, 6) }))]
+    : [
+      { name: 'The bus stop', spawn: spawn.clone(), yaw: Math.PI, roof: area(spawn.x, spawn.z) },
+      { name: 'The ski hire shop', spawn: new THREE.Vector3(shop.x - 5, 0.05, shop.z), yaw: -Math.PI / 2, roof: area(shop.x, shop.z, 6) },
+    ];
+  const goal = opts.goalAt ? place(opts.goalAt).pos.clone().setY(0) : goalPos;
+  // Cash bags hidden round the festival (the streets between the blocks)
+  const lootSpots = {
+    a: new THREE.Vector3(ST(0), 0.05, C(0) + 4), b: new THREE.Vector3(ST(1) + 3, 0.05, C(2) + 6), c: new THREE.Vector3(ST(2), 0.05, C(3) - 5),
+    d: new THREE.Vector3(C(1) - 6, 0.05, ST(2) + 3), e: new THREE.Vector3(C(3), 0.05, ST(0)), f: new THREE.Vector3(C(0) + 8, 0.05, ST(1) - 2),
+  };
   const patrolRoutes = [
     [[C(1) - 16, C(1) + 23], [C(1) + 16, C(1) + 23]],          // past the ski shop
     [[ST(2), C(1) - 18], [ST(2), C(1) + 22]],                   // up the street by the station
@@ -125,8 +183,11 @@ export function buildChapter8Town() {
   return {
     ...city,
     groundLevel: true,
-    spawn, checkpoints, clues: [], goalPos, meetingSpots, reconSpots, patrolRoutes, crowdLanes,
-    meetingCheckpoint: { juno: 1 },
+    spawn, checkpoints, clues: [], goalPos: goal, meetingSpots, reconSpots, patrolRoutes, crowdLanes, lootSpots, hideSpots,
+    meetingCheckpoint: opts.meet ? {} : { juno: 1 },
+    heliStart: new THREE.Vector3(0, 0, -150),
+    places: Object.fromEntries(Object.entries(places).map(([k, v]) => [k, v.pos.clone()])),
+    fireworksAt: new THREE.Vector3(ST(2), 0, ST(2)),
   };
 }
 
@@ -299,4 +360,69 @@ function buildAlpineTown(city, g, w) {
     post.position.set(C(0) + 26.5, 2.1, C(1) - 14 + dz);
     g.add(post);
   }
+}
+
+// ----------------------------------------------------------------------
+//  The Winter Festival (Chapter 11): strings of coloured lanterns over
+//  every street, a huge lit tree, the Ice Palace in the middle of town
+//  (glowing blue ice blocks), and the stage the fireworks go up from.
+// ----------------------------------------------------------------------
+function buildFestival(g, w, box, sign) {
+  const colors = [0xff4d6a, 0xffc040, 0x4dffa6, 0x39b8ff, 0xff8ad8];
+  const lanterns = [];
+  const ext = ((BLOCKS - 1) / 2) * PITCH + 20;
+  for (let i = 0; i < BLOCKS - 1; i++) {
+    for (let t = -ext; t <= ext; t += 1.7) {
+      const sag = 5.6 - Math.abs(Math.sin(t / 7)) * 0.9; // (strung between poles, sagging a bit)
+      lanterns.push([ST(i) - 3, sag, t], [ST(i) + 3, sag, t], [t, sag, ST(i) - 3], [t, sag, ST(i) + 3]); // (a string down each side of the street)
+    }
+  }
+  const lm = new THREE.InstancedMesh(new THREE.SphereGeometry(0.3, 8, 6), new THREE.MeshBasicMaterial({ toneMapped: false }), lanterns.length);
+  const m4 = new THREE.Matrix4(), c = new THREE.Color();
+  lanterns.forEach(([x, y, z], k) => { lm.setMatrixAt(k, m4.makeTranslation(x, y, z)); lm.setColorAt(k, c.setHex(colors[k % colors.length]).multiplyScalar(1.6)); });
+  g.add(lm);
+  // The big tree, with lights spiralling up it
+  const tx = ST(2), tz = ST(0);
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.5, 2, 8), new THREE.MeshLambertMaterial({ color: 0x3a2a1c }));
+  trunk.position.set(tx, 1, tz);
+  g.add(trunk);
+  for (const [r, h, y] of [[4, 6, 4], [3, 5, 7.5], [1.8, 4, 10.5]]) {
+    const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 9), new THREE.MeshLambertMaterial({ color: 0x1d4a2c }));
+    cone.position.set(tx, y, tz);
+    g.add(cone);
+  }
+  const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.6), new THREE.MeshBasicMaterial({ color: 0xffd040, toneMapped: false }));
+  star.position.set(tx, 13, tz);
+  g.add(star);
+  const tl = new THREE.InstancedMesh(new THREE.SphereGeometry(0.12, 6, 4), new THREE.MeshBasicMaterial({ toneMapped: false }), 60);
+  for (let k = 0; k < 60; k++) {
+    const f = k / 60, a = f * Math.PI * 10, y = 2.2 + f * 10, r = 4 * (1 - f) + 0.4;
+    tl.setMatrixAt(k, m4.makeTranslation(tx + Math.cos(a) * r, y, tz + Math.sin(a) * r));
+    tl.setColorAt(k, c.setHex(colors[k % colors.length]).multiplyScalar(1.6));
+  }
+  g.add(tl);
+  w.addBlock(tx, 0, tz, 1, 3, 1, { tag: 'prop' });
+  // The Ice Palace: blue glowing ice blocks and towers in the middle of town
+  const ice = new THREE.MeshLambertMaterial({ color: 0x9fd4ff, emissive: 0x2a6aa8, emissiveIntensity: 0.6, transparent: true, opacity: 0.88 });
+  const px = ST(1), pz = ST(1);
+  const iceBlock = (x, y, z, sx, sy, sz) => {
+    const m = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz), ice);
+    m.position.set(x, y + sy / 2, z);
+    g.add(m);
+    w.addBlock(x, y, z, sx, sy, sz, { tag: 'prop' });
+  };
+  iceBlock(px, 0, pz - 3, 6, 3, 0.8); iceBlock(px, 0, pz + 3, 6, 3, 0.8); iceBlock(px - 3, 0, pz, 0.8, 3, 6);
+  iceBlock(px + 3, 0, pz - 2.2, 0.8, 3, 1.6); iceBlock(px + 3, 0, pz + 2.2, 0.8, 3, 1.6); // (the gate faces east)
+  for (const [dx, dz] of [[-3, -3], [3, -3], [-3, 3], [3, 3]]) {
+    iceBlock(px + dx, 0, pz + dz, 1.4, 5, 1.4);
+    const cap = new THREE.Mesh(new THREE.ConeGeometry(1.1, 1.6, 6), ice);
+    cap.position.set(px + dx, 5.8, pz + dz);
+    g.add(cap);
+  }
+  sign('ICE PALACE', px + 3.45, 3.6, pz, Math.PI / 2, '#9fd4ff', 4);
+  // The fireworks stage: a platform with rocket tubes
+  const sx = ST(2), sz = ST(2);
+  box(sx, 0, sz, 4, 0.6, 4, 0x3a3e46);
+  for (let k = 0; k < 6; k++) box(sx - 1.2 + (k % 3) * 1.2, 0.6, sz - 0.6 + Math.floor(k / 3) * 1.2, 0.3, 1.2, 0.3, 0xc0182a, false);
+  sign('FIREWORKS · STAND BACK', sx, 2.6, sz - 2.05, Math.PI, '#ffc040', 4);
 }
