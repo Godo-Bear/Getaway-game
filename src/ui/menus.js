@@ -225,6 +225,7 @@ export function showTitle(actions) {
 /** Free Run: pick where to start, and whether the police come too. */
 function showFreeRunMenu(actions, back) {
   let police = false;
+  const jobsOpen = (save.data.progress.chapterUnlocked || 1) >= 8; // (once the crew reaches Frostvale)
   const render = () => {
     showCard(`
       <p class="sub kicker">Free Run</p>
@@ -237,6 +238,8 @@ function showFreeRunMenu(actions, back) {
     [
       { label: 'Start on the rooftops', primary: true, onClick: () => actions.freeRun({ police, inCar: false }) },
       { label: 'Start in the car', onClick: () => actions.freeRun({ police, inCar: true }) },
+      jobsOpen ? { label: 'Frostvale side jobs', sub: 'Races, smash and grabs, deliveries: cash for gadgets and cars', onClick: () => actions.sideJobs() }
+        : { label: 'Frostvale side jobs 🔒', sub: 'Opens when the crew reaches Frostvale (Chapter 8)', onClick: () => {} },
       { label: 'Back', onClick: back },
     ]);
     for (const el of card.querySelectorAll('[data-pol]')) {

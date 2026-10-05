@@ -1,3 +1,4 @@
+import { playerCarBody } from '../../vehicles/carColours.js';
 import * as THREE from 'three';
 import { makeGlowMaterial } from '../../world/materials.js';
 import { CHAPTERS } from '../../story/chapters.js';
@@ -97,7 +98,7 @@ export class ChapterDriveMode {
     this.done = false;
     this.catchMeter = 0;
     this.timeLeft = part.goal.timer != null ? part.goal.timer * diff().timer : null;
-    s.player.gripFactor = part.ice ? (part.vehicle === 'snowmobile' ? 0.9 : 0.62) : 1; // (snow and ice on the roads: the car slides; skis grip)
+    s.player.gripFactor = part.ice ? (part.vehicle === 'snowmobile' ? 0.9 : playerCarBody().iceGrip ?? 0.62) : 1; // (snow and ice on the roads: the car slides; skis and the Rally Hatch grip)
     this.clueFound = part.clue ? this.run.clues.has(part.clue.id) : true;
     if (this.clue) this.clue.group.visible = !this.clueFound;
 

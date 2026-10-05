@@ -7,7 +7,7 @@ import { showCard } from './menus.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
 import { OUTFITS, PALETTE, SKINS, FACES, HAIRS, HAIR_COLOURS, BEARDS, HATS, TOPS, currentLook } from '../player/outfits.js';
-import { CAR_COLOURS, CAR_PARTS, isColourUnlocked, playerCarColour, playerCarStyle } from '../vehicles/carColours.js';
+import { CAR_COLOURS, CAR_PARTS, CAR_BODIES, isBodyUnlocked, isColourUnlocked, playerCarColour, playerCarStyle } from '../vehicles/carColours.js';
 import { showLookPreview, showCarPreview } from './lookPreview.js';
 
 const hex = (n) => `#${n.toString(16).padStart(6, '0')}`;
@@ -102,6 +102,15 @@ export function showGarage(game, onBack, onChange = () => {}) {
     const ok = isColourUnlocked(c);
     return `<button class="swatch sm${s.carColour === c.id ? ' on' : ''}" data-paint="${c.id}" ${ok ? '' : 'disabled'} style="background:${hex(c.hex)}" title="${c.name}${ok ? '' : ` (locked: ${c.unlock})`}" aria-label="${c.name}"></button>`;
   }).join('');
+  // The car itself: pick one you've unlocked, or buy one early with cash
+  const cashNow = save.data.shop.cash;
+  const bodies = CAR_BODIES.map((b) => {
+    const ok = isBodyUnlocked(b), on = (car.body || 'coupe') === b.id;
+    return `<button class="chip${on ? ' on' : ''}" data-body="${b.id}" ${ok || cashNow >= b.price ? '' : 'disabled'}>${b.name}${ok ? '' : ` · $${b.price.toLocaleString('en-US')}`}</button>`;
+  }).join('');
+  const cur = CAR_BODIES.find((b) => b.id === (car.body || 'coupe')) || CAR_BODIES[0];
+  const locked = CAR_BODIES.filter((b) => !isBodyUnlocked(b));
+  const carNote = `${cur.name}: ${cur.note}.` + (locked.length ? ` Locked cars are free once you reach their chapter (${locked.map((b) => `${b.name}: Chapter ${b.chapter}`).join(', ')}), or buy one now (you have $${cashNow.toLocaleString('en-US')}).` : '');
   const part = (k) => CAR_PARTS[k].map((p) => (p.hex != null && k !== 'windows'
     ? swatch(`part-${k}`, p.id, car[k] === p.id, hex(p.hex), p.name)
     : `<button class="chip${car[k] === p.id ? ' on' : ''}" data-part-${k}="${p.id}">${p.name}</button>`)).join('');
@@ -109,6 +118,8 @@ export function showGarage(game, onBack, onChange = () => {}) {
   showCard(`
     <p class="sub kicker">Garage</p><h2>Your car</h2>
     <p class="sub cz-note">Mix and match your getaway car. Gold-rating colours unlock as you play.</p>
+    ${row('Car', bodies)}
+    <p class="sub cz-note cz-car-note">${carNote}</p>
     ${row('Paint', paint)}
     ${row('Stripes', part('stripes'))}
     ${row('Wheels', part('rims'))}
@@ -120,4 +131,14 @@ export function showGarage(game, onBack, onChange = () => {}) {
 
   bind('paint', (id) => { s.carColour = id; save.write(); onChange(); redraw(() => showGarage(game, onBack, onChange)); });
   for (const k of Object.keys(CAR_PARTS)) bind(`part-${k}`, (v) => set(k, v));
+  bind('body', (id) => {
+    const b = CAR_BODIES.find((x) => x.id === id);
+    if (!b) return;
+    if (!isBodyUnlocked(b)) {
+      if (save.data.shop.cash < b.price) return;
+      save.data.shop.cash -= b.price; // (bought early with cash)
+      save.data.shop.cars = [...(save.data.shop.cars || []), b.id];
+    }
+    set('body', id);
+  });
 }

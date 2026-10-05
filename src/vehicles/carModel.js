@@ -38,7 +38,7 @@ const trim = () => lambert(TRIM);
 const chrome = () => mat('chrome', () => addReflections(new THREE.MeshPhongMaterial({ color: 0xb8bec8, specular: 0xffffff, shininess: 120 }), 0.7));
 /** Headlight beams (only show at night in rain and snow): one shared material. */
 const headBeam = () => mat('headBeam', () => makeShaftMaterial(0xfff0d0, 0.2));
-const HEADLIGHTS = { coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], sled: [[0, 0.64, 1.46]] };
+const HEADLIGHTS = { muscle: [[-0.64, 0.8, 2.32], [0.64, 0.8, 2.32]], rally: [[-0.6, 0.86, 2.02], [0.6, 0.86, 2.02]], coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], sled: [[0, 0.64, 1.46]] };
 function addHeadlightBeams(g, key) {
   const geo2 = geo(`beams:${key}`, () => mergeGeometries(HEADLIGHTS[key].map(([x, y, z]) => headlightShaftGeometry(15, 0.12, 2.6).translate(x, y, z)), false)); // (keeps the uvs: the beam fades along them)
   const m = new THREE.Mesh(geo2, headBeam());
@@ -71,6 +71,24 @@ const PROFILES = {
     taper: 0.26, cabinW: 1.78,
     lights: { headY: 0.84, headZ: 2.16, tailY: 0.88, tailZ: -2.29 },
     doors: [0.7, -0.25, -1.12],
+  },
+  // Unlockable getaway cars (Your car > Car)
+  muscle: { // long bonnet, low roof set well back, short boot
+    width: 2.1, wheelZ: 1.5, wheelX: 1.0, arch: 0.55,
+    top: [[-2.3, 0.42], [-2.36, 0.64], [-2.32, 0.86], [-2.0, 0.92], [-1.5, 0.94], [0.4, 0.96], [1.4, 0.93], [2.1, 0.86], [2.34, 0.74], [2.36, 0.52], [2.3, 0.42]],
+    cabin: [[0.4, 0.94], [-0.35, 1.38], [-0.95, 1.4], [-1.6, 0.94]],
+    taper: 0.34, cabinW: 1.72,
+    lights: { headY: 0.78, headZ: 2.26, tailY: 0.8, tailZ: -2.39 },
+    doors: [0.3, -0.85],
+  },
+  rally: { // short and tall, a hatchback with a roof spoiler
+    width: 1.95, wheelZ: 1.28, wheelX: 0.94, arch: 0.52,
+    top: [[-1.9, 0.42], [-1.96, 0.66], [-1.95, 1.0], [-1.85, 1.08], [-1.6, 1.1], [0.7, 1.06], [1.45, 0.98], [1.9, 0.88], [2.02, 0.72], [2.04, 0.5], [1.98, 0.42]],
+    cabin: [[0.72, 1.06], [-0.05, 1.55], [-1.5, 1.57], [-1.82, 1.1]],
+    taper: 0.22, cabinW: 1.7,
+    lights: { headY: 0.84, headZ: 1.96, tailY: 1.0, tailZ: -1.99 },
+    doors: [0.6, -0.5],
+    spoiler: { z: -1.58, y: 1.27 }, // (on the roof, over the hatch)
   },
 };
 
@@ -407,7 +425,7 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null 
   if (isVan) {
     ({ p, parts } = buildVan(body, bodyMat));
   } else {
-    const key = isPlayer ? 'coupe' : 'sedan';
+    const key = isPlayer ? (PROFILES[st.body] ? st.body : 'coupe') : 'sedan';
     parts = bodyParts(key);
     p = parts.p;
     addMesh(body, parts.shell, bodyMat);
@@ -449,8 +467,8 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null 
     if (isPlayer) {
       if (st.stripe != null) addMesh(body, stripeGeo(key), lambert(st.stripe), { shadow: false });
       if (st.spoiler) {
-        const wing = geo('spoiler', () => {
-          const z = -1.95, y = p.top[3][1] + BEVEL;
+        const wing = geo(`spoiler:${key}`, () => {
+          const z = p.spoiler?.z ?? -1.95, y = p.spoiler?.y ?? p.top[3][1] + BEVEL;
           const blade = new THREE.Shape();
           blade.moveTo(0.2, 0); blade.quadraticCurveTo(0.05, 0.06, -0.2, 0.03); blade.lineTo(-0.2, -0.01); blade.quadraticCurveTo(0.05, 0.01, 0.2, 0);
           const b = new THREE.ExtrudeGeometry(blade, { depth: 1.8, bevelEnabled: false, curveSegments: 6 });
@@ -486,7 +504,7 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null 
   }));
   beam.material.userData.nightGlow = true;
   g.add(beam);
-  addHeadlightBeams(g, isVan ? 'van' : isPlayer ? 'coupe' : 'sedan');
+  addHeadlightBeams(g, isVan ? 'van' : isPlayer ? (HEADLIGHTS[st.body] ? st.body : 'coupe') : 'sedan');
 
   // Police light bar
   let sirens = null;

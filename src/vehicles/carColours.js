@@ -32,11 +32,36 @@ export const CAR_PARTS = {
   glow: [{ id: 'none', name: 'No underglow', hex: null }, { id: 'cyan', name: 'Cyan', hex: 0x39e6ff }, { id: 'pink', name: 'Pink', hex: 0xff4dd2 }, { id: 'green', name: 'Green', hex: 0x4dffa6 }, { id: 'orange', name: 'Orange', hex: 0xff8a2a }],
 };
 
-/** The rest of the player's car: { stripe, rims, spoiler, tint, glow } (hex values or null). */
+// Getaway cars: the body you drive, each with its own handling. Unlock one by
+// reaching its chapter in the story, or buy it early with cash (side jobs!).
+export const CAR_BODIES = [
+  { id: 'coupe', name: 'Getaway Coupe', note: 'The all-rounder', price: 0 },
+  { id: 'muscle', name: 'Muscle Car', note: 'Fastest on the straights, but it slides', price: 4000, chapter: 5,
+    specs: { maxSpeed: 46, accel: 18.5, grip: 8.6, driftGrip: 1.3, steerLow: 2.5, steerHigh: 1.05, mass: 1.15 } },
+  { id: 'rally', name: 'Rally Hatch', note: 'Grips on snow and ice, turns on a coin', price: 5000, chapter: 9, iceGrip: 0.85,
+    specs: { maxSpeed: 40, accel: 19, grip: 12.5, driftGrip: 2.1, steerLow: 3.0, steerHigh: 1.3 } },
+];
+
+export function isBodyUnlocked(b) {
+  return !b.price || (save.data.progress.chapterUnlocked || 1) >= b.chapter || (save.data.shop?.cars || []).includes(b.id);
+}
+
+/** The car body you drive (falls back to the coupe if it isn't unlocked). */
+export function playerCarBody() {
+  const b = CAR_BODIES.find((x) => x.id === save.data.settings.car?.body);
+  return b && isBodyUnlocked(b) ? b : CAR_BODIES[0];
+}
+
+/** Handling for your car: the base specs with your body's changes. */
+export function playerCarSpecs(base) {
+  return { ...base, ...(playerCarBody().specs || {}) };
+}
+
+/** The rest of the player's car: { body, stripe, rims, spoiler, tint, glow } (hex values or null). */
 export function playerCarStyle() {
   const c = save.data.settings.car || {};
   const pick = (k, d) => (CAR_PARTS[k].find((x) => x.id === c[k]) || CAR_PARTS[k].find((x) => x.id === d));
-  return { stripe: pick('stripes', 'black').hex, rims: pick('rims', 'steel').hex, spoiler: pick('spoiler', 'on').id === 'on', tint: pick('windows', 'clear').hex, glow: pick('glow', 'none').hex };
+  return { body: playerCarBody().id, stripe: pick('stripes', 'black').hex, rims: pick('rims', 'steel').hex, spoiler: pick('spoiler', 'on').id === 'on', tint: pick('windows', 'clear').hex, glow: pick('glow', 'none').hex };
 }
 
 /** The colour the player picked (falls back to amber). */

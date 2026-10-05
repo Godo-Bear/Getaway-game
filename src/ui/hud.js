@@ -109,12 +109,17 @@ export class Hud {
     this.el.toast.querySelector('.t').style.color = color;
     this.el.toast.style.setProperty('--tc', color);
     this.el.toast.querySelector('.b').textContent = body;
-    // Just under the objective in the top-left corner (out of the way of the action)
-    const tl = document.getElementById('hud-tl');
-    const r = tl && !tl.hidden && getComputedStyle(tl).display !== 'none' ? tl.getBoundingClientRect() : null;
-    this.el.toast.style.top = `${Math.round(r && r.height ? r.bottom + 6 : 14)}px`;
+    this._placeToast();
     this.el.toast.classList.add('show');
     this._toastTimer = seconds ?? (body ? 4 : 2);
+  }
+
+  /** Just under the objective panel in the top-left corner (out of the way of the action). */
+  _placeToast() {
+    const tl = this.el.tl;
+    const r = tl && !tl.hidden ? tl.getBoundingClientRect() : null;
+    const top = `${Math.round(r && r.height ? r.bottom + 6 : 14)}px`;
+    if (this.el.toast.style.top !== top) this.el.toast.style.top = top;
   }
 
   /** Show the controls help for `seconds` (the first minute of each mode). */
@@ -174,6 +179,7 @@ export class Hud {
 
   update(dt) {
     if (this._toastTimer > 0) {
+      if ((this._toastPlaceT = (this._toastPlaceT || 0) - dt) <= 0) { this._toastPlaceT = 0.2; this._placeToast(); } // (the panel can grow: stay below it)
       this._toastTimer -= dt;
       if (this._toastTimer <= 0) this.el.toast.classList.remove('show');
     }

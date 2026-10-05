@@ -24,10 +24,11 @@ import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
 import { showGarage } from '../ui/customise.js';
-import { playerCarColour, playerCarStyle } from '../vehicles/carColours.js';
+import { playerCarColour, playerCarStyle, playerCarSpecs } from '../vehicles/carColours.js';
 import { StreetChaseMode } from './modes/streetChaseMode.js';
 import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 import { FreeDriveMode } from './modes/freeDriveMode.js';
+import { SideJobsMode } from './modes/sideJobsMode.js';
 
 // Driving game state: everything the driving modes share.
 //   - the street city, the player's car, police, traffic, smoke particles
@@ -63,7 +64,7 @@ const EVADE_TIME_HIDDEN = 5;  // ... when in an alley or park
 const EVADE_TIME_GARAGE = 3;  // ... when parked in a garage
 const NEAR_MISS_DIST = 4.4;
 
-const MODES = { survival: StreetChaseMode, story: ChapterDriveMode, chapter1: ChapterDriveMode, free: FreeDriveMode };
+const MODES = { survival: StreetChaseMode, story: ChapterDriveMode, chapter1: ChapterDriveMode, free: FreeDriveMode, jobs: SideJobsMode };
 
 export class DrivingState extends PlayState {
   constructor(game) {
@@ -91,7 +92,7 @@ export class DrivingState extends PlayState {
     // Player car + a real headlight (the only moving real light)
     this.playerMesh = this._makePlayerMesh();
     this.scene.add(this.playerMesh);
-    this.player = new Car(this.mode.vehicle === 'snowmobile' ? CAR_SPECS.snowmobile : CAR_SPECS.player, this.playerMesh);
+    this.player = new Car(this.mode.vehicle === 'snowmobile' ? CAR_SPECS.snowmobile : playerCarSpecs(CAR_SPECS.player), this.playerMesh); // (your car's own handling)
     this.player.active = true;
     this.player.isPlayer = true;
     const head = new THREE.SpotLight(0xfff0d0, 120, 60, 0.55, 0.6, 1.2);
@@ -378,6 +379,7 @@ export class DrivingState extends PlayState {
     this.scene.add(mesh);
     this.playerMesh = mesh;
     this.player.mesh = mesh;
+    if (this.mode.vehicle !== 'snowmobile') this.player.spec = playerCarSpecs(CAR_SPECS.player); // (a different car drives differently)
   }
 
   /** Crashes: a bang (and a message for big ones), but no damage: the car has no health. */

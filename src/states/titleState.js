@@ -43,6 +43,7 @@ export class TitleState {
       rooftopRun: () => this.game.sm.change('onFoot', { mode: 'survival' }),
       freeRun: (opts) => startFreeRoam(this.game, opts),
       streetChase: () => this.game.sm.change('driving', { mode: 'survival' }),
+      sideJobs: () => this.game.sm.change('driving', { mode: 'jobs' }),
       editor: (level = null) => showLevelEditor(this.game, {
         level,
         onPlay: (L) => this.game.sm.change('onFoot', { mode: 'custom', custom: L, fromEditor: true }),

@@ -67,6 +67,7 @@ export function loaderLabel(name, params = {}) {
   }
   if (params.mode === 'free') return { kicker: 'Free Run', title: name === 'driving' ? 'Driving the city' : 'Up on the rooftops' };
   if (params.mode === 'survival') return { kicker: name === 'driving' ? 'Street Chase' : 'Rooftop Run', title: 'Lose the cops' };
+  if (params.mode === 'jobs') return { kicker: 'Frostvale', title: 'Side jobs' };
   if (params.mode === 'custom') return { kicker: 'Level Editor', title: 'Your level' };
   return { kicker: 'Loading', title: 'Getting the crew together…' };
 }
