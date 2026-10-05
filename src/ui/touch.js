@@ -9,6 +9,13 @@
 //
 // They appear the first time the screen is touched, and write into
 // input.touch, which the Input class reads exactly like keys and gamepads.
+//
+// MOVABLE: Settings > "Move phone buttons" lets you drag the joystick and
+// every button where your thumbs want them, and pick a size. The layout is
+// saved (settings.touchLayout: each control's centre as a fraction of the
+// screen, so it fits when the screen turns) and applied on every start.
+
+import { save } from '../core/save.js';
 
 const LABELS = {
   onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide', e: 'Gadget', f: 'Coin' },
@@ -50,6 +57,8 @@ export class TouchControls {
     this._bindStick();
     this._bindLook();
     this._bindButtons();
+    this.applyLayout();
+    window.addEventListener('resize', () => this.applyLayout());
     // Show the controls as soon as the screen is touched.
     window.addEventListener('touchstart', () => this.enable(), { once: true, passive: true });
   }
@@ -62,6 +71,7 @@ export class TouchControls {
 
   /** 'onFoot' | 'driving' | 'none' - changes button labels. */
   setMode(mode) {
+    if (this.editing) { this._wantMode = mode; return; }
     if (mode === this.mode) return;
     this.mode = mode;
     this._latch = {};
@@ -77,6 +87,7 @@ export class TouchControls {
 
   /** The Coin button: only where there are guards to distract; dimmed while it reloads. */
   setCoin(on, ready = true) {
+    if (this.editing) return;
     const b = this.coinBtn || (this.coinBtn = this.root.querySelector('[data-b="f"]'));
     this._coinOn = on;
     const hide = !on || this.mode !== 'onFoot';
@@ -94,6 +105,7 @@ export class TouchControls {
   /** A big contextual button for the action you can do right now (null hides it). */
   setAction(label) {
     this._actLabel = label;
+    if (this.editing) return;
     const b = this.actBtn || (this.actBtn = this.root.querySelector('.t-act'));
     // On foot with nothing to do here, the same button punches
     const punch = !label && this.mode === 'onFoot';
@@ -109,6 +121,123 @@ export class TouchControls {
     this.ghostBtn.classList.toggle('on', on);
     const label = on ? 'Ghost ON' : 'Ghost';
     if (this.ghostBtn.textContent !== label) this.ghostBtn.textContent = label;
+  }
+
+  /** The controls you can move: the joystick and every button. */
+  _layoutEls() {
+    const q = (sel) => this.root.querySelector(sel);
+    return { stick: q('.t-stick'), a: q('[data-b="a"]'), b: q('[data-b="b"]'), c: q('[data-b="c"]'), d: q('[data-b="d"]'),
+      e: q('[data-b="e"]'), f: q('[data-b="f"]'), act: q('.t-act') };
+  }
+
+  /** Put the controls where the saved layout says (or where they start). */
+  applyLayout() {
+    const L = save.data.settings?.touchLayout, scale = L?.scale ?? 1;
+    for (const [k, el] of Object.entries(this._layoutEls())) {
+      const p = L?.pos?.[k];
+      if (!p) {
+        Object.assign(el.style, { position: '', left: '', top: '', right: '', bottom: '', margin: '' });
+        el.style.transform = scale !== 1 ? `scale(${scale})` : '';
+        continue;
+      }
+      Object.assign(el.style, { position: 'fixed', left: `${p[0] * window.innerWidth}px`, top: `${p[1] * window.innerHeight}px`,
+        right: 'auto', bottom: 'auto', margin: '0', transform: `translate(-50%, -50%) scale(${scale})` });
+    }
+  }
+
+  /**
+   * Edit the layout: every control shows, drag them about, pick a size,
+   * Reset or Done (saved). onDone() runs afterwards (back to Settings).
+   */
+  editLayout(onDone) {
+    const els = this._layoutEls();
+    const before = { hidden: this.root.hidden, mode: this.mode, labels: new Map() };
+    this.root.hidden = false;
+    this.root.classList.remove('t-hidden');
+    this._wantMode = this.mode;
+    this.mode = null;
+    this.setMode('onFoot'); // (the on-foot labels: they're the most buttons)
+    this.editing = true;
+    for (const el of Object.values(els)) { before.labels.set(el, [el.hidden, el.textContent]); el.hidden = false; }
+    els.f.textContent = 'Coin';
+    els.act.textContent = 'Punch';
+    const S = save.data.settings;
+    const pos = { ...(S.touchLayout?.pos || {}) };
+    let scale = S.touchLayout?.scale ?? 1;
+    const capture = () => {
+      for (const [k, el] of Object.entries(els)) {
+        if (pos[k]) continue;
+        const r = el.getBoundingClientRect();
+        pos[k] = [(r.left + r.width / 2) / window.innerWidth, (r.top + r.height / 2) / window.innerHeight];
+      }
+    };
+    const apply = () => { S.touchLayout = { pos, scale }; this.applyLayout(); };
+    capture();
+    apply();
+    this.root.classList.add('editing');
+    const bar = document.createElement('div');
+    bar.className = 't-editbar';
+    bar.innerHTML = `<b>Drag the buttons where you want them</b>
+      <span class="seg">${[['Small', 0.82], ['Normal', 1], ['Big', 1.2]].map(([l, v]) => `<button class="chip${Math.abs(scale - v) < 0.01 ? ' on' : ''}" data-s="${v}">${l}</button>`).join('')}</span>
+      <button class="btn" data-x="reset">Reset</button><button class="btn primary" data-x="done">Done</button>`;
+    document.body.appendChild(bar); // (outside #touch, so it keeps normal button styles)
+    let drag = null;
+    const down = (e) => {
+      if (bar.contains(e.target)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const k = Object.keys(els).find((key) => els[key].contains(e.target));
+      if (!k) return;
+      drag = { k, id: e.pointerId };
+      els[k].classList.add('dragging');
+    };
+    const move = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      e.preventDefault();
+      e.stopPropagation();
+      pos[drag.k] = [Math.min(0.96, Math.max(0.04, e.clientX / window.innerWidth)), Math.min(0.94, Math.max(0.06, e.clientY / window.innerHeight))];
+      apply();
+    };
+    const up = (e) => {
+      if (!drag || e.pointerId !== drag.id) return;
+      els[drag.k].classList.remove('dragging');
+      drag = null;
+    };
+    this.root.addEventListener('pointerdown', down, true);
+    window.addEventListener('pointermove', move, true);
+    window.addEventListener('pointerup', up, true);
+    window.addEventListener('pointercancel', up, true);
+    bar.addEventListener('click', (e) => {
+      const b = e.target.closest('button');
+      if (!b) return;
+      if (b.dataset.s) {
+        scale = Number(b.dataset.s);
+        bar.querySelectorAll('[data-s]').forEach((x) => x.classList.toggle('on', x === b));
+        apply();
+      } else if (b.dataset.x === 'reset') {
+        for (const k of Object.keys(pos)) delete pos[k];
+        scale = 1;
+        bar.querySelectorAll('[data-s]').forEach((x) => x.classList.toggle('on', x.dataset.s === '1'));
+        S.touchLayout = null;
+        this.applyLayout();
+        capture();
+        apply();
+      } else if (b.dataset.x === 'done') {
+        this.root.removeEventListener('pointerdown', down, true);
+        window.removeEventListener('pointermove', move, true);
+        window.removeEventListener('pointerup', up, true);
+        window.removeEventListener('pointercancel', up, true);
+        bar.remove();
+        this.root.classList.remove('editing');
+        save.write();
+        this.editing = false;
+        for (const [el, [hidden, text]] of before.labels) { el.hidden = hidden; el.textContent = text; }
+        this.mode = null;
+        this.setMode(this._wantMode ?? before.mode ?? 'none');
+        this.root.hidden = before.hidden;
+        onDone?.();
+      }
+    });
   }
 
   _bindStick() {

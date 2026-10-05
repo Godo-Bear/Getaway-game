@@ -107,6 +107,7 @@ export class Hud {
   toast(title, body = '', color = 'var(--ink)', seconds = null) {
     this.el.toast.querySelector('.t').textContent = title;
     this.el.toast.querySelector('.t').style.color = color;
+    this.el.toast.style.setProperty('--tc', color);
     this.el.toast.querySelector('.b').textContent = body;
     // Just under the objective in the top-left corner (out of the way of the action)
     const tl = document.getElementById('hud-tl');

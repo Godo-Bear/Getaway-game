@@ -235,6 +235,13 @@ body.touch-mode #hud-gadget { left: auto; right: calc(20px + env(safe-area-inset
 .rank { display: inline-block; font-weight: 700; font-size: 16px; padding: 5px 12px; border-radius: 999px; margin-bottom: 12px; color: #1a1204; }
 .rank.gold { background: #ffcf4a; } .rank.silver { background: #cfd6e0; } .rank.bronze { background: #d08a4a; }
 .speaker { font-family: var(--display); font-size: 28px; margin: 0 0 4px !important; }
+/* Story scenes: the speaker's face in a ring of their colour, next to their name */
+.speaker-row { display: flex; align-items: center; gap: 12px; margin: 2px 0 8px; }
+.speaker-row .speaker { margin: 0 !important; }
+.portrait { width: 64px; height: 64px; border-radius: 50%; flex: none; object-fit: cover;
+  background: radial-gradient(circle at 50% 35%, color-mix(in srgb, var(--pc) 45%, #1a1f2e), #0b0f1c 75%);
+  box-shadow: 0 0 0 2px var(--pc), 0 4px 14px rgba(0, 0, 0, 0.5); }
+@media (max-height: 520px) { .portrait { width: 44px; height: 44px; } .speaker-row { gap: 9px; margin-bottom: 4px; } }
 .page-dots { color: var(--muted); letter-spacing: 4px; font-size: 12px !important; }
 
 /* Case Board */
@@ -774,3 +781,43 @@ body.wardrobe #hud-controls { visibility: hidden; }
 .ch-soon { font-size: 13px; font-weight: 500; color: var(--muted); }
 #touch .t-act.punch { background: rgba(13, 17, 28, 0.45); border-color: rgba(255, 255, 255, 0.35); font-size: 13px; }
 .card .version { position: fixed; right: 12px; bottom: 8px; margin: 0; font-size: 11px; color: rgba(255, 255, 255, 0.35); letter-spacing: 0.04em; pointer-events: none; }
+
+/* ---------- Cleaner HUD ----------
+   The objective sits on a soft dark panel with an amber edge (readable over
+   bright snow or sky), stats are small chips, pop-ups are compact cards in the
+   colour of their message, and the controls help hides behind menus. */
+#hud-tl { margin: calc(10px + env(safe-area-inset-top, 0px)) 0 0 calc(10px + env(safe-area-inset-left, 0px)); padding: 8px 14px 10px;
+  background: linear-gradient(90deg, rgba(8, 11, 20, 0.74), rgba(8, 11, 20, 0.38)); border-left: 3px solid var(--amber);
+  border-radius: 4px 12px 12px 4px; -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6); max-width: min(430px, 52vw); }
+#hud-phase { font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.9; }
+#hud-objective { font-size: 26px; text-shadow: none; }
+#hud-stats { gap: 6px; font-size: 13px; margin-top: 6px; }
+#hud-stats > span { background: rgba(255, 255, 255, 0.08); border-radius: 999px; padding: 2px 9px; white-space: nowrap; }
+#hud-stats:empty { display: none; }
+#toast { background: rgba(8, 11, 20, 0.8); border-left: 3px solid var(--tc, var(--amber)); border-radius: 4px 10px 10px 4px; padding: 7px 12px 8px;
+  -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+#toast .t, #toast .b { text-shadow: none; }
+#toast .b:empty { display: none; }
+#hud-meter-label { display: inline-block; background: rgba(8, 11, 20, 0.62); padding: 3px 12px; border-radius: 999px; text-shadow: none; }
+#hud-prompt { box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35); }
+body:has(#overlay:not([hidden])) #hud-controls { opacity: 0 !important; }
+@media (max-height: 520px) {
+  #hud-tl { margin: calc(6px + env(safe-area-inset-top, 0px)) 0 0 calc(6px + env(safe-area-inset-left, 0px)); padding: 5px 10px 6px; max-width: min(360px, 46vw); }
+  #hud-phase { font-size: 9.5px; }
+  #hud-objective { font-size: 19px; }
+  #hud-stats { font-size: 11px; gap: 4px; margin-top: 4px; }
+  #hud-stats > span { padding: 1px 7px; }
+  #toast { padding: 5px 9px 6px; }
+}
+
+/* Moving the phone buttons (Settings > Move phone buttons) */
+#touch.editing { pointer-events: auto; z-index: 60; background: rgba(6, 8, 15, 0.6); touch-action: none; }
+#touch.editing .t-look, #touch.editing .t-pause, #touch.editing .t-ghost { display: none; }
+#touch.editing .t-stick, #touch.editing [data-b], #touch.editing .t-act { outline: 2px dashed rgba(255, 176, 32, 0.85); outline-offset: 4px; cursor: grab; pointer-events: auto; }
+#touch.editing .dragging { outline-color: #fff; outline-style: solid; }
+.t-editbar { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); z-index: 61;
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; max-width: 94vw;
+  background: var(--panel, #121826); padding: 8px 12px; border-radius: 12px; pointer-events: auto; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5); }
+.t-editbar b { font-size: 14px; }
+.t-editbar .btn { font-size: 14px; padding: 6px 12px; }

@@ -1,7 +1,7 @@
 // Settings screen: volume, controls, graphics and car colour.
 // Every change is applied straight away and saved to localStorage.
 
-import { showCard } from './menus.js';
+import { showCard, hideCard } from './menus.js';
 import { save } from '../core/save.js';
 import { showLookEditor, showGarage } from './customise.js';
 import { currentLook } from '../player/outfits.js';
@@ -21,6 +21,7 @@ export function showSettings(game, onBack) {
       <input type="range" id="${id}" min="${min}" max="${max}" step="${step}" value="${value}">
       <output id="${id}-out">${fmt(value)}</output></label>`;
   const pct = (v) => `${Math.round(v * 100)}%`;
+  const touchy = game.input.touchMode || window.matchMedia?.('(pointer: coarse)').matches;
   showCard(`
     <h2>Settings</h2>
     <p class="sub setting-head">Difficulty</p>
@@ -35,6 +36,8 @@ export function showSettings(game, onBack) {
     <label class="setting check" for="set-fp"><span>First-person view on foot (V)</span><input type="checkbox" id="set-fp" ${s.firstPerson ? 'checked' : ''}></label>
     <label class="setting check" for="set-sprint"><span>Sprint stays on (press sprint once to switch it on or off)</span><input type="checkbox" id="set-sprint" ${s.sprintToggle !== false ? 'checked' : ''}></label>
     <label class="setting check" for="set-cross"><span>Crosshair on foot</span><input type="checkbox" id="set-cross" ${s.crosshair !== false ? 'checked' : ''}></label>
+    ${touchy ? `<div class="seg wrap"><button class="chip cz-open" id="set-touch">Move phone buttons</button></div>
+    <p class="sub" style="font-size:14px">Drag the joystick and buttons to where your thumbs want them, and make them smaller or bigger.</p>` : ''}
     <p class="sub setting-head">Graphics</p>
     ${slider('set-bright', 'Brightness', s.brightness ?? 1, 0.6, 2.5, 0.05, pct)}
     <p class="sub" style="font-size:14px">Turn it up if night-time levels are too dark to see.</p>
@@ -65,6 +68,7 @@ export function showSettings(game, onBack) {
     const el = document.getElementById(id), out = document.getElementById(`${id}-out`);
     el.addEventListener('input', () => { s[key] = Number(el.value); out.textContent = fmt(s[key]); apply(); });
   };
+  document.getElementById('set-touch')?.addEventListener('click', () => { hideCard(); game.touch.editLayout(again); });
   bindSlider('set-master', 'masterVolume', pct);
   bindSlider('set-music', 'musicVolume', pct);
   bindSlider('set-bright', 'brightness', pct);

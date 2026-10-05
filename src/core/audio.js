@@ -17,6 +17,11 @@
 // Game states drive the loops every frame with setMix({ engine: 0.4, ... }).
 // Any loop not mentioned fades out, so switching states never leaves an
 // engine or siren droning on.
+//
+// MUSIC follows where the crew lives (setPlace): Harbor City plays the main
+// track as it is; Frostvale plays it slower and lower with soft bells over
+// the top. In a chase (high intensity) the track speeds up a little, the
+// filter opens, and a low pulsing tension layer comes in.
 
 import { clamp } from './utils.js';
 
@@ -35,6 +40,15 @@ function engineNote(speed) {
 
 const url = (path) => new URL(path, document.baseURI).href;
 
+// Where the crew is: how the music sounds there
+const PLACES = {
+  harbor: { rate: 1, bells: false },
+  frostvale: { rate: 0.9, bells: true },
+  abroad: { rate: 1.06, bells: false },
+};
+// Frostvale bells: notes of a pentatonic scale (Hz)
+const BELLS = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66];
+
 class AudioManager {
   constructor() {
     this.ctx = null;
@@ -43,6 +57,9 @@ class AudioManager {
     this.last = {};
     this.volumes = { master: 0.8, music: 0.6, sfx: 0.9 };
     this.lastImpact = 0;
+    this.intensity = 0.3;
+    this.place = 'harbor';
+    this.surface = null; // 'snow': footsteps crunch
   }
 
   /** Create the audio context. Call from a user gesture (click / key). */
@@ -72,6 +89,12 @@ class AudioManager {
     this.musicGain.gain.value = 0;
     this.musicFilter.connect(this.musicGain);
     this.musicGain.connect(this.musicBus);
+    // Extra music layers (bells, the chase pulse) follow the music level too
+    this.layerGain = ctx.createGain();
+    this.layerGain.gain.value = 0;
+    this.layerGain.connect(this.musicBus);
+    this._buildTension();
+    this._bellTimer = setInterval(() => this._bells(), 250);
     this._applyVolumes();
 
     // Two seconds of white noise, reused by every noisy sound.
@@ -199,7 +222,7 @@ class AudioManager {
     await Promise.all([
       decode('audio/siren.mp3').then((b) => { loop(b, this.loops.sirenFilter, 4); this.loops.sirenSynth.gain.value = 0; }).catch(() => {}),
       decode('audio/drive.mp3').then((b) => { this.loops.driveSrc = loop(b, this.loops.engine, 4); this.loops.eng.synth.gain.value = 0.35; }).catch(() => {}),
-      decode('audio/music.mp3').then((b) => loop(b, this.musicFilter, 1)).catch(() => {}),
+      decode('audio/music.mp3').then((b) => { this.musicSrc = loop(b, this.musicFilter, 1); this._setRate(); }).catch(() => {}),
     ]);
     // Effects load in parallel; any that fail fall back to synthesised sounds.
     await Promise.all(SAMPLE_SFX.map(async (name) => {
@@ -227,11 +250,93 @@ class AudioManager {
     g.gain.setTargetAtTime(v, this.ctx.currentTime, 0.2);
   }
 
+  /** Where the crew is ('harbor' | 'frostvale' | 'abroad'): the music changes to suit. */
+  setPlace(place) {
+    if (!PLACES[place]) place = 'harbor';
+    if (place === this.place) return;
+    this.place = place;
+    this._setRate();
+  }
+
+  /** Music speed: the place's own, a little faster in a chase. */
+  _setRate() {
+    if (!this.ctx) return;
+    const base = (PLACES[this.place] || PLACES.harbor).rate;
+    const chase = clamp((this.intensity - 0.55) / 0.4, 0, 1);
+    const rate = base * (1 + 0.1 * chase);
+    if (this.musicSrc && Math.abs((this.last.rate ?? -1) - rate) > 0.004) {
+      this.last.rate = rate;
+      this.musicSrc.playbackRate.setTargetAtTime(rate, this.ctx.currentTime, 1.2);
+    }
+    // The tension pulse: a low throb that comes in as a chase heats up
+    const tv = 0.09 * chase;
+    if (Math.abs((this.last.tension ?? -1) - tv) > 0.003) {
+      this.last.tension = tv;
+      this.tension.gain.setTargetAtTime(tv, this.ctx.currentTime, 0.8);
+      this.tensionLfo.frequency.setTargetAtTime(3 + 2.5 * chase, this.ctx.currentTime, 0.8);
+    }
+  }
+
+  /** A low, pulsing drone (two detuned saws through a low-pass, throbbing). */
+  _buildTension() {
+    const ctx = this.ctx;
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 260;
+    const amp = ctx.createGain();
+    amp.gain.value = 0.5;
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 3;
+    const depth = ctx.createGain();
+    depth.gain.value = 0.5;
+    lfo.connect(depth);
+    depth.connect(amp.gain);
+    lfo.start();
+    for (const f of [55, 55.4, 110.3]) {
+      const o = ctx.createOscillator();
+      o.type = 'sawtooth';
+      o.frequency.value = f;
+      o.connect(lp);
+      o.start();
+    }
+    lp.connect(amp);
+    amp.connect(out);
+    out.connect(this.layerGain);
+    this.tension = out;
+    this.tensionLfo = lfo;
+  }
+
+  /** Frostvale: now and then a soft bell note (like sleigh bells in the distance). */
+  _bells() {
+    if (!this.ctx || this.ctx.state !== 'running' || !(PLACES[this.place]?.bells) || (this.last.music ?? 0) < 0.05) return;
+    if (Math.random() > 0.32) return;
+    const ctx = this.ctx, t = ctx.currentTime + 0.02;
+    const f = BELLS[Math.floor(Math.random() * BELLS.length)] * (Math.random() < 0.25 ? 0.5 : 1);
+    for (const [mult, vol, dur] of [[1, 0.05, 2.2], [2.76, 0.016, 0.9], [5.4, 0.006, 0.4]]) {
+      const o = ctx.createOscillator();
+      o.type = 'sine';
+      o.frequency.value = f * mult;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g);
+      g.connect(this.layerGain);
+      o.start(t);
+      o.stop(t + dur + 0.05);
+    }
+  }
+
   _setMusic(v, intensity) {
     if (Math.abs((this.last.music ?? -1) - v) > 0.004) {
       this.last.music = v;
       this.musicGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.6);
+      this.layerGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.6);
     }
+    this.intensity = intensity;
+    this._setRate();
     // Intensity opens up the filter: muffled and calm -> bright and driving.
     const f = 500 * Math.pow(36, clamp(intensity, 0, 1));
     if (Math.abs((this.last.musicF ?? -1) - f) > 20) {
@@ -324,8 +429,16 @@ class AudioManager {
     if (!this.ctx) return;
     switch (name) {
       case 'step':
+        if (this.surface === 'snow') { this.sfx('snowstep', { vol }); return; }
         if (!this._playBuffer(`step${Math.floor(Math.random() * 5)}`, 0.45 * vol, 0.92 + Math.random() * 0.16)) this._noiseHit(0.08, 900, 1, 0.2 * vol);
         return;
+      case 'snowstep': { // a soft crunch in the snow: a low thud plus a short gritty squeak
+        const r = 0.85 + Math.random() * 0.3;
+        this._noiseHit(0.09, 700 * r, 1.6, 0.16 * vol, 0, 'bandpass');
+        this._noiseHit(0.05, 2400 * r, 3, 0.05 * vol, 0.015, 'bandpass');
+        this._tone(85 * r, 0.06, 'sine', 0.05 * vol);
+        return;
+      }
       case 'land':
         if (!this._playBuffer('land', vol, rate)) this._noiseHit(0.2, 300, 0.8, 0.5 * vol);
         return;

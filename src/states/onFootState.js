@@ -290,6 +290,14 @@ export class OnFootState extends PlayState {
 
     this.model.update(frozen ? 0 : dt, p);
     this._updatePuffs(frozen ? 0 : dt);
+    // On snow, every footstep crunches (one step per half stride)
+    if (audio.surface === 'snow') {
+      const step = Math.floor(this.model.runPhase / Math.PI);
+      if (step !== this._lastStep) {
+        this._lastStep = step;
+        if (!frozen && p.state === 'ground' && p.horizontalSpeed > 1.2) audio.sfx('snowstep', { vol: Math.min(1, 0.45 + p.horizontalSpeed / 14) });
+      }
+    }
     // Head bob in first person: follows the running cycle of the (hidden) body.
     const running = p.state === 'ground' && p.horizontalSpeed > 0.5 && !frozen;
     const bobTarget = running ? Math.abs(Math.sin(this.model.runPhase)) * 0.06 * Math.min(1, p.horizontalSpeed / 8) - 0.03 : 0;

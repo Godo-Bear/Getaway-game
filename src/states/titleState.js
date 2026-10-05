@@ -21,6 +21,8 @@ export class TitleState {
   }
 
   enter(params = {}) {
+    audio.setPlace('harbor');
+    audio.surface = null;
     if (!this.scene) {
       this.scene = new THREE.Scene();
       this.lighting = new NightLighting(this.scene, { shadows: false });

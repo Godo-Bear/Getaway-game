@@ -89,6 +89,7 @@ function start(renderer) {
   const autoQuality = new AutoQuality(game);
   audio.setVolumes(settings);
   game.touch = new TouchControls(game.input);
+  if (import.meta.env.DEV) window.__audio = audio; // (tests look at the sound system)
   game.audio = audio; // handy for debugging in the console
 
   // Browsers only allow sound after the first click/key/touch.

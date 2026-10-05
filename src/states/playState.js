@@ -2,7 +2,7 @@ import { showCard, hideCard, controlsHtml } from '../ui/menus.js';
 import { playStoryCards } from '../ui/storyCards.js';
 import { showPlanBoard } from '../ui/planBoard.js';
 import { showCaseBoard } from '../ui/caseBoard.js';
-import { CHAPTERS } from '../story/chapters.js';
+import { CHAPTERS, PLACES, placeOf } from '../story/chapters.js';
 import { buyClue } from '../story/chapterFlow.js';
 import { showSettings } from '../ui/settings.js';
 import { showAdminPanel } from '../ui/adminPanel.js';
@@ -45,6 +45,10 @@ export class PlayState {
     document.addEventListener('pointerlockchange', this._onLockChange);
     this.buildWorld(params);
     this._updateClickPrompt();
+    // Music for where the crew is (story: the chapter's city; otherwise snow = Frostvale), and snowy footsteps
+    const n = this.mode?.chapter?.number;
+    audio.setPlace(n ? ['harbor', 'frostvale', 'abroad'][PLACES.indexOf(placeOf(n))] : this.lighting?.snow ? 'frostvale' : 'harbor');
+    audio.surface = this.lighting?.snow ? 'snow' : null;
   }
 
   exit() {

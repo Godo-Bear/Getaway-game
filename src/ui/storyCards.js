@@ -3,21 +3,27 @@
 // A scene is a list of pages. Each page can have:
 //   kicker - small amber line above (place and time, "On the radio"...)
 //   title  - big heading
-//   who    - a suspect id: shows their name in their colour as the speaker
+//   who    - a suspect id: shows their face (portraits.js) and their name in their colour as the speaker
 //   lines  - paragraphs
 // The player clicks Next (or presses Enter/Space) through the pages, or skips.
 
 import { showCard, hideCard } from './menus.js';
 import { SUSPECTS } from '../story/crew.js';
+import { portraitUrl } from './portraits.js';
 
 export function pageHtml(page, index, total) {
   const who = page.who ? SUSPECTS[page.who] : null;
   return `
     ${page.kicker ? `<p class="sub kicker">${page.kicker}</p>` : ''}
     ${page.title ? `<h2>${page.title}</h2>` : ''}
-    ${who ? `<p class="speaker" style="color:${who.color}">${who.name}</p>` : ''}
+    ${who ? speakerHtml(page.who, who) : ''}
     ${page.lines.map((l) => `<p>${l}</p>`).join('')}
     ${total > 1 ? `<p class="page-dots">${Array.from({ length: total }, (_, i) => (i === index ? '●' : '○')).join(' ')}</p>` : ''}`;
+}
+
+function speakerHtml(id, who) {
+  const pic = portraitUrl(id);
+  return `<div class="speaker-row" style="--pc:${who.color}">${pic ? `<img class="portrait" src="${pic}" alt="">` : ''}<p class="speaker" style="color:${who.color}">${who.name}</p></div>`;
 }
 
 /**
