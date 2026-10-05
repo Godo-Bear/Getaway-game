@@ -6,8 +6,8 @@ import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './f
 // session (FreeRunMode is the rooftops).
 //
 //  - Cash drops (green beam) and near misses earn cash; so do long drifts
-//  - Slow down in a garage (blue P on the minimap) to park and head up to
-//    the rooftops
+//  - Press T (or the "Get out and walk" button) to get out and go on foot;
+//    slowing down in a garage (blue P on the minimap) parks you too
 //  - Police (optional, pause menu): two patrol cars. Busted = back on the
 //    road somewhere else; it never ends the run. Losing them pays.
 
@@ -43,7 +43,26 @@ export class FreeDriveMode {
     const hud = s.game.hud;
     hud.setPhase(`Free Run · the streets${this.police ? ' · police on' : ''}`);
     hud.setObjective('Cruise the city');
-    hud.toast('Free Run: the streets', 'Drive through cash drops (green beam), drift and near-miss for more. Slow down in a garage (blue P) to head up to the rooftops.', 'var(--amber)', 6);
+    hud.toast('Free Run: the streets', 'Drive through cash drops (green beam), drift and near-miss for more. Press T (or "Get out and walk") to go on foot.', 'var(--amber)', 6);
+    this._walkButton();
+  }
+
+  /** A button on screen that gets you out of the car (T on a keyboard). */
+  _walkButton() {
+    this.walkBtn?.remove();
+    const b = document.createElement('button');
+    b.className = 'free-car-btn below-map';
+    b.innerHTML = '🚶 Get out and walk <kbd>T</kbd>';
+    const go = (e) => { e.preventDefault(); e.stopPropagation(); this.toFoot = true; };
+    b.addEventListener('pointerdown', go);
+    b.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(b);
+    this.walkBtn = b;
+  }
+
+  teardown() {
+    this.walkBtn?.remove();
+    this.walkBtn = null;
   }
 
   pauseButtons() {
@@ -83,6 +102,13 @@ export class FreeDriveMode {
 
   update(dt) {
     const s = this.state, p = s.player, hud = s.game.hud;
+
+    // T (or the button): out of the car, on foot
+    if (this.toFoot || s.game.input.wasPressed('car')) {
+      this.toFoot = false;
+      switchFreeRoam(s, 'foot');
+      return;
+    }
 
     // Cash drop
     const b = s.beacon.pos;

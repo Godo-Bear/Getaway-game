@@ -25,8 +25,9 @@ const BAG_COUNT = 3;
 const ESCAPE_TIME = 20; // seconds out of the light (police on) for an escape bonus
 
 export class FreeRunMode {
-  constructor(state) {
+  constructor(state, params = {}) {
     this.state = state;
+    this.fromCar = !!params.fromCar; // (just got out of the car: start next to it)
     this.police = freeSession(state.game).police;
     this.hudSections = this.police ? ['tl', 'meter', 'controls', 'marker'] : ['tl', 'controls', 'marker'];
     this.heli = null;
@@ -105,7 +106,7 @@ export class FreeRunMode {
       g.position.set(s.x, w.groundHeight(s.x, s.z, 3), s.z);
       this.city.group.add(g);
       w.addBlock(s.x, g.position.y, s.z, s.heading ? 4.4 : 2, 1.3, s.heading ? 2 : 4.4, { tag: 'car' });
-      return { group: g, ring, pos: g.position };
+      return { group: g, ring, pos: g.position, heading: s.heading };
     });
   }
 
@@ -119,8 +120,17 @@ export class FreeRunMode {
     for (const b of this.bags) this._placeBag(b);
     hud.setPhase(`Free Run${this.police ? ' · police on' : ''}`);
     hud.setObjective('Explore the rooftops');
-    hud.toast('Free Run', 'Grab the cash bags (green beams). Want to drive? Press "Get in a car" (T): no need to find it.', 'var(--amber)', 6);
     this._carButton();
+    if (this.fromCar && this.cars.length) {
+      // Out of the car: on the street beside it, facing the way it's parked
+      this.fromCar = false;
+      this.leftCar = true; // (walk away from it first, or you'd climb straight back in)
+      const c = this.cars[0], h = c.heading;
+      s.placePlayer(new THREE.Vector3(c.pos.x + Math.cos(h) * 2.4, c.pos.y, c.pos.z - Math.sin(h) * 2.4), h - Math.PI);
+      hud.toast('On foot', 'Climb the yellow ladders to the rooftops and grab the cash bags. Press T (or "Get in a car") to drive again.', 'var(--amber)', 5);
+      return;
+    }
+    hud.toast('Free Run', 'Grab the cash bags (green beams). Want to drive? Press "Get in a car" (T): no need to find it.', 'var(--amber)', 6);
   }
 
   /** A button on screen that puts you straight in your car (no walking to find it). */
@@ -176,7 +186,8 @@ export class FreeRunMode {
       const d = Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z);
       if (d < carD) { carD = d; nearCar = c; }
     }
-    if (nearCar && carD < CAR_RADIUS && Math.abs(p.pos.y - nearCar.pos.y) < 2) {
+    if (this.leftCar && carD > CAR_RADIUS + 1.5) this.leftCar = false;
+    if (nearCar && carD < CAR_RADIUS && !this.leftCar && Math.abs(p.pos.y - nearCar.pos.y) < 2) {
       switchFreeRoam(s, 'car');
       return;
     }

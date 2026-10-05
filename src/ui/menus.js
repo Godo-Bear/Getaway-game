@@ -122,7 +122,8 @@ export function controlsHtml() {
       <kbd>Scroll wheel</kbd><span>Zoom the camera in and out (on foot and driving)</span>
       <kbd>F</kbd><span>Use your gadget (buy gadgets in the Shop on the title screen)</span>
       <kbd>G</kbd><span>Ghost mode on/off (story): no police, roam freely. Nothing counts while it's on; turning it off takes you back to where you turned it on</span>
-      <kbd>H</kbd><span>Show / hide the controls help</span></div>
+      <kbd>H</kbd><span>Show / hide the controls help</span>
+      <kbd>T</kbd><span>Free Run: jump into your car, or get out and walk</span></div>
     <p class="sub">Gamepad (Xbox layout)</p>
     <div class="controls-grid">
       <kbd>Left stick</kbd><span>Move / steer</span>

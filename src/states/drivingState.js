@@ -666,6 +666,7 @@ export class DrivingState extends PlayState {
   }
 
   teardown() {
+    this.mode?.teardown?.();
     this.weather?.dispose();
     this.weather = null;
     this.bigMap?.close();

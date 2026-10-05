@@ -622,6 +622,10 @@ body.alarm-on::after { content: ''; position: fixed; inset: 0; z-index: 7; point
 .free-car-btn:hover { filter: brightness(1.1); }
 .free-car-btn kbd { font: inherit; font-size: 11px; background: rgba(0, 0, 0, 0.18); border-radius: 4px; padding: 1px 5px; margin-left: 4px; }
 body.touch .free-car-btn kbd, .overlay:not([hidden]) ~ .free-car-btn { display: none; }
+.free-car-btn.below-map { top: calc(208px + env(safe-area-inset-top, 0px)); } /* (driving: under the minimap) */
+@media (max-width: 700px) { .free-car-btn.below-map { top: calc(148px + env(safe-area-inset-top, 0px)); } }
+@media (max-height: 520px) { .free-car-btn.below-map { top: calc(134px + env(safe-area-inset-top, 0px)); right: calc(10px + env(safe-area-inset-right, 0px)); } }
+@media (max-width: 600px) { body.touch-mode .free-car-btn.below-map { top: calc(194px + env(safe-area-inset-top, 0px)); } }
 @media (pointer: coarse) { .free-car-btn kbd { display: none; } .free-car-btn { font-size: 14px; padding: 8px 14px; } }
 
 /* ===== Chapter screens: a clean grid of chapter cards ===== */

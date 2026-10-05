@@ -15,7 +15,10 @@ export function startFreeRoam(game, { police = false, inCar = false } = {}) {
   game.sm.change(inCar ? 'driving' : 'onFoot', { mode: 'free' });
 }
 
-/** Swap between the rooftops and the car ('foot' | 'car'), with a quick fade. */
+/**
+ * Swap between walking and the car ('foot' | 'car'), with a quick fade.
+ * Getting out of the car puts you on the street next to your parked car.
+ */
 export function switchFreeRoam(state, to) {
   const game = state.game;
   if (state._switching) return;
@@ -24,7 +27,8 @@ export function switchFreeRoam(state, to) {
   game.hud.setFade(true);
   audio.sfx(to === 'car' ? 'door' : 'whoosh', { vol: 0.7 });
   setTimeout(() => {
-    game.sm.change(to === 'car' ? 'driving' : 'onFoot', { mode: 'free', arrived: true });
+    state._switching = false; // (the same state object is used again next time: let it switch again)
+    game.sm.change(to === 'car' ? 'driving' : 'onFoot', { mode: 'free', arrived: true, fromCar: to === 'foot' });
     setTimeout(() => game.hud.setFade(false), 150);
   }, 220);
 }
@@ -44,7 +48,7 @@ export function freeRoamPauseButtons(state, where) {
   return [
     where === 'foot'
       ? { label: 'Drive the streets', sub: 'Jump in the car', onClick: () => { state.resume(); switchFreeRoam(state, 'car'); } }
-      : { label: 'Run the rooftops', sub: 'Park the car and head up', onClick: () => { state.resume(); switchFreeRoam(state, 'foot'); } },
+      : { label: 'Get out and walk', sub: 'Park the car and go on foot (T)', onClick: () => { state.resume(); switchFreeRoam(state, 'foot'); } },
     {
       label: s.police ? 'Police: ON (turn off)' : 'Police: OFF (turn on)',
       sub: s.police ? 'Explore in peace' : 'A helicopter on the roofs and patrol cars on the streets. More cash for escaping',
