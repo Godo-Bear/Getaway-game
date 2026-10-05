@@ -317,7 +317,8 @@ class AudioManager {
   /**
    * Play a sound effect by name.
    * step, land, jump, clue, cash, checkpoint, caught, win, click, crash,
-   * glass, whoosh, horn, spike, nitroStart, vault, door, locked
+   * glass, whoosh, horn, spike, nitroStart, vault, door, locked,
+   * flick, coin, block, uppercut
    */
   sfx(name, { vol = 1, rate = 1 } = {}) {
     if (!this.ctx) return;
@@ -342,6 +343,24 @@ class AudioManager {
       }
       case 'whoosh':
         this._noiseHit(0.45, 1200, 0.7, 0.35 * vol);
+        return;
+      case 'flick': // a coin flicked off the thumb
+        this._tone(2400, 0.06, 'sine', 0.05 * vol, 0, 3200);
+        return;
+      case 'coin': // a coin landing: ting... ting.. ting
+        [0, 0.15, 0.25, 0.31].forEach((w, i) => {
+          const v = vol * (1 - i * 0.23);
+          this._tone(3150 + i * 30, 0.18, 'sine', 0.06 * v, w);
+          this._tone(4720, 0.1, 'sine', 0.03 * v, w);
+        });
+        return;
+      case 'block': // a punch blocked on a forearm
+        this._noiseHit(0.1, 420, 1.4, 0.55 * vol);
+        this._tone(140, 0.09, 'sine', 0.12 * vol, 0, 90);
+        return;
+      case 'uppercut': // the big punch at the end of a combo
+        if (!this._playBuffer('land', vol, 0.75)) this._noiseHit(0.25, 260, 0.8, 0.6 * vol);
+        this._tone(90, 0.22, 'sine', 0.22 * vol, 0, 45);
         return;
       case 'thunder':
         // A sharp crack, then a long low rumble

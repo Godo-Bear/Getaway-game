@@ -71,12 +71,12 @@ export const CONTROLS = {
     Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it, either way (even uphill): hold <kbd>S</kbd> to turn round, <kbd>Space</kbd> to let go.
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
-    <kbd>Click</kbd> punch (from behind it knocks a guard out; from the front it stuns them) &nbsp; <kbd>E</kbd> action when one shows on screen<br>
+    <kbd>Click</kbd> punch (from behind it knocks a guard out; from the front it stuns them, if they don't block: three quick punches end in an uppercut that breaks a block) &nbsp; <kbd>Right click</kbd> or <kbd>Z</kbd> throw a coin (guards go to look where it lands) &nbsp; <kbd>E</kbd> action when one shows on screen (behind someone in the street: pickpocket) &nbsp; <kbd>C</kbd> while sprinting into someone: slide tackle<br>
     <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
     <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>X</kbd> action (knock out)<br>
-    <kbd>Click</kbd> or <kbd>B</kbd> punch &nbsp; <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
+    <kbd>Click</kbd> or <kbd>B</kbd> punch (3 quick = combo) &nbsp; <kbd>Z</kbd> throw a coin &nbsp; <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
     <kbd>Shift</kbd> handbrake (drift) &nbsp; <kbd>Space</kbd> nitro<br>

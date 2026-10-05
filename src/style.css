@@ -478,6 +478,10 @@ body.touch-mode #hud-gadget { top: auto; left: auto; right: calc(92px + env(safe
   border: 1px solid rgba(255, 176, 32, 0.6); font-size: 17px; font-weight: 700; white-space: nowrap; }
 #hud-prompt kbd { display: inline-block; min-width: 24px; padding: 1px 6px; margin-right: 6px; border-radius: 5px; background: var(--amber); color: #111; font: 700 15px var(--body); text-align: center; }
 body.touch-mode #hud-prompt { display: none; }
+#touch .t-coin { position: absolute; right: calc(206px + env(safe-area-inset-right, 0px)); bottom: calc(204px + env(safe-area-inset-bottom, 0px));
+  width: 58px; height: 58px; font-size: 13px; pointer-events: auto; border-color: rgba(255, 210, 58, 0.75); color: #ffd23a; }
+#touch .t-coin.cooling { opacity: 0.45; }
+@media (max-height: 520px) { #touch .t-coin { width: 50px; height: 50px; bottom: calc(154px + env(safe-area-inset-bottom, 0px)); right: calc(156px + env(safe-area-inset-right, 0px)); } }
 #touch .t-act { position: absolute; right: calc(118px + env(safe-area-inset-right, 0px)); bottom: calc(200px + env(safe-area-inset-bottom, 0px));
   width: 78px; height: 78px; font-size: 13px; line-height: 1.1; pointer-events: auto; border-color: var(--amber); background: rgba(255, 176, 32, 0.4); }
 @media (max-height: 520px) { #touch .t-act { width: 64px; height: 64px; bottom: calc(150px + env(safe-area-inset-bottom, 0px)); right: calc(84px + env(safe-area-inset-right, 0px)); } }

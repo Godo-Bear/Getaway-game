@@ -37,6 +37,12 @@ export class Crowd {
     }
   }
 
+  /** Pickpocketed: a moment later they stop, turn round and look behind them. */
+  robbed(p) {
+    p.robbed = true;
+    p.noticeIn = 1.2;
+  }
+
   /** Punched: they fall over backwards, then get up and carry on. */
   knockDown(p, fx, fz) {
     p.knock = 2.4;
@@ -56,6 +62,11 @@ export class Crowd {
         p.model.root.position.y = p.body.pos.y + (down ? 0.25 : 0);
         if (p.knock <= 0) p.pause = 0.6; // (dust themselves off)
         continue;
+      }
+      if (p.noticeIn > 0 && (p.noticeIn -= dt) <= 0) {
+        // "Hey... where's my wallet?" They stop and look back the way they came
+        p.pause = 2.6;
+        p.body.facing += Math.PI;
       }
       const { a, b } = p.lane;
       const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1;

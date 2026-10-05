@@ -40,6 +40,7 @@ const DEFAULTS = {
   lens: 0x0c0d10, bag: 0x3b4a2a, strap: 0x1d1f16, cash: 0x5fae5a, patch: 0xe8e8e8,
 };
 const PUNCH_TIME = 0.32;
+const UPPER_TIME = 0.42; // (the uppercut that ends a combo is slower and bigger)
 const STYLE = { top: 'hoodie', hair: 'short', beard: null, hat: null, face: 'face', build: 1, height: 1, badge: false, tie: false };
 
 const _c = new THREE.Color();
@@ -121,13 +122,31 @@ export class PlayerModel {
     this.lookAround = true; // glance around while standing still
     this.punchT = 0;        // > 0 while throwing a punch
     this.punchSide = 1;
+    this.punchKind = 'jab';
+    this.punchLen = PUNCH_TIME;
+    this.blockT = 0;        // > 0: forearms up, blocking (guards)
+    this.hitT = 0;          // > 0: rocked back by a punch
+    this.reachT = 0;        // > 0: a quick hand into someone's pocket
   }
 
-  /** Throw a punch (left and right in turn). */
-  punch() {
-    this.punchT = PUNCH_TIME;
-    this.punchSide = -this.punchSide;
+  /**
+   * Throw a punch. kind: 'jab' (left), 'cross' (right) or 'upper' (a big
+   * rising uppercut, the end of a combo). No kind: left and right in turn.
+   */
+  punch(kind = null) {
+    this.punchKind = kind || (this.punchSide > 0 ? 'jab' : 'cross');
+    this.punchSide = this.punchKind === 'cross' ? 1 : -1;
+    this.punchT = this.punchLen = this.punchKind === 'upper' ? UPPER_TIME : PUNCH_TIME;
   }
+
+  /** Forearms up in front of the face for a moment (a guard blocking a punch). */
+  block(dur = 0.8) { this.blockT = dur; }
+
+  /** Rocked back by a punch. */
+  hit(dur = 0.3) { this.hitT = this.hitLen = dur; }
+
+  /** A quick, low hand into someone's pocket. */
+  reach(dur = 0.45) { this.reachT = this.reachLen = dur; }
 
   /** Build (or rebuild) the meshes for a resolved look, and colour them. */
   _apply_look({ colors, style }) {
@@ -224,7 +243,11 @@ export class PlayerModel {
 
     // Blend every joint toward its target. Mantles/rolls (and punches) blend faster.
     if (this.punchT > 0) this.punchT -= dt;
-    const rate = this.punchT > 0 ? 30 : pc.state === 'mantle' || pc.state === 'roll' ? 22 : 14;
+    if (this.blockT > 0) this.blockT -= dt;
+    if (this.hitT > 0) this.hitT -= dt;
+    if (this.reachT > 0) this.reachT -= dt;
+    const fast = this.punchT > 0 || this.blockT > 0 || this.hitT > 0;
+    const rate = fast ? 30 : pc.state === 'mantle' || pc.state === 'roll' ? 22 : 14;
     for (const k in target) this.pose[k] = damp(this.pose[k], target[k], rate, dt);
     this._apply(pc);
   }
@@ -455,15 +478,48 @@ export class PlayerModel {
         break;
       }
     }
-    if (this.punchT > 0) {
+    if (this.punchT > 0 && this.punchKind === 'upper') {
+      // Uppercut: the left fist drives up from the hip, the body rises into it
+      const k = this.punchT / this.punchLen; // 1 -> 0
+      const out = k > 0.25 ? 1 : k / 0.25;
+      const rise = Math.min(1, (1 - k) / 0.45);
+      // (from down by the hip to up under the chin; angles found by fitting the fist's path)
+      t.shL = 0.05 + (0.25 - 1.3 * rise - 0.05) * out;
+      t.elL = -0.25 + (-0.95 - 0.35 * rise + 0.25) * out;
+      t.shLz = -0.08 + (0.05 + 0.4 * rise + 0.08) * out;
+      t.shR = -0.65; t.elR = -1.85; t.shRz = -0.85; // (right fist guarding the face)
+      t.twist += 0.55 * rise * out;
+      t.lean += (0.2 - 0.32 * rise) * out;
+      t.bob += 0.07 * rise * out;
+      t.kneeL = t.kneeR = 0.35 * (1 - rise);
+    } else if (this.punchT > 0) {
       // Punch: the arm shoots straight out in front, the shoulders turn into it
-      const k = this.punchT / PUNCH_TIME; // 1 -> 0
+      const k = this.punchT / this.punchLen; // 1 -> 0
       const out = k > 0.35 ? 1 : k / 0.35;  // (pulls back at the end)
       const r = this.punchSide > 0;
       if (r) { t.shR = -1.55 * out; t.elR = -0.08; t.shRz = 0.12 * out; t.shL = 0.3; t.elL = -1.6; }
       else { t.shL = -1.55 * out; t.elL = -0.08; t.shLz = -0.12 * out; t.shR = 0.3; t.elR = -1.6; }
       t.twist += (r ? -0.45 : 0.45) * out;
       t.lean += 0.12 * out;
+    }
+    if (this.reachT > 0) {
+      // Pickpocket: the right hand dips forward and low, then back
+      const k = this.reachT / this.reachLen;
+      const out = Math.sin(k * Math.PI);
+      t.shR = -0.75 * out; t.elR = -0.15; t.shRz = -0.1 * out;
+      t.lean += 0.18 * out; t.headPitch += 0.25 * out;
+    }
+    if (this.blockT > 0) {
+      // Blocking: both forearms up in front of the face, leaning back a little
+      t.shL = t.shR = -0.65; t.elL = t.elR = -1.85;
+      t.shLz = 0.85; t.shRz = -0.85; // (fists in front of the face, elbows tucked in)
+      t.lean -= 0.12; t.headPitch += 0.15;
+    }
+    if (this.hitT > 0) {
+      // Rocked back by a punch: head snaps back, body leans away
+      const k = this.hitT / this.hitLen;
+      t.lean -= 0.4 * k; t.headPitch -= 0.45 * k; t.bob -= 0.04 * k;
+      t.shL += 0.3 * k; t.shR += 0.3 * k;
     }
     return t;
   }

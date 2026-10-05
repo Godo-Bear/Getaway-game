@@ -24,6 +24,15 @@ import { audio } from '../core/audio.js';
 // sees the body, the squad reports it (bodyFound) and the mode can raise the
 // alarm. The same squad is used for police patrols in the street (uniform
 // colours, and they stand on the pavement: y follows the ground).
+//
+// COINS: throw a coin and the guards who hear it land walk over to look
+// (a "?" over their heads), look round for a few seconds, then go back to
+// their rounds. Guards who hold their posts (train roofs) just turn to look.
+// A "!" means they've seen you and they're hunting.
+//
+// FIGHTING: punched from the front, a guard sometimes BLOCKS (forearms up)
+// and shoves you back; the uppercut at the end of a three-punch combo breaks
+// through. A slide tackle knocks them off their feet.
 
 const WALK = 1.9, ALERT_WALK = 3.2;   // m/s
 const HALF_ANGLE = 0.5;               // radians either side (about 57 degrees wide)
@@ -35,7 +44,43 @@ const DISGUISE_RANGE = 3.2;           // in disguise, they only recognise you th
 // for HUNT_TIME seconds and they give up and go back to their rounds.
 const HUNT_TIME = 8, HUNT_RADIUS = 70, HUNT_RUN = 4.3; // s, m, m/s (you can outrun them sprinting)
 const HUNT_COLOR = 0xff7a1a;
+const HEAR_RADIUS = 14;        // m: how far away a coin landing is heard
+const LOOK_TIME = 3.5;         // s: looking round where it landed
+const INVESTIGATE_WALK = 2.5;  // m/s
+const BLOCK_TIME = 0.9;        // s: forearms up after blocking a punch
 const _from = new THREE.Vector3(), _dir = new THREE.Vector3();
+
+/** Turn angle a toward angle b by at most `step` radians (the short way round). */
+function turnTo(a, b, step) {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + Math.max(-step, Math.min(step, d));
+}
+
+/** "?" and "!" over a guard's head (drawn once, shared). */
+let markTex = null;
+function markTextures() {
+  if (markTex) return markTex;
+  const make = (ch, color) => {
+    const c = document.createElement('canvas');
+    c.width = c.height = 64;
+    const g = c.getContext('2d');
+    g.font = '900 52px system-ui, sans-serif';
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.lineWidth = 9;
+    g.strokeStyle = 'rgba(0,0,0,0.8)';
+    g.strokeText(ch, 32, 35);
+    g.fillStyle = color;
+    g.fillText(ch, 32, 35);
+    const t = new THREE.CanvasTexture(c);
+    t.colorSpace = THREE.SRGBColorSpace;
+    return t;
+  };
+  markTex = { '?': make('?', '#ffd23a'), '!': make('!', '#ff7a1a') };
+  return markTex;
+}
 
 export class GuardSquad {
   /**
@@ -74,6 +119,12 @@ export class GuardSquad {
     const cone = new THREE.Mesh(geo, makeGlowMaterial(0xffd23a, 0.16));
     cone.position.y = 0.04;
     this.parent.add(cone);
+    // "?" (heard something) or "!" (seen you) over their head
+    const mark = new THREE.Sprite(new THREE.SpriteMaterial({ map: markTextures()['?'], transparent: true, depthWrite: false, fog: false }));
+    mark.scale.setScalar(0.55);
+    mark.position.y = 2.3;
+    mark.visible = false;
+    model.root.add(mark);
     const [x, z] = def.route[0];
     const body = {
       pos: new THREE.Vector3(x, this._y(x, z), z), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0,
@@ -81,7 +132,8 @@ export class GuardSquad {
     };
     const [nx, nz] = def.route[1 % def.route.length];
     body.facing = Math.atan2(nx - x, nz - z);
-    return { route: def.route, leg: 0, wait: PAUSE * (i % 2), look: 0, baseFacing: body.facing, model, cone, pc: body, stunned: 0, waitTimer: 0, seesPlayer: false };
+    return { route: def.route, leg: 0, wait: PAUSE * (i % 2), look: 0, baseFacing: body.facing, model, cone, mark, pc: body, stunned: 0, waitTimer: 0, seesPlayer: false,
+      investigate: null, block: 0, counter: 0, trip: 0 };
   }
 
   /** Floor height under a point (0 indoors; the pavement outside). */
@@ -107,6 +159,9 @@ export class GuardSquad {
       u.wait = PAUSE * (i % 2);
       u.stunned = 0;
       u.seesPlayer = false;
+      u.investigate = null;
+      u.block = u.counter = u.trip = 0;
+      this._mark(u, null);
     });
   }
 
@@ -137,7 +192,7 @@ export class GuardSquad {
     if (fresh) this.huntStarted = true; // (the mode shows a warning once)
     for (const u of this.units) {
       if (u.down || u.hunting) continue;
-      if (Math.hypot(u.pc.pos.x - pos.x, u.pc.pos.z - pos.z) < HUNT_RADIUS) { u.hunting = true; u.wait = 0; u.stuck = 0; }
+      if (Math.hypot(u.pc.pos.x - pos.x, u.pc.pos.z - pos.z) < HUNT_RADIUS) { u.hunting = true; u.wait = 0; u.stuck = 0; u.investigate = null; }
     }
     this._coneColors();
   }
@@ -189,6 +244,9 @@ export class GuardSquad {
     u.down = true;
     u.seesPlayer = false;
     u.cone.visible = false;
+    u.investigate = null;
+    u.block = u.counter = u.trip = 0;
+    this._mark(u, null);
     u.pc.horizontalSpeed = 0;
     u.model.update(0, u.pc);
     u.model.root.rotation.x = -Math.PI / 2; // (lying on the floor)
@@ -196,6 +254,101 @@ export class GuardSquad {
   }
 
   get downCount() { return this.units.filter((u) => u.down).length; }
+
+  /** Is `pos` behind this guard (outside their view)? */
+  isBehind(u, pos) {
+    let a = Math.atan2(pos.x - u.pc.pos.x, pos.z - u.pc.pos.z) - u.pc.facing;
+    while (a > Math.PI) a -= Math.PI * 2;
+    while (a < -Math.PI) a += Math.PI * 2;
+    return Math.abs(a) > 1.9;
+  }
+
+  /**
+   * A noise at `pos` (a coin landing): the guards who hear it walk over to
+   * look (guards who hold their posts just turn to look). Returns how many heard.
+   */
+  hear(pos, radius = HEAR_RADIUS) {
+    let n = 0;
+    for (const u of this.units) {
+      if (u.down || u.hunting) continue;
+      const d = Math.hypot(u.pc.pos.x - pos.x, u.pc.pos.z - pos.z);
+      if (d > radius || Math.abs(u.pc.pos.y - pos.y) > 3.5) continue;
+      u.investigate = { pos: pos.clone(), t: 0, react: 0.3 + Math.random() * 0.35, arrived: false, look: 0, stay: !this.chase, stuck: 0, base: null };
+      u.homing = false;
+      n++;
+    }
+    return n;
+  }
+
+  /**
+   * You punched this guard. behind: a sneak hit from behind; heavy: the
+   * uppercut at the end of a combo; blockChance: how often they block.
+   * Returns 'ko' (out cold), 'stun' (dazed: hit again to finish), 'block',
+   * or 'break' (the uppercut smashed through their block: dazed).
+   */
+  punched(u, { behind = false, heavy = false, blockChance = 0.35 } = {}) {
+    if (behind || u.stunned > 0) { this.takedown(u); return 'ko'; }
+    if (u.block > 0) {
+      if (!heavy) { u.block = Math.max(u.block, 0.4); u.model.block(u.block); return 'block'; }
+      u.block = u.counter = 0;
+      u.model.blockT = 0;
+      u.stunned = 2.4;
+      u.model.hit(0.4);
+      return 'break';
+    }
+    if (Math.random() < blockChance * (this.alert || u.hunting ? 1.35 : 1)) {
+      u.block = BLOCK_TIME;
+      u.model.block(BLOCK_TIME);
+      u.counter = 0.32; // (then they shove you back)
+      return 'block';
+    }
+    u.stunned = Math.max(u.stunned || 0, heavy ? 2.8 : 2.3);
+    u.model.hit(0.3);
+    return 'stun';
+  }
+
+  /** Slide-tackled: knocked off their feet, then dazed. From behind: out cold. */
+  trip(u, behind) {
+    if (behind) { this.takedown(u); return 'ko'; }
+    u.block = u.counter = 0;
+    u.investigate = null;
+    u.stunned = Math.max(u.stunned || 0, 2.8);
+    u.trip = 1.2;
+    return 'trip';
+  }
+
+  _mark(u, ch) {
+    if (!ch) { if (u.mark.visible) u.mark.visible = false; return; }
+    u.mark.visible = true;
+    const tex = markTextures()[ch];
+    if (u.mark.material.map !== tex) { u.mark.material.map = tex; u.mark.material.needsUpdate = true; }
+  }
+
+  /** Heard a coin: turn toward it, walk over, look round, then back to work. */
+  _investigate(u, dt) {
+    const b = u.pc, iv = u.investigate;
+    const want = Math.atan2(iv.pos.x - b.pos.x, iv.pos.z - b.pos.z);
+    const d = Math.hypot(iv.pos.x - b.pos.x, iv.pos.z - b.pos.z);
+    iv.t += dt;
+    b.horizontalSpeed = 0;
+    if (iv.react > 0) { iv.react -= dt; b.facing = turnTo(b.facing, want, 7 * dt); return; } // (a moment to react)
+    if (!iv.arrived && !iv.stay && d > 1.2 && iv.t < 14) {
+      const moved = this._step(u, iv.pos.x, iv.pos.z, INVESTIGATE_WALK * dt);
+      b.facing = turnTo(b.facing, want, 8 * dt);
+      b.horizontalSpeed = moved > 0.001 ? INVESTIGATE_WALK : 0;
+      iv.stuck = moved < INVESTIGATE_WALK * dt * 0.25 ? iv.stuck + dt : 0;
+      if (iv.stuck > 1.2) iv.arrived = true; // (can't get there: look from here)
+      return;
+    }
+    if (!iv.arrived || iv.base == null) { iv.arrived = true; iv.base = iv.stay || d > 1.2 ? want : b.facing; }
+    iv.look += dt;
+    b.facing = turnTo(b.facing, iv.base + Math.sin(iv.look * 1.9) * (iv.stay ? 0.35 : 1.1), 6 * dt);
+    if (iv.look > LOOK_TIME) {
+      u.investigate = null;
+      if (iv.stay) { u.wait = PAUSE; u.look = 0; } // (back to watching from their post)
+      else { u.homing = true; u.stuck = 0; }
+    }
+  }
 
   /**
    * Move everyone along their routes and check who can see the target.
@@ -217,15 +370,33 @@ export class GuardSquad {
       const b = u.pc;
       if (u.down) continue;
       if (u.stunned > 0) {
-        // Dazed by a flashbang: stand still, cone off
+        // Dazed (a punch, a flashbang): stand still, cone off
         u.stunned -= dt;
         b.horizontalSpeed = 0;
         u.cone.visible = false;
         u.model.update(dt, b);
+        if (u.trip > 0) {
+          // Slide-tackled: on the floor for a moment, then back up
+          u.trip -= dt;
+          const down = u.trip > 0.35;
+          u.model.root.rotation.x = down ? -Math.PI / 2 : 0;
+          u.model.root.position.y = b.pos.y + (down ? 0.25 : 0);
+        }
+        this._mark(u, null);
         continue;
       }
       u.cone.visible = true;
-      if (u.hunting && this.hunt) {
+      if (u.block > 0) u.block -= dt;
+      if (u.counter > 0 && (u.counter -= dt) <= 0) {
+        // After blocking: a shove (the mode pushes you back if you're still close)
+        u.model.punch('cross');
+        this.shove = u;
+      }
+      if (u.block > 0 || u.counter > 0) {
+        // Blocking: stand and face you
+        b.horizontalSpeed = 0;
+        b.facing = turnTo(b.facing, Math.atan2(player.pos.x - b.pos.x, player.pos.z - b.pos.z), 10 * dt);
+      } else if (u.hunting && this.hunt) {
         // Running to where you were last seen, then looking around for you
         const h = this.hunt.pos, d = Math.hypot(h.x - b.pos.x, h.z - b.pos.z);
         if (d > 1.2) {
@@ -239,6 +410,8 @@ export class GuardSquad {
           b.facing = (u.baseFacing ?? b.facing) + Math.sin(u.look * 1.8) * 1.4;
         }
         u.baseFacing = d > 1.2 ? b.facing : u.baseFacing;
+      } else if (u.investigate) {
+        this._investigate(u, dt);
       } else if (u.homing) {
         // Hunt over: back to their rounds (if they get stuck, they just reappear at their post)
         const [hx, hz] = u.route[u.leg];
@@ -283,6 +456,7 @@ export class GuardSquad {
       u.cone.scale.setScalar(r);
       u.seesPlayer = !hidden && !admin.flag('unseen') && this._sees(u, player, closeOnly ? Math.min(r, DISGUISE_RANGE) : r);
       if (u.seesPlayer) { seen = true; this.alarmAt(player.pos); }
+      this._mark(u, u.hunting && this.hunt ? '!' : u.investigate ? '?' : null);
       // Spotting a knocked-out colleague
       for (const o of this.units) {
         if (o.down && !o.found && this._sees(u, { pos: o.pc.pos, height: 0.5 }, r)) { o.found = true; this.bodyFound = o; }

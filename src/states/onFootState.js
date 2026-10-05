@@ -12,7 +12,9 @@ import { NightLighting, lightingForQuality, pickTime } from '../world/lighting.j
 import { Weather, pickWeather } from '../world/weather.js';
 import { FootGadgets } from '../gadgets/footGadgets.js';
 import { ParticleSystem } from '../vehicles/particles.js';
-import { owns } from '../gadgets/gadgets.js';
+import { owns, earn } from '../gadgets/gadgets.js';
+import { CoinThrow } from '../player/coins.js';
+import { diff } from '../core/difficulty.js';
 import { admin } from '../core/admin.js';
 import { CONTROLS } from '../ui/menus.js';
 import { damp, clamp } from '../core/utils.js';
@@ -94,6 +96,8 @@ export class OnFootState extends PlayState {
     this.chimneys = this.level?.chimneys || null;
     this.puffs = this.cold || this.chimneys?.length ? new ParticleSystem(this.scene, 900) : null;
     this.chimneyT = 0;
+    // Coins to throw: the guards who hear one land go to look
+    this.coins = new CoinThrow(this.scene, this.world, (pos) => this._coinLanded(pos));
     this.cam = new ThirdPersonCamera(this.camera, this.world);
     const s = game.settings;
     this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
@@ -276,8 +280,13 @@ export class OnFootState extends PlayState {
       this.gadgets.update(dt);
       this.mode.update(dt);
       this._punch();
+      this._throwCoin();
+      this.coins.update(dt);
+      this._fightExtras();
       this._streetHelp(dt);
     }
+    const m = this.mode;
+    this.game.touch?.setCoin(!!(m.guards || m.patrols || m.mailGuard) && !m.inputLocked, this.coins.ready);
 
     this.model.update(frozen ? 0 : dt, p);
     this._updatePuffs(frozen ? 0 : dt);
@@ -412,31 +421,37 @@ export class OnFootState extends PlayState {
     const p = this.player, hud = this.game.hud;
     if (!this.game.input.wasPressed('punch') || this.mode.inputLocked || this.model.punchT > 0.12) return;
     if (p.state !== 'ground' && p.state !== 'air') return;
-    this.model.punch();
-    audio.sfx('whoosh', { vol: 0.45 });
+    // Punches in quick succession make a combo: jab, cross, then a big UPPERCUT
+    const now = performance.now() / 1000;
+    this.combo = this.combo && now - this.comboAt < 0.7 ? (this.combo % 3) + 1 : 1;
+    this.comboAt = now;
+    const heavy = this.combo === 3;
+    this.model.punch(['jab', 'cross', 'upper'][this.combo - 1]);
+    audio.sfx('whoosh', { vol: heavy ? 0.6 : 0.45 });
     const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
-    const reach = 1.8 + Math.min(0.8, p.horizontalSpeed * 0.08); // (a running punch reaches further)
+    const reach = (heavy ? 2 : 1.8) + Math.min(0.8, p.horizontalSpeed * 0.08); // (a running punch reaches further)
     const inFront = (q) => {
       const dx = q.x - p.pos.x, dz = q.z - p.pos.z, d = Math.hypot(dx, dz);
       return d < reach && Math.abs(q.y - p.pos.y) < 1.3 && (d < 0.6 || (dx * fx + dz * fz) / d > 0.5);
     };
-    const hit = () => { audio.sfx('land', { vol: 1 }); this.cam.addLandingDip?.(4); };
+    const hit = (big = heavy) => { audio.sfx(big ? 'uppercut' : 'land', { vol: 1 }); this.cam.addLandingDip?.(big ? 7 : 4); };
     const m = this.mode;
-    // Guards, police patrols, bounty hunters
+    // Guards, police patrols, bounty hunters (they sometimes block)
     for (const sq of [m.guards, m.patrols, m.mailGuard].filter(Boolean)) {
       for (const u of sq.units) {
         if (u.down || !inFront(u.pc.pos)) continue;
-        let a = Math.atan2(p.pos.x - u.pc.pos.x, p.pos.z - u.pc.pos.z) - u.pc.facing;
-        while (a > Math.PI) a -= Math.PI * 2;
-        while (a < -Math.PI) a += Math.PI * 2;
-        hit();
-        if (Math.abs(a) > 1.9 || u.stunned > 0) {
-          sq.takedown(u);
-          hud.toast('Knocked out!', 'Keep moving: if someone finds them, everyone goes on alert.', 'var(--amber)', 3);
-        } else {
-          u.stunned = Math.max(u.stunned || 0, 2.5);
-          hud.toast('Stunned!', 'Hit them again before they shake it off.', 'var(--amber)', 2.5);
+        const r = sq.punched(u, { behind: sq.isBehind(u, p.pos), heavy, blockChance: diff().guardBlock ?? 0.35 });
+        if (r === 'block') {
+          audio.sfx('block');
+          this.cam.addLandingDip?.(2);
+          this.blocked = (this.blocked || 0) + 1;
+          hud.toast('Blocked!', this.blocked <= 2 ? 'Throw three quick punches: the uppercut at the end breaks through. Or get behind them.' : '', 'var(--amber)', this.blocked <= 2 ? 3.5 : 1.2);
+          return;
         }
+        hit(heavy || r === 'break');
+        if (r === 'ko') hud.toast(heavy ? 'Uppercut! Out cold' : 'Knocked out!', 'Keep moving: if someone finds them, everyone goes on alert.', 'var(--amber)', 3);
+        else if (r === 'break') hud.toast('Guard broken!', 'They\'re dazed: hit them again.', 'var(--amber)', 2.5);
+        else hud.toast('Stunned!', 'Hit them again before they shake it off.', 'var(--amber)', 2.5);
         return;
       }
     }
@@ -460,6 +475,119 @@ export class OnFootState extends PlayState {
         return;
       }
     }
+  }
+
+  /** Throw a coin where you're looking (right click, Z, LT, or the Coin button). */
+  _throwCoin() {
+    if (!this.game.input.wasPressed('throw') || this.mode.inputLocked || !this.coins.ready) return;
+    const p = this.player;
+    if (!['ground', 'air', 'crouch', 'slide'].includes(p.state)) return; // (not while climbing or on a zip line)
+    const dir = this.camera.getWorldDirection(this._aim || (this._aim = new THREE.Vector3()));
+    const from = this._throwFrom || (this._throwFrom = new THREE.Vector3());
+    if (this.cam.firstPerson) {
+      from.copy(this.camera.position).addScaledVector(dir, 0.4);
+      from.y -= 0.2;
+    } else {
+      // Turn to face the throw and toss it from the right hand
+      p.facing = Math.atan2(dir.x, dir.z);
+      this.model.punch('cross');
+      from.set(p.pos.x + dir.x * 0.5, p.pos.y + 1.45, p.pos.z + dir.z * 0.5);
+    }
+    this.coins.throw(from, dir);
+  }
+
+  /** A coin landed: every guard who heard it goes to look. */
+  _coinLanded(pos) {
+    const m = this.mode;
+    let heard = 0;
+    for (const sq of [m.guards, m.patrols, m.mailGuard]) if (sq?.hear) heard += sq.hear(pos);
+    if (heard && !this.coinTip) {
+      this.coinTip = true;
+      this.game.hud.toast(heard === 1 ? 'Someone heard it' : `${heard} of them heard it`, 'They\'re going to look. Sneak past while they\'re busy, or come up behind them.', 'var(--amber)', 3.5);
+    }
+  }
+
+  /**
+   * The rest of the fighting: a guard who blocked your punch shoves you
+   * back; sliding into someone knocks them off their feet (slide tackle);
+   * and behind someone in the street you can pickpocket them (E).
+   */
+  _fightExtras() {
+    const p = this.player, hud = this.game.hud, m = this.mode;
+    const squads = [m.guards, m.patrols, m.mailGuard].filter(Boolean);
+    for (const sq of squads) {
+      const u = sq.shove;
+      if (!u) continue;
+      sq.shove = null;
+      const dx = p.pos.x - u.pc.pos.x, dz = p.pos.z - u.pc.pos.z, d = Math.hypot(dx, dz);
+      if (d < 2.4 && d > 0.01) {
+        p.vel.x += (dx / d) * 6;
+        p.vel.z += (dz / d) * 6;
+        audio.sfx('block', { vol: 0.8 });
+        this.cam.addLandingDip?.(3);
+      }
+    }
+    // Slide tackle
+    if (p.state === 'slide' && p.horizontalSpeed > 4) {
+      const fx = Math.sin(p.facing), fz = Math.cos(p.facing);
+      const ahead = (q) => {
+        const dx = q.x - p.pos.x, dz = q.z - p.pos.z, d = Math.hypot(dx, dz);
+        return d < 1.3 && Math.abs(q.y - p.pos.y) < 1.2 && (d < 0.5 || (dx * fx + dz * fz) / d > 0.3);
+      };
+      for (const sq of squads) {
+        for (const u of sq.units) {
+          if (u.down || u.trip > 0 || !ahead(u.pc.pos)) continue;
+          const r = sq.trip(u, sq.isBehind(u, p.pos));
+          audio.sfx('land', { vol: 1 });
+          this.cam.addLandingDip?.(5);
+          hud.toast(r === 'ko' ? 'Slide tackle! Out cold' : 'Slide tackle!', r === 'ko' ? '' : 'They\'re down: hit them before they get up.', 'var(--amber)', 2.5);
+        }
+      }
+      if (m.crowd) {
+        for (const c of m.crowd.people) if (!(c.knock > 0) && ahead(c.body.pos)) { m.crowd.knockDown(c, fx, fz); audio.sfx('land', { vol: 0.8 }); }
+      }
+      if (m.officers && m.officers !== m.guards && m.officers !== m.patrols) {
+        for (const u of m.officers.units) {
+          if (u.waitTimer > 0 || u.floored || !u.model.root.visible || !ahead(u.pc.pos)) continue;
+          u.stunned = 3;
+          u.floored = true;
+          audio.sfx('land', { vol: 1 });
+          hud.toast('Slide tackle!', 'Officer down. Run!', 'var(--amber)', 2.5);
+        }
+      }
+    }
+    // Pickpocket: walk (don't sprint) up behind someone in the street
+    this.pickTarget = null;
+    if (m.crowd && p.state === 'ground' && p.horizontalSpeed < 6 && !m.inputLocked) {
+      for (const c of m.crowd.people) {
+        if (c.robbed || c.knock > 0) continue;
+        const q = c.body.pos, dx = p.pos.x - q.x, dz = p.pos.z - q.z, d = Math.hypot(dx, dz);
+        if (d > 1.6 || Math.abs(p.pos.y - q.y) > 1.2) continue;
+        let a = Math.atan2(dx, dz) - c.body.facing;
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        if (Math.abs(a) > 1.9) { this.pickTarget = c; break; }
+      }
+    }
+    super.setAction(this._modeAction ?? (this.pickTarget ? 'Pickpocket' : null));
+    if (this.pickTarget && this._modeAction == null && this.game.input.wasPressed('interact')) this._pickpocket(this.pickTarget);
+  }
+
+  /** Lift a wallet: a little cash, and the police come running if they saw you. */
+  _pickpocket(c) {
+    const m = this.mode;
+    m.crowd.robbed(c);
+    this.model.reach();
+    const got = earn(this.game, 10 + Math.round(Math.random() * 12) * 5, '', { quiet: true });
+    audio.sfx('cash', { vol: 0.5 });
+    this.game.hud.toast(`Pickpocketed! +$${got}`, 'A wallet for the Shop. Don\'t let the police see you do it.', 'var(--safe)', 2.5);
+    for (const sq of [m.patrols, m.guards].filter(Boolean)) if (sq.units.some((u) => u.seesPlayer)) sq.alarmAt(this.player.pos);
+  }
+
+  /** Modes show their action (Knock out, ...); with none, behind someone it's Pickpocket. */
+  setAction(label) {
+    this._modeAction = label;
+    super.setAction(label ?? (this.pickTarget ? 'Pickpocket' : null));
   }
 
   /** Your look: mix and match, shown live on your character (and in the card's preview). */
@@ -556,6 +684,10 @@ export class OnFootState extends PlayState {
     document.body.classList.remove('wardrobe'); // (in case you left from the wardrobe)
     this.puffs?.dispose();
     this.puffs = null;
+    this.coins?.dispose();
+    this.coins = null;
+    this.pickTarget = null;
+    this.game.touch?.setCoin(false);
     this.gadgets?.dispose();
     this.weather?.dispose();
     this.weather = null;

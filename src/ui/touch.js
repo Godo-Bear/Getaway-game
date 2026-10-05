@@ -11,12 +11,12 @@
 // input.touch, which the Input class reads exactly like keys and gamepads.
 
 const LABELS = {
-  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide', e: 'Gadget' },
-  driving: { a: 'Drift', b: 'Nitro', c: 'Cam', d: 'Horn', e: 'Gadget' },
-  none: { a: null, b: null, c: null, d: null, e: null },
+  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide', e: 'Gadget', f: 'Coin' },
+  driving: { a: 'Drift', b: 'Nitro', c: 'Cam', d: 'Horn', e: 'Gadget', f: null },
+  none: { a: null, b: null, c: null, d: null, e: null, f: null },
 };
 const ACTIONS = {
-  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: 'crouch', e: 'gadget' },
+  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: 'crouch', e: 'gadget', f: 'throw' },
   driving: { a: 'drift', b: 'nitro', c: 'camera', d: 'horn', e: 'gadget' },
   none: {},
 };
@@ -39,6 +39,7 @@ export class TouchControls {
         <button data-b="a" class="t-main"></button>
       </div>
       <button data-b="e" class="t-gadget"></button>
+      <button data-b="f" class="t-coin" hidden></button>
       <button class="t-pause" aria-label="Pause">II</button>
       <button class="t-act" hidden></button>
       <button class="t-ghost" hidden>Ghost</button>`;
@@ -68,10 +69,19 @@ export class TouchControls {
     for (const btn of this.root.querySelectorAll('[data-b]')) {
       const label = LABELS[mode][btn.dataset.b];
       btn.textContent = label || '';
-      btn.hidden = !label;
+      btn.hidden = !label || (btn.dataset.b === 'f' && !this._coinOn);
       btn.classList.remove('latched');
     }
     this.setAction(this._actLabel ?? null);
+  }
+
+  /** The Coin button: only where there are guards to distract; dimmed while it reloads. */
+  setCoin(on, ready = true) {
+    const b = this.coinBtn || (this.coinBtn = this.root.querySelector('[data-b="f"]'));
+    this._coinOn = on;
+    const hide = !on || this.mode !== 'onFoot';
+    if (b.hidden !== hide) b.hidden = hide;
+    b.classList.toggle('cooling', !ready);
   }
 
   /** Light a button up while its action is switched on (e.g. sprint). */
