@@ -58,6 +58,8 @@ The icon is a see-through amber **neon-tube G** (the title font, slanted like th
 One-time setup: in the repo go to **Settings > Pages > Build and deployment > Source** and pick **GitHub Actions**.
 The game then lives at https://godo-bear.github.io/Getaway-game/ (progress is in the Actions tab).
 
+It's also on Cloudflare Pages at https://getaway-game.pages.dev (for networks that block GitHub). The Cloudflare project is connected to this repo (build command `npx vite build`, output `dist`, production branch = the working branch), so every push rebuilds it too. If Cloudflare says the project is disconnected from Git, give the **Cloudflare Workers and Pages** GitHub app access to this repo (GitHub > Settings > Applications) and push again. The title screen shows the build version in the corner, to check which version a device has.
+
 ## Story direction
 
 From Chapter 6 on: no moles and no detective work (you're the criminals). See `CLAUDE.md`.
