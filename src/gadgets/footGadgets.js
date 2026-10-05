@@ -24,6 +24,8 @@ const GRAPPLE_RANGE = 24, GRAPPLE_MAX_RISE = 18; // enough to get from the stree
 const FAR = 600; // "infinite range" ability (admin): as far as you can see
 const FLASH_BLIND = 5, FLASH_RADIUS = 15;
 const CLOAK_TIME = 15;
+const BLINK_RANGE = 16; // m (60 with the admin's infinite range)
+const DECOY_RUN = 5.5;  // m/s: the hologram runs off the way you were looking
 const MIRAGE_TIME = 7, CHAMELEON_TIME = 12, BOX_TIME = 30;
 
 const _v = new THREE.Vector3(), _dir = new THREE.Vector3();
@@ -59,7 +61,7 @@ export class FootGadgets {
     const id = this.slot.gadget.id;
     const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash()
       : id === 'cloak' ? this._cloak() : id === 'mirage' ? this._cloak(T(MIRAGE_TIME), 'Mirage Cloak!')
-      : id === 'box' ? this._box() : id === 'chameleon' ? this._chameleon() : this._grapple();
+      : id === 'box' ? this._box() : id === 'chameleon' ? this._chameleon() : id === 'blink' ? this._blink() : this._grapple();
     if (ok) this.slot.used();
   }
 
@@ -113,14 +115,17 @@ export class FootGadgets {
     ring.position.y = 0.05;
     model.root.add(ring);
     this.state.scene.add(model.root);
+    // It runs off the way you're looking
+    const look = this.state.camera.getWorldDirection(new THREE.Vector3());
+    const facing = Math.atan2(look.x, look.z);
     const body = {
-      pos: pc.pos.clone(), vel: new THREE.Vector3(), facing: pc.facing, state: 'ground', horizontalSpeed: 0,
+      pos: pc.pos.clone(), vel: new THREE.Vector3(), facing, state: 'ground', horizontalSpeed: DECOY_RUN,
       mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null,
       isLure: true, // the helicopter always spots it
     };
     this.decoy = { model, t: 0, body, ring };
     audio.sfx('checkpoint', { vol: 0.6 });
-    this.state.game.hud.toast('Holo-decoy!', 'The police will chase the hologram for 8 seconds. Run!', '#39e6ff', 3);
+    this.state.game.hud.toast('Holo-decoy!', 'Your hologram runs off and the police chase it for 8 seconds. Go the other way!', '#39e6ff', 3);
     return true;
   }
 
@@ -128,6 +133,91 @@ export class FootGadgets {
     if (!this.decoy) return;
     this.state.scene.remove(this.decoy.model.root);
     this.decoy = null;
+  }
+
+  /** The hologram runs on; at a wall it turns aside (and stops at a drop). */
+  _runDecoy(d, dt) {
+    const b = d.body, w = this.state.world;
+    if (b.horizontalSpeed <= 0) return;
+    for (let tries = 0; tries < 4; tries++) {
+      const fx = Math.sin(b.facing), fz = Math.cos(b.facing);
+      _v.set(b.pos.x, b.pos.y + 0.8, b.pos.z);
+      _dir.set(fx, 0, fz);
+      const step = DECOY_RUN * dt;
+      const g = w.groundHeight(b.pos.x + fx * 0.8, b.pos.z + fz * 0.8, b.pos.y + 0.6);
+      const ground = Number.isFinite(g) && g > -1 ? g : 0;
+      if (!(w.raycast(_v, _dir, 0.8) < 0.8) && Math.abs(ground - b.pos.y) < 0.7) {
+        b.pos.x += fx * step;
+        b.pos.z += fz * step;
+        b.pos.y = ground;
+        return;
+      }
+      b.facing += (tries % 2 ? -1 : 1) * (Math.PI / 2) * (tries + 1); // (try right, then left...)
+    }
+    b.horizontalSpeed = 0; // (boxed in: it stands there)
+  }
+
+  // ---------------------------------------------------------------- Blink
+  /** Where Blink would take you right now (the spot under the crosshair), or null. */
+  _blinkTarget() {
+    const s = this.state, pc = s.player;
+    const range = admin.flag('infiniteRange') ? 60 : BLINK_RANGE;
+    const from = _v.copy(s.camera.position);
+    s.camera.getWorldDirection(_dir);
+    const startD = Math.max(0, Math.hypot(from.x - pc.pos.x, from.z - pc.pos.z) - 0.5); // (start at you, not behind you)
+    const hit = s.world.raycast(from, _dir, range + startD);
+    const d = Math.min(hit < range + startD ? hit - 0.45 : range + startD, range + startD);
+    if (d - startD < 1.5) return null;
+    const x = from.x + _dir.x * d, z = from.z + _dir.z * d, y = from.y + _dir.y * d;
+    const g = s.world.groundHeight(x, z, y + 0.6);
+    const top = Number.isFinite(g) && g > -1 ? g : 0;
+    if (y - top > 30) return null; // (nothing under it)
+    const clear = s.world.query(x - 0.3, top + 0.05, z - 0.3, x + 0.3, top + 1.8, z + 0.3, []).every((q) => q.disabled);
+    return clear ? new THREE.Vector3(x, top, z) : null;
+  }
+
+  _blink() {
+    const s = this.state, pc = s.player, t = this._blinkTarget();
+    if (!t) {
+      s.game.hud.toast('Can\'t blink there', 'Aim at open ground or a roof (the ring shows where you\'ll land).', 'var(--muted)', 2);
+      return false;
+    }
+    const from = pc.pos.clone();
+    pc.teleport(t.x, t.y + 0.05, t.z, pc.facing);
+    // A flash where you were and where you land
+    for (const p of [from, t]) {
+      const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0x8af4ff, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+      m.position.set(p.x, p.y + 1, p.z);
+      m.scale.setScalar(3.5);
+      s.scene.add(m);
+      this.flashes = this.flashes || [];
+      this.flashes.push({ m, t: 0 });
+    }
+    audio.sfx('whoosh', { vol: 1 });
+    return true;
+  }
+
+  /** While Blink is ready, a ring shows where it would take you. */
+  _blinkAim(dt) {
+    const id = this.slot.gadget?.id, pc = this.state.player;
+    const show = (id === 'blink' || id === 'grapple') && this.slot.ready && !this.state.mode.ghost && !this.state.mode.inputLocked && pc.state !== 'grapple' && pc.state !== 'zip';
+    const t = !show ? null : id === 'blink' ? this._blinkTarget() : this._grappleTarget().target || null;
+    if (!this.blinkRing) {
+      this.blinkRing = new THREE.Mesh(new THREE.RingGeometry(0.45, 0.6, 32).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0x8af4ff, transparent: true, opacity: 0.85, depthWrite: false, toneMapped: false }));
+      this.blinkRing.renderOrder = 4;
+      this.state.scene.add(this.blinkRing);
+    }
+    this.blinkRing.visible = !!t;
+    this.blinkRing.material.color.setHex(id === 'grapple' ? 0xffb020 : 0x8af4ff); // (orange: the grapple's anchor)
+    if (t) { this.blinkRing.position.set(t.x, t.y + 0.06, t.z); this.blinkRing.rotation.y += dt * 2; }
+    for (const f of this.flashes || []) {
+      f.t += dt;
+      f.m.material.opacity = Math.max(0, 1 - f.t / 0.5);
+      f.m.scale.setScalar(3.5 + f.t * 6);
+      if (f.t > 0.5) { this.state.scene.remove(f.m); f.m.material.dispose(); }
+    }
+    if (this.flashes) this.flashes = this.flashes.filter((f) => f.t <= 0.5);
   }
 
   // ---------------------------------------------------------------- Invisibility Cloak (admin)
@@ -202,9 +292,10 @@ export class FootGadgets {
       h.lastSeen.set(p.x + Math.cos(a) * 35, p.y, p.z + Math.sin(a) * 35);
       blinded++;
     }
-    for (const u of [...(mode.officers?.units || []), ...(mode.patrols?.units || [])]) {
-      if (u.waitTimer > 0) continue;
-      if (admin.flag('infiniteRange') || u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = T(FLASH_BLIND); stunned++; }
+    const units = new Set([...(mode.officers?.units || []), ...(mode.patrols?.units || []), ...(mode.guards?.units || []), ...(mode.mailGuard?.units || [])]);
+    for (const u of units) {
+      if (u.waitTimer > 0 || u.down) continue;
+      if (admin.flag('infiniteRange') || u.pc.pos.distanceTo(p) < FLASH_RADIUS) { u.stunned = T(FLASH_BLIND); u.model?.hit?.(0.5); u.investigate = null; stunned++; }
     }
     // A white burst at your feet
     const burst = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xfff6c8, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
@@ -214,7 +305,7 @@ export class FootGadgets {
     s.game.post?.lightning?.(0.8);
     audio.sfx('thunder', { vol: 0.35 });
     if (blinded || stunned) { this.dazed = T(FLASH_BLIND); this.dazedTotal = this.dazed; }
-    const what = [blinded ? `${blinded > 1 ? 'Helicopters' : 'The helicopter'} blinded` : '', stunned ? `${stunned} officer${stunned > 1 ? 's' : ''} stunned` : ''].filter(Boolean).join(', ');
+    const what = [blinded ? `${blinded > 1 ? 'Helicopters' : 'The helicopter'} blinded` : '', stunned ? `${stunned} ${stunned > 1 ? 'people' : 'person'} stunned` : ''].filter(Boolean).join(', ');
     s.game.hud.toast('Flashbang!', what ? `${what} for ${T(FLASH_BLIND)} seconds. Go!` : 'Nobody was close enough to be dazzled.', '#fff3a0', 3);
     return true;
   }
@@ -223,28 +314,9 @@ export class FootGadgets {
   _grapple() {
     const s = this.state, pc = s.player;
     if (pc.state === 'zip' || pc.state === 'grapple') return false;
-    const from = _v.set(pc.pos.x, pc.pos.y + 1.4, pc.pos.z);
-    s.camera.getWorldDirection(_dir);
-    // Aim a little upwards: players usually look at the wall, not the roof edge.
-    _dir.y = Math.max(_dir.y, -0.15) + 0.12;
-    _dir.normalize();
-    const far = admin.flag('infiniteRange');
-    const range = far ? FAR : GRAPPLE_RANGE, maxRise = far ? FAR : GRAPPLE_MAX_RISE;
-    const hit = s.world.raycast(from, _dir, range);
-    if (!(hit < range)) {
-      s.game.hud.toast('Nothing to grab', far ? 'Aim the crosshair at a building.' : 'Aim the camera at a building within 24 m.', 'var(--muted)', 2);
-      return false;
-    }
-    // The roof just past where the cable hit
-    const hx = from.x + _dir.x * (hit + 0.9), hz = from.z + _dir.z * (hit + 0.9);
-    const top = s.world.groundHeight(hx, hz, pc.pos.y + maxRise + 0.5);
-    const rise = top - pc.pos.y;
-    const clear = s.world.query(hx - 0.3, top + 0.05, hz - 0.3, hx + 0.3, top + 1.8, hz + 0.3, []).length === 0;
-    if (rise > maxRise || rise < (far ? -60 : -4) || !clear || top < 1) {
-      s.game.hud.toast('Can\'t reach that', 'Aim at a building up to 18 m higher, with room on the roof.', 'var(--muted)', 2);
-      return false;
-    }
-    const target = new THREE.Vector3(hx, top + 0.02, hz);
+    const aim = this._grappleTarget();
+    if (aim.why) { s.game.hud.toast(aim.why[0], aim.why[1], 'var(--muted)', 2); return false; }
+    const { target, top } = aim;
     pc.grapple(target);
     // The cable: a bright line from your hands to the anchor point
     this._clearCable();
@@ -254,6 +326,27 @@ export class FootGadgets {
     s.scene.add(this.cable);
     audio.sfx('whoosh', { vol: 1.2 });
     return true;
+  }
+
+  /** Where the Grapple Gun would pull you up to: { target, top }, or { why: [title, text] }. */
+  _grappleTarget() {
+    const s = this.state, pc = s.player;
+    const from = _v.set(pc.pos.x, pc.pos.y + 1.4, pc.pos.z);
+    s.camera.getWorldDirection(_dir);
+    // Aim a little upwards: players usually look at the wall, not the roof edge.
+    _dir.y = Math.max(_dir.y, -0.15) + 0.12;
+    _dir.normalize();
+    const far = admin.flag('infiniteRange');
+    const range = far ? FAR : GRAPPLE_RANGE, maxRise = far ? FAR : GRAPPLE_MAX_RISE;
+    const hit = s.world.raycast(from, _dir, range);
+    if (!(hit < range)) return { why: ['Nothing to grab', far ? 'Aim the crosshair at a building.' : 'Aim the camera at a building within 24 m.'] };
+    // The roof just past where the cable hit
+    const hx = from.x + _dir.x * (hit + 0.9), hz = from.z + _dir.z * (hit + 0.9);
+    const top = s.world.groundHeight(hx, hz, pc.pos.y + maxRise + 0.5);
+    const rise = top - pc.pos.y;
+    const clear = s.world.query(hx - 0.3, top + 0.05, hz - 0.3, hx + 0.3, top + 1.8, hz + 0.3, []).length === 0;
+    if (rise > maxRise || rise < (far ? -60 : -4) || !clear || top < 1) return { why: ['Can\'t reach that', 'Aim at a building up to 18 m higher, with room on the roof.'] };
+    return { target: new THREE.Vector3(hx, top + 0.02, hz), top };
   }
 
   _clearCable() {
@@ -278,6 +371,7 @@ export class FootGadgets {
 
   update(dt) {
     this.slot.update(dt);
+    this._blinkAim(dt);
     if (this.dazed > 0) this.dazed -= dt;
     this.slot.showEffects(this._effects());
     if (this.box) {
@@ -319,11 +413,19 @@ export class FootGadgets {
         p.m.scale.setScalar(p.s + s.t * 0.9);
         p.m.material.opacity = 0.75 * fadeIn * fadeOut;
       }
+      // Guards caught in the cloud can't see a thing: they stop and cough
+      const m = this.state.mode;
+      for (const sq of [m.guards, m.patrols, m.mailGuard]) {
+        for (const u of sq?.units || []) {
+          if (!u.down && u.pc.pos.distanceTo(s.pos) < SMOKE_RADIUS + 0.5) { u.stunned = Math.max(u.stunned || 0, 0.6); u.investigate = null; }
+        }
+      }
       if (s.t > T(SMOKE_TIME)) this._clearSmoke();
     }
     const d = this.decoy;
     if (d) {
       d.t += dt;
+      this._runDecoy(d, dt);
       d.model.update(dt, d.body);
       // Hologram flicker, stronger as it runs out
       const flick = Math.random() < (d.t > T(DECOY_TIME) - 2 ? 0.25 : 0.05) ? 0.15 : 0.6;

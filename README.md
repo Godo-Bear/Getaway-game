@@ -113,7 +113,7 @@ The panel has four tabs, each a tidy list:
 * **Players**: other players' cash, chapters and gadgets (online accounts, see below).
 * **Admin**: turn every ability off, lock admin mode, reset your progress.
 * **In a game**, the pause menu has Admin buttons: skip this part, teleport to the objective marker (on foot), and the admin panel itself.
-* **Admin gadgets** (free, in the Shop's Admin tab, and only while admin mode is on): Rocket Boots (jump again in mid-air, any number of times), Invisibility Cloak (15 s invisible), Police Freeze (every cruiser stuck for 10 s), Teleporter (beam the car to your waypoint or goal).
+* **Admin gadgets** (free, in the Shop's Admin tab, and only while admin mode is on): Rocket Boots (jump again in mid-air, any number of times), Invisibility Cloak (15 s invisible), Police Freeze (every cruiser stuck for 10 s), Teleporter (the city map opens: tap anywhere and the car beams there; close the map and it isn't used up).
 * **Unlock**: every gadget, every chapter, every car colour. **Reset my progress** (asks twice). **Lock admin mode**.
 * **Admin: skip this part** in the pause menu of any story part.
 * **Other players**: sign in with your account, then **Load the player list**: each player's email, cash, chapters solved and equipped gadgets. Set anyone's cash, and **share abilities** with them (tick them and Save abilities; untick to take them away), or give the same abilities to every player at once. Shared abilities work for them without the code, including the admin gadgets. Their game picks changes up within a minute (or next time they open it).
@@ -196,7 +196,8 @@ service cloud.firestore {
 * **Clues**: three per chapter, all on the route; two point at the traitor, one is a red herring (Chapter 5: two in the rooftop part, one in the casino). There are no clues in the car chases.
 * **Gadget Shop** (title screen): five categories. Equip one active gadget for on foot and one for the car and press F to use it (LB on a gamepad, the Gadget button on a phone); the rest are always on once bought. Code: `src/gadgets/`.
   * Utility: Smoke Bomb, Holo-Decoy (foot), Signal Jammer (car), Money Clip (+25% cash).
-  * Movement: Grapple Gun (foot), Glider Wing (press jump again in mid-air and hold to glide), Spring Boots (higher jumps), Gecko Gloves (longer wall-runs).
+  * Movement: Grapple Gun (foot; an orange ring shows where it'll pull you), Blink (foot; a cyan ring shows where you're aiming, up to 16 m, and you teleport there), Glider Wing (press jump again in mid-air and hold to glide), Spring Boots (higher jumps), Gecko Gloves (longer wall-runs).
+  * Better gadgets: the Holo-Decoy runs off the way you're looking; the Flashbang stuns guards too; guards caught in a Smoke Bomb stop and cough; the Oil Slick leaves a trail of three puddles; the EMP also shorts out nearby roadblocks; the Signal Jammer stops roadblocks being called in.
   * Damage: Flashbang (foot: blinds helicopters, stuns officers), Oil Slick, Spike Drop, EMP Blast (car), Ram Plating (ramming spins cops out).
   * Getaways: Smoke Screen (car), Turbo Tank (more nitro), Garage Keycard (garages lose the cops in 1 second).
   * Mole: Clue Scanner, Clue Magnet (pick up clues from further away), Forensics Kit (Case Board marks red herrings), Lie Detector.

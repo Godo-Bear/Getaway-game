@@ -28,12 +28,17 @@ export class BigMap {
    * @param {(p:{x:number,z:number}|null) => void} onPick - new waypoint (null = cleared)
    * @param {() => void} onClose
    */
-  open(info, onPick, onClose) {
+  open(info, onPick, onClose, { title = 'City map', hint = 'Click or tap anywhere to set a waypoint', once = false } = {}) {
     this._info = info;
-    this._onPick = (p) => { info.waypoint = p; onPick(p); };
+    // once: pick one spot (the Teleporter) and the map closes by itself
+    this._onPick = once ? (p) => { if (p) { this.close(); onPick(p); } } : (p) => { info.waypoint = p; onPick(p); };
     this._onClose = onClose;
     this.isOpen = true;
     this.root.hidden = false;
+    this.root.querySelector('.bm-head b').textContent = title;
+    this.root.querySelector('.bm-head span').textContent = hint;
+    this.root.classList.toggle('pick', once);
+    document.getElementById('bigmap-clear').hidden = once;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const size = Math.round(this.canvas.getBoundingClientRect().width * dpr) || 600;
     this.canvas.width = this.canvas.height = size;
@@ -59,7 +64,7 @@ export class BigMap {
     const px = ((e.clientX - r.left) / r.width) * this.canvas.width;
     const py = ((e.clientY - r.top) / r.height) * this.canvas.height;
     this._onPick?.(this._toWorld(px, py));
-    this._draw();
+    if (this.isOpen) this._draw();
   }
 
   _draw() {

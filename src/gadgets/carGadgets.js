@@ -47,7 +47,7 @@ export class CarGadgets {
     else if (id === 'freeze') this._freeze();
     else if (id === 'plates') this._plates();
     else if (id === 'blackout') this._blackout();
-    else if (id === 'teleport') { if (!this._teleport()) return; }
+    else if (id === 'teleport') { this._teleportPick(); return; } // (used up once you've picked a spot)
     else this._jammer();
     // Effects with a set length, for the countdown under the gadget badge
     const len = { freeze: T(10), emp: T(EMP_TIME), jammer: T(JAM_TIME) }[id];
@@ -56,9 +56,16 @@ export class CarGadgets {
   }
 
   // ---------------------------------------------------------------- Oil
+  /** A trail of three puddles behind the car (harder for the cops to miss). */
   _oil() {
+    for (const d of [6, 11, 16]) this._oilAt(d);
+    audio.sfx('whoosh', { vol: 0.8 });
+    this.state.game.hud.toast('Oil slick!', 'A trail of oil behind you: cops that drive over it spin out.', '#8a5cff', 2);
+  }
+
+  _oilAt(back) {
     const p = this.state.player;
-    const pos = new THREE.Vector3(p.pos.x - p.fwdX * 6, 0.06, p.pos.z - p.fwdZ * 6);
+    const pos = new THREE.Vector3(p.pos.x - p.fwdX * back, 0.06, p.pos.z - p.fwdZ * back);
     // A glossy black puddle with a purple-green oily sheen on top
     const g = new THREE.Group();
     const puddle = new THREE.Mesh(new THREE.CircleGeometry(OIL_RADIUS, 28), new THREE.MeshStandardMaterial({ color: 0x050508, roughness: 0.08, metalness: 0.6 }));
@@ -71,8 +78,6 @@ export class CarGadgets {
     g.scale.setScalar(0.2);
     this.state.scene.add(g);
     this.slicks.push({ mesh: g, sheen, pos, t: 0 });
-    audio.sfx('whoosh', { vol: 0.8 });
-    this.state.game.hud.toast('Oil slick!', 'Cops that drive over it will spin out.', '#8a5cff', 2);
   }
 
   // ---------------------------------------------------------------- Spike Drop
@@ -131,13 +136,16 @@ export class CarGadgets {
   }
 
   // ---------------------------------------------------------------- Admin: Teleporter
-  _teleport() {
+  /** Teleporter: the city map opens; tap a spot and the car beams there. */
+  _teleportPick() {
+    this.state.openMap({
+      title: 'Teleport', hint: 'Tap anywhere on the map: your car beams straight there',
+      onPick: (p) => { this._teleport(p); this.slot.used(); },
+    });
+  }
+
+  _teleport(target) {
     const s = this.state;
-    const target = s.waypoint || (s.beacon?.group.visible ? s.beacon.pos : null);
-    if (!target) {
-      s.game.hud.toast('Nowhere to go', 'Set a waypoint on the big map (M) first.', 'var(--muted)', 2);
-      return false;
-    }
     const n = s.city.graph.nearestNode(target.x, target.z);
     const dx = target.x - n.x, dz = target.z - n.z;
     s.player.place(n.x, n.z, Math.abs(dx) > Math.abs(dz) ? (dx > 0 ? Math.PI / 2 : -Math.PI / 2) : (dz > 0 ? 0 : Math.PI));
@@ -162,10 +170,15 @@ export class CarGadgets {
         this._spark(u.car.pos);
       }
     }
+    // ...and it shorts out the roadblocks nearby (barriers and spike strips gone)
+    const rb = s.roadblocks, far = admin.flag('infiniteRange') ? 1e9 : EMP_RADIUS;
+    let blocks = 0;
+    if (rb) rb.items = rb.items.filter((it) => { const near = Math.hypot(it.pos.x - p.pos.x, it.pos.z - p.pos.z) < far; if (near) { rb._remove(it); this._spark(it.pos); blocks++; } return !near; });
     this._wave(p.pos, 0x3d9bff, admin.flag('infiniteRange') ? 150 : EMP_RADIUS);
     s.game.post?.lightning(0.35);
     audio.sfx('thunder', { vol: 0.5 });
-    s.game.hud.toast('EMP!', hit ? `${hit} police car${hit > 1 ? 's' : ''} knocked out for ${T(EMP_TIME)} seconds. Go!` : 'No police cars were close enough.', '#3d9bff', 3);
+    const what = [hit ? `${hit} police car${hit > 1 ? 's' : ''} knocked out for ${T(EMP_TIME)} seconds` : '', blocks ? `${blocks} roadblock${blocks > 1 ? 's' : ''} shorted out` : ''].filter(Boolean).join(', ');
+    s.game.hud.toast('EMP!', what ? `${what}. Go!` : 'No police cars or roadblocks were close enough.', '#3d9bff', 3);
   }
 
   _spark(pos) {
@@ -211,6 +224,7 @@ export class CarGadgets {
   _jammer() {
     const s = this.state, p = s.player, police = s.police;
     police.jammed = T(JAM_TIME);
+    if (s.roadblocks) s.roadblocks.cooldown = Math.max(s.roadblocks.cooldown, T(JAM_TIME) + 4); // (nobody can call in a roadblock either)
     if (police.everSeen) {
       // They think you went the other way: the search starts 150 m off.
       const a = Math.random() * Math.PI * 2;

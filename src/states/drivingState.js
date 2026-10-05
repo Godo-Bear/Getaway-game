@@ -229,8 +229,12 @@ export class DrivingState extends PlayState {
   respawnKey() { this._unstick(); }
 
   /** The big city map (M): the game waits while it's open. Click it to set a waypoint. */
-  openMap() {
-    if (this.over || this.inCard || this.paused || this.bigMap.isOpen) return;
+  /**
+   * The big map. pick: { title, hint, onPick } = choose one spot instead of
+   * setting a waypoint (the Teleporter). Returns false if it can't open now.
+   */
+  openMap(pick = null) {
+    if (this.over || this.inCard || this.paused || this.bigMap.isOpen) return false;
     this.inCard = true;
     this._mapJustOpened = true;
     this.game.input.exitPointerLock();
@@ -242,7 +246,9 @@ export class DrivingState extends PlayState {
       target: this.beacon.group.visible ? this.beacon.pos : null,
       targetColor: this.beacon.color,
       waypoint: this.waypoint,
-    }, (w) => this.setWaypoint(w), () => { this.inCard = false; this._afterResume(); });
+    }, pick ? pick.onPick : (w) => this.setWaypoint(w), () => { this.inCard = false; this._afterResume(); },
+    pick ? { title: pick.title, hint: pick.hint, once: true } : undefined);
+    return true;
   }
 
   /** Set (or clear, with null) the waypoint you picked on the big map. */
