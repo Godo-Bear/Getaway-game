@@ -131,7 +131,8 @@ export class PrisonMode {
     L.cellDoor.position.x = this.freed ? 12 - 2.1 : 12;
     L.keypad.material.emissive.setHex(this.freed ? 0x30ff70 : 0xff3030);
     L.dbDoorBox.disabled = this.keycard;
-    L.dbDoor.visible = !this.keycard;
+    L.dbDoor.userData.open = this.keycard;
+    L.dbDoor.position.x = this.keycard ? 3.9 : 0; // (slides into the wall)
     L.reader.material.emissive.setHex(this.keycard ? 0x30ff70 : 0xff3030);
     this.keycardMesh.visible = !this.keycard;
     if (this.freed) this.rickyBody.pos.copy(L.checkpoints[0].spawn).add(new THREE.Vector3(1.2, 0, 1.2));
@@ -182,6 +183,8 @@ export class PrisonMode {
   }
 
   update(dt) {
+    const dd = this.level?.dbDoor;
+    if (dd) dd.position.x += ((dd.userData.open ? 3.9 : 0) - dd.position.x) * Math.min(1, dt * 3);
     if (this.done) return;
     const s = this.state, L = this.level, p = s.player, pos = p.pos, hud = s.game.hud, input = s.game.input, d = diff();
     const near = (v, r = 1.6) => Math.hypot(pos.x - v.x, pos.z - v.z) < r && Math.abs(pos.y - v.y) < 2;
@@ -242,7 +245,7 @@ export class PrisonMode {
       if (Math.hypot(pos.x - L.spots.dbDoor.x, pos.z - L.spots.dbDoor.z) < 3) {
         if (this.keycard && !L.dbDoorBox.disabled) {
           L.dbDoorBox.disabled = true;
-          L.dbDoor.visible = false;
+          L.dbDoor.userData.open = true; // (slides open: see update)
           L.reader.material.emissive.setHex(0x30ff70);
           audio.sfx('door');
         } else if (!this.keycard && (this.doorWarn -= dt) <= 0) {

@@ -126,12 +126,58 @@ export function buildChapter6Prison() {
   box(-24.5, -40.5, -23.5, -21.5, 6, M.block); box(23.5, -40.5, 24.5, -21.5, 6, M.block);
   box(-24.5, -40.5, 24.5, -21.5, 0.4, M.dark, 6);                    // roof
   box(-2, -22.5, 2, -21.5, 1.4, M.dark, 4.6);                         // lintel over the door
-  // The steel door (opens with a guard keycard)
-  const dbDoor = block(0, 0, -22, 4, 4.6, 0.3, mat(0x8a929c, { metalness: 0.7, roughness: 0.3 }));
-  const dbDoorBox = world.boxes[world.boxes.length - 1];
-  const reader = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.4, 0.08), new THREE.MeshStandardMaterial({ color: 0x1a1c22, emissive: 0xff3030, emissiveIntensity: 1 }));
-  reader.position.set(2.6, 1.4, -21.4);
+  // A steel frame round the doorway, with yellow and black hazard stripes
+  const frameMat = mat(0x3a3e46, { metalness: 0.6, roughness: 0.45 });
+  block(-2.15, 0, -21.4, 0.3, 4.75, 0.35, frameMat, false); block(2.15, 0, -21.4, 0.3, 4.75, 0.35, frameMat, false);
+  block(0, 4.6, -21.4, 4.6, 0.3, 0.35, frameMat, false);
+  const stripeTex = (() => {
+    const c = document.createElement('canvas'); c.width = 128; c.height = 16;
+    const g2 = c.getContext('2d'); g2.fillStyle = '#e8b820'; g2.fillRect(0, 0, 128, 16); g2.fillStyle = '#16171a';
+    for (let x = -16; x < 128; x += 24) { g2.beginPath(); g2.moveTo(x, 16); g2.lineTo(x + 12, 0); g2.lineTo(x + 24, 0); g2.lineTo(x + 12, 16); g2.fill(); }
+    const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; return t;
+  })();
+  const stripes = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.3), new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.7 }));
+  stripes.position.set(0, 4.75, -21.215);
+  group.add(stripes);
+  // The steel door (opens with a guard keycard and slides into the wall): a
+  // heavy panelled slab with a small barred window, rivets and a hazard band
+  const dbDoor = new THREE.Group();
+  dbDoor.position.set(0, 0, -22);
+  const steel = mat(0x7a828c, { metalness: 0.65, roughness: 0.35 });
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(4, 4.6, 0.3), steel);
+  slab.position.y = 2.3;
+  dbDoor.add(slab);
+  for (const [y, h] of [[1.25, 1.7], [3.35, 1.7]]) for (const sx of [-1, 1]) {
+    const panel = new THREE.Mesh(new THREE.BoxGeometry(1.6, h, 0.06), mat(0x6a727c, { metalness: 0.6, roughness: 0.4 }));
+    panel.position.set(sx * 0.95, y, 0.17);
+    dbDoor.add(panel);
+  }
+  const win = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.05), new THREE.MeshStandardMaterial({ color: 0x0e1218, emissive: 0x2a3a50, emissiveIntensity: 0.6 }));
+  win.position.set(0, 3.55, 0.21);
+  dbDoor.add(win);
+  for (let k = -1; k <= 1; k++) { const bar = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), M.bars); bar.position.set(k * 0.28, 3.55, 0.24); dbDoor.add(bar); }
+  const band = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.35), new THREE.MeshStandardMaterial({ map: stripeTex, roughness: 0.7 }));
+  band.position.set(0, 0.3, 0.155);
+  dbDoor.add(band);
+  const rivetGeo = new THREE.SphereGeometry(0.045, 6, 4);
+  for (const y of [0.6, 2.3, 4.1]) for (const x of [-1.85, 1.85]) { const r = new THREE.Mesh(rivetGeo, frameMat); r.position.set(x, y, 0.16); dbDoor.add(r); }
+  const handle = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.7, 0.12), frameMat);
+  handle.position.set(-1.6, 1.4, 0.24);
+  dbDoor.add(handle);
+  dbDoor.traverse((o) => { if (o.isMesh) o.castShadow = o.receiveShadow = true; });
+  group.add(dbDoor);
+  const dbDoorBox = world.addBlock(0, 0, -22, 4, 4.6, 0.3, { tag: 'wall' }) || world.boxes[world.boxes.length - 1];
+  // Keycard reader on a little plate, with a light that turns green when it opens
+  block(2.75, 0.9, -21.42, 0.5, 0.9, 0.12, frameMat, false);
+  const reader = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.08), new THREE.MeshStandardMaterial({ color: 0x1a1c22, emissive: 0xff3030, emissiveIntensity: 1 }));
+  reader.position.set(2.75, 1.4, -21.33);
   group.add(reader);
+  // A warning lamp over the door (it follows the reader: red, then green)
+  for (const sx of [-1, 1]) {
+    const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), reader.material);
+    lamp.position.set(sx * 2.7, 4.4, -21.3);
+    group.add(lamp);
+  }
   // Lasers across the corridor between the door and Ricky's cell (the mode switches them on and off)
   const corridorLasers = [
     { x: 4.5, type: 'pulse', heights: [0.45, 1.15, 1.85], phase: 0 },
