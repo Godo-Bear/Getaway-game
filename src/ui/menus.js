@@ -181,6 +181,7 @@ export function showTitle(actions) {
   showCard(`
     ${neonLogoSvg()}
     <p class="tagline">Plan the job. Pull the heist. Lose the cops. Get away.</p>
+    <p class="version">Version ${typeof __VERSION__ !== 'undefined' ? __VERSION__ : 'dev'}</p>
     <button class="btn primary story-btn" data-go="story">
       <span class="t-kick">Story · ${solved}/${CHAPTER_LIST.length} solved</span>
       <b>${next.title.replace(/^Chapter (\d+): /, 'Chapter $1 · ')}</b>
