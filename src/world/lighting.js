@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { makeRng } from '../core/utils.js';
 import { getMaterials } from './materials.js';
+import { paintEnvMap, setShaftNight } from './atmosphere.js';
 
 // Lighting for any time of day: a gradient sky dome, fog for depth, soft
 // ambient light, one shadow-casting "sky light" (the moon at night, the sun
@@ -53,6 +54,32 @@ function sunOffset(hour, out) {
   return out.set(Math.cos(a) * 85, Math.max(Math.sin(a), 0.2) * 95, 30).normalize().multiplyScalar(110);
 }
 
+// Clouds, shared by the sky and the stars (so clouds hide the stars behind
+// them). cloudAt() says how much cloud there is in a direction: 0 = clear
+// sky, 1 = solid cloud. cover: 0 = a few wisps .. 1 = overcast. Two layers
+// of noise drift with the wind at different speeds, so the clouds slowly
+// change shape as they move instead of sliding past like a picture.
+const CLOUD_GLSL = /* glsl */`
+  float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+  float noise(vec2 p) {
+    vec2 i = floor(p), f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
+  }
+  float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.1; a *= 0.5; } return v; }
+  float cloudAt(vec3 d, float cover, float time) {
+    if (cover <= 0.0 || d.y <= 0.0) return 0.0;
+    vec2 uv = d.xz / (d.y + 0.12);          // (a flat layer of cloud overhead, squashed towards the horizon)
+    vec2 wind = vec2(time * 0.018, time * 0.007);
+    #ifdef CHEAP_CLOUDS
+      float shape = fbm(uv * 2.2 + wind);   // (Low graphics: one layer)
+    #else
+      float shape = fbm(uv * 2.2 + wind) * 0.72 + fbm(uv * 5.0 - wind * 1.6 + 7.3) * 0.28;
+    #endif
+    float lo = mix(0.62, 0.26, cover);
+    return smoothstep(lo, lo + 0.22, shape) * smoothstep(0.0, 0.1, d.y);
+  }`;
+
 const SkyShader = {
   uniforms: {
     zenith: { value: new THREE.Color(0x05070f) },
@@ -62,6 +89,7 @@ const SkyShader = {
     sun: { value: 0 },         // 0 = moon, 1 = sun
     sunColor: { value: new THREE.Color(0xfff2dc) },
     storm: { value: 0 },       // 0 = clear, 1 = heavy clouds
+    clouds: { value: 0.32 },   // fair-weather clouds: 0 = none, 1 = overcast
     flash: { value: 0 },       // lightning inside the clouds
     time: { value: 0 },
   },
@@ -74,34 +102,45 @@ const SkyShader = {
     }`,
   fragmentShader: /* glsl */`
     uniform vec3 zenith, horizon, glow, moonDir, sunColor;
-    uniform float storm, flash, time, sun;
+    uniform float storm, clouds, flash, time, sun;
     varying vec3 vDir;
-    float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-    float noise(vec2 p) {
-      vec2 i = floor(p), f = fract(p);
-      vec2 u = f * f * (3.0 - 2.0 * f);
-      return mix(mix(hash(i), hash(i + vec2(1, 0)), u.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), u.x), u.y);
-    }
-    float fbm(vec2 p) { float v = 0.0, a = 0.5; for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.1; a *= 0.5; } return v; }
+    ${CLOUD_GLSL}
     void main() {
       vec3 d = normalize(vDir);
       float h = clamp(d.y, 0.0, 1.0);
       vec3 col = mix(horizon, zenith, pow(h, 0.45));
       col += glow * exp(-h * 14.0) * mix(0.8, 0.25, sun);  // warm band at the skyline
-      // Moon (small, cold) or sun (bigger, warm) halo
+      // Sunrise and sunset: when the sun is low, the sky round it burns
+      // orange, and the opposite side of the sky turns pink and violet.
+      float low = sun * (1.0 - smoothstep(0.08, 0.5, moonDir.y));
+      vec2 sx = moonDir.xz / max(length(moonDir.xz), 0.001);
+      float facing = max(dot(d.xz, sx) / max(length(d.xz), 0.001), 0.0);
+      col += glow * low * pow(facing, 3.0) * exp(-h * 4.5) * 0.9;
+      col += vec3(0.22, 0.1, 0.2) * low * (1.0 - facing) * exp(-h * 3.0) * 0.45;
+      // Moon (small, cold) or sun (bigger, warm) halo; a low sun is big and red
       float m = max(dot(d, moonDir), 0.0);
       vec3 moonC = vec3(0.55, 0.62, 0.9) * (pow(m, 60.0) * 0.35 + pow(m, 900.0) * 3.0);
       vec3 sunC = sunColor * (pow(m, 8.0) * 0.25 + pow(m, 80.0) * 0.6 + pow(m, 1400.0) * 6.0);
-      col += mix(moonC, sunC, sun) * (1.0 - storm * 0.85);
-      // Clouds: drifting noise, lit from below by the city and by lightning
-      if (storm > 0.0) {
-        vec2 uv = d.xz / (d.y + 0.15) * 1.6 + vec2(time * 0.02, time * 0.008);
-        float c = smoothstep(0.35, 0.8, fbm(uv));
-        vec3 cloud = mix(vec3(0.05, 0.05, 0.08), vec3(0.16, 0.12, 0.14), exp(-h * 3.0));
-        cloud = mix(cloud, horizon * 0.85, sun * 0.8);   // grey daytime cloud
-        col = mix(col, cloud + vec3(0.6, 0.65, 0.8) * flash * c, c * storm * smoothstep(0.0, 0.08, d.y));
-        col = mix(col, horizon * 0.8, storm * 0.3);
-      }
+      sunC += glow * low * (pow(m, 30.0) * 0.5 + pow(m, 500.0) * 2.0);
+      // Clouds drift across, and hide the sun or moon when they pass in front
+      float cover = max(clouds, storm);
+      float c = cloudAt(d, cover, time);
+      col += mix(moonC, sunC, sun) * (1.0 - storm * 0.85) * (1.0 - c * 0.9);
+      // Cloud colour. At night: dark, lit orange from below by the city.
+      // By day: white tops and grey bellies, hazy near the horizon.
+      vec3 cloud = mix(vec3(0.045, 0.05, 0.075), vec3(0.2, 0.14, 0.13), exp(-h * 3.0));
+      vec3 day = mix(vec3(1.25, 1.25, 1.28), vec3(0.62, 0.66, 0.74), c * 0.75);
+      day = mix(day, horizon, (1.0 - smoothstep(0.0, 0.3, h)) * 0.5);
+      cloud = mix(cloud, day, sun);
+      // ...glowing orange and pink at sunrise and sunset, brightest towards the sun
+      cloud = mix(cloud, glow * 1.15 + vec3(0.14, 0.05, 0.12), low * (0.3 + 0.7 * facing) * 0.85);
+      // ...with bright edges round the sun or the moon
+      cloud += mix(vec3(0.28, 0.32, 0.45), sunColor, sun) * pow(m, 12.0) * (1.0 - c) * 0.9;
+      // Storm clouds are heavy and grey, and light up with the lightning
+      cloud = mix(cloud, mix(cloud * 0.55, horizon * 0.75, sun), storm * 0.85);
+      cloud += vec3(0.6, 0.65, 0.8) * flash;
+      col = mix(col, cloud, c * mix(0.85, 1.0, storm));
+      col = mix(col, horizon * 0.8, storm * 0.3);
       gl_FragColor = vec4(col, 1.0);
       #include <colorspace_fragment>
     }`,
@@ -122,11 +161,11 @@ export function pickTime(settings, wanted) {
 
 /** Lighting options for a graphics quality setting ('low' | 'medium' | 'high'). */
 export function lightingForQuality(q) {
-  return { shadows: q !== 'low', mapSize: q === 'high' ? 2048 : 1024 };
+  return { shadows: q !== 'low', mapSize: q === 'high' ? 2048 : 1024, cheapSky: q === 'low' };
 }
 
 export class NightLighting {
-  constructor(scene, { shadows = true, mapSize = 2048 } = {}) {
+  constructor(scene, { shadows = true, mapSize = 2048, cheapSky = false } = {}) {
     this.scene = scene;
     this.hour = 0;
     this.storm = 0;
@@ -138,8 +177,9 @@ export class NightLighting {
     scene.fog = new THREE.Fog(0x15131f, 60, 320);
 
     // Sky dome (drawn behind everything, follows the camera)
+    this.cheapSky = cheapSky;
     this.skyMat = new THREE.ShaderMaterial({ ...SkyShader, uniforms: THREE.UniformsUtils.clone(SkyShader.uniforms),
-      side: THREE.BackSide, depthWrite: false, fog: false });
+      defines: cheapSky ? { CHEAP_CLOUDS: '' } : {}, side: THREE.BackSide, depthWrite: false, fog: false });
     this.sky = new THREE.Mesh(new THREE.SphereGeometry(800, 32, 16), this.skyMat);
     this.sky.renderOrder = -1;
     this.sky.frustumCulled = false;
@@ -174,23 +214,72 @@ export class NightLighting {
     this._apply();
   }
 
+  /**
+   * Stars: each one has its own size, colour (blue-white to warm) and
+   * twinkle, and they go out behind the clouds as the clouds drift past.
+   */
   _addStars() {
     const rng = makeRng(9);
-    const n = 900, R = 700;
-    const p = new Float32Array(n * 3);
+    const n = 1100, R = 700;
+    const p = new Float32Array(n * 3), size = new Float32Array(n), phase = new Float32Array(n), tint = new Float32Array(n * 3);
     for (let i = 0; i < n; i++) {
       const th = rng() * Math.PI * 2;
-      const ph = rng() * Math.PI * 0.42; // upper part of the sky only
+      const ph = Math.acos(1 - rng() * 0.93); // spread evenly over the upper sky
       p[i * 3] = Math.cos(th) * Math.sin(ph) * R;
       p[i * 3 + 1] = Math.cos(ph) * R;
       p[i * 3 + 2] = Math.sin(th) * Math.sin(ph) * R;
+      const r = rng();
+      size[i] = 1.1 + r * r * r * 2.6; // mostly small, a few bright ones
+      phase[i] = rng() * 100;
+      const w = rng();
+      tint.set(w < 0.15 ? [1, 0.86, 0.7] : w < 0.4 ? [0.78, 0.86, 1] : [0.95, 0.96, 1], i * 3);
     }
     const g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-    this.stars = new THREE.Points(g, new THREE.PointsMaterial({
-      color: 0xcfd6ff, size: 1.6, sizeAttenuation: false, fog: false,
-    }));
+    g.setAttribute('size', new THREE.BufferAttribute(size, 1));
+    g.setAttribute('phase', new THREE.BufferAttribute(phase, 1));
+    g.setAttribute('tint', new THREE.BufferAttribute(tint, 3));
+    this.starMat = new THREE.ShaderMaterial({
+      uniforms: { time: { value: 0 }, amount: { value: 1 }, cover: { value: 0 }, pixel: { value: Math.min(2, window.devicePixelRatio || 1) } },
+      vertexShader: /* glsl */`
+        attribute float size;
+        attribute float phase;
+        attribute vec3 tint;
+        uniform float time, amount, cover, pixel;
+        varying float vA;
+        varying vec3 vTint;
+        ${CLOUD_GLSL}
+        void main() {
+          vec3 d = normalize(position);
+          float tw = 0.65 + 0.35 * sin(time * (1.3 + fract(phase) * 2.2) + phase) * sin(time * 0.7 + phase * 1.7);
+          vA = amount * tw * (1.0 - cloudAt(d, cover, time)) * smoothstep(0.02, 0.18, d.y);
+          vTint = tint;
+          gl_PointSize = size * pixel;
+          vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+          gl_Position = p.xyww; // (on the far plane, like the sky)
+          if (vA < 0.01) gl_Position = vec4(2.0, 2.0, 2.0, 1.0); // hidden: skip it
+        }`,
+      fragmentShader: /* glsl */`
+        varying float vA;
+        varying vec3 vTint;
+        void main() {
+          vec2 c = gl_PointCoord - 0.5;
+          float a = vA * smoothstep(0.5, 0.1, length(c));
+          gl_FragColor = vec4(vTint * a, 1.0);
+        }`,
+      defines: this.cheapSky ? { CHEAP_CLOUDS: '' } : {},
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false,
+    });
+    this.stars = new THREE.Points(g, this.starMat);
+    this.stars.frustumCulled = false;
+    this.stars.renderOrder = -1;
     this.scene.add(this.stars);
+  }
+
+  /** Fair-weather clouds: 0 = clear sky .. 1 = overcast (the weather sets it). */
+  setClouds(k) {
+    this.clouds = k;
+    this._apply();
   }
 
   /**
@@ -242,9 +331,12 @@ export class NightLighting {
     this.hemi.groundColor.copy(L.hg);
     this.hemiBase = L.hi * (1 - k * 0.15 * L.sun);
     this.hemi.intensity = this.hemiBase;
-    this.stars.visible = L.stars > 0.1 && k < 0.5;
-    this.stars.material.opacity = L.stars;
-    this.stars.material.transparent = L.stars < 1;
+    // Stars: hidden by day and in storms, and behind the clouds
+    const clouds = this.clouds ?? 0.32;
+    u.clouds.value = clouds;
+    this.stars.visible = L.stars > 0.05 && k < 0.6;
+    this.starMat.uniforms.amount.value = L.stars;
+    this.starMat.uniforms.cover.value = Math.max(clouds, k);
     const fog = this.scene.fog;
     fog.color.copy(L.fog);
     if (k > 0) grey(fog.color, k * 0.6).multiplyScalar(1 - k * 0.2);
@@ -276,6 +368,9 @@ export class NightLighting {
     this.exposure = this.snow ? L.exp * 0.8 : L.exp;
     this.bloom = this.snow ? L.bloom * 0.3 : L.bloom;
     this._fadeNightGlows(L.halo);
+    // Reflections in glass and paint follow the sky; light beams show in the dark
+    paintEnvMap(L, { snow: this.snow, sunDir: u.moonDir.value });
+    setShaftNight(L.halo);
   }
 
   _fadeNightGlows(amount) {
@@ -291,6 +386,7 @@ export class NightLighting {
   /** Called every frame: sky animation and lightning brightness (0..1). */
   update(dt, flash = 0) {
     this.skyMat.uniforms.time.value += dt;
+    this.starMat.uniforms.time.value = this.skyMat.uniforms.time.value;
     this.skyMat.uniforms.flash.value = flash;
     this.hemi.intensity = this.hemiBase + flash * 6;
   }

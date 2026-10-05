@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { setShaftWeather } from './atmosphere.js';
 import { audio } from '../core/audio.js';
 import { getMaterials } from './materials.js';
 
@@ -27,6 +28,24 @@ const WIND = [3.5, 0, 1.5];     // m/s sideways drift
 const STREAK = 0.9;             // length of a rain streak (m)
 const DROPS = { low: 600, medium: 1200, high: 2400 };
 
+/** A soft round dot, so a snowflake close to the camera isn't a white square. */
+let flakeTex = null;
+function flakeTexture() {
+  if (flakeTex) return flakeTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 32;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+  grad.addColorStop(0, 'rgba(255,255,255,1)');
+  grad.addColorStop(0.45, 'rgba(255,255,255,0.8)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 32, 32);
+  flakeTex = new THREE.CanvasTexture(c);
+  flakeTex.colorSpace = THREE.SRGBColorSpace;
+  return flakeTex;
+}
+
 export class Weather {
   /**
    * @param {THREE.Scene} scene
@@ -44,6 +63,9 @@ export class Weather {
     this.thunderIn = -1;
     this.rain = null;
     lighting.setSnow?.(kind === 'snow' || kind === 'blizzard', kind === 'blizzard');
+    setShaftWeather(kind); // (light beams under lamps and from headlights in rain and snow)
+    // More clouds in bad weather (a few drift past even on a clear day)
+    lighting.setClouds?.({ rain: 0.6, storm: 0.85, snow: 0.72, blizzard: 1 }[kind] ?? 0.32);
     if (kind === 'clear') return;
     if (kind === 'snow' || kind === 'blizzard') { this._makeSnow(scene, lighting, quality, kind === 'blizzard'); return; }
 
@@ -118,7 +140,7 @@ export class Weather {
     }
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3).setUsage(THREE.DynamicDrawUsage));
-    this.snow = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.16, transparent: true, opacity: 0.85, depthWrite: false }));
+    this.snow = new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, map: flakeTexture(), size: 0.2, transparent: true, opacity: 0.85, depthWrite: false }));
     this.snow.frustumCulled = false;
     scene.add(this.snow);
     this.t = 0;

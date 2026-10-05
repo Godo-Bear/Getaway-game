@@ -11,6 +11,7 @@ import { ThirdPersonCamera } from '../core/thirdPersonCamera.js';
 import { NightLighting, lightingForQuality, pickTime } from '../world/lighting.js';
 import { Weather, pickWeather } from '../world/weather.js';
 import { FootGadgets } from '../gadgets/footGadgets.js';
+import { ParticleSystem } from '../vehicles/particles.js';
 import { owns } from '../gadgets/gadgets.js';
 import { admin } from '../core/admin.js';
 import { CONTROLS } from '../ui/menus.js';
@@ -88,6 +89,11 @@ export class OnFootState extends PlayState {
     this.timeCycle = tod.cycle;
     // Rain / storm (the story part decides; the Weather setting can override)
     this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
+    // In the cold, everyone's breath clouds; chimneys smoke over the rooftops
+    this.cold = this.weather.kind === 'snow' || this.weather.kind === 'blizzard';
+    this.chimneys = this.level?.chimneys || null;
+    this.puffs = this.cold || this.chimneys?.length ? new ParticleSystem(this.scene, 900) : null;
+    this.chimneyT = 0;
     this.cam = new ThirdPersonCamera(this.camera, this.world);
     const s = game.settings;
     this.cam.sensitivity = 0.0022 * s.mouseSensitivity;
@@ -140,6 +146,11 @@ export class OnFootState extends PlayState {
     this.gadgets.reset();
     this.mode.start(this.firstStart);
     this.firstStart = false;
+    // The chimneys are already smoking when you arrive
+    if (this.puffs && this.chimneys?.length) {
+      this.puffs.clear();
+      for (let i = 0; i < 360; i++) { this._chimneyPuffs(1 / 60); this.puffs.update(1 / 60); }
+    }
   }
 
   /**
@@ -269,6 +280,7 @@ export class OnFootState extends PlayState {
     }
 
     this.model.update(frozen ? 0 : dt, p);
+    this._updatePuffs(frozen ? 0 : dt);
     // Head bob in first person: follows the running cycle of the (hidden) body.
     const running = p.state === 'ground' && p.horizontalSpeed > 0.5 && !frozen;
     const bobTarget = running ? Math.abs(Math.sin(this.model.runPhase)) * 0.06 * Math.min(1, p.horizontalSpeed / 8) - 0.03 : 0;
@@ -486,8 +498,64 @@ export class OnFootState extends PlayState {
     return !!this.gadgets?.concealed;
   }
 
+  /** Everyone whose breath shows in the cold: you, the crew, guards, police, the crowd. */
+  _breathers() {
+    const m = this.mode, out = [this.model];
+    const add = (list, get) => { if (list) for (const x of list) { const pm = get(x); if (pm?.head) out.push(pm); } };
+    add(m.npcs, (n) => n.model);
+    add(m.patrols?.units, (u) => u.model);
+    add(m.guards?.units, (u) => u.model);
+    add(m.officers?.units, (u) => u.model);
+    add(m.crowd?.people, (c) => c.model);
+    for (const extra of [m.juno, m.ricky]) if (extra?.head) out.push(extra);
+    return out;
+  }
+
+  /** Breath clouds (in the snow) and chimney smoke. */
+  _updatePuffs(dt) {
+    if (!this.puffs) return;
+    this.puffs.update(dt);
+    this.puffs.setDaylight(this.lighting.daylight);
+    if (!dt) return;
+    const cam = this.camera.position;
+    if (this.cold) {
+      const v = this._puffV ||= new THREE.Vector3();
+      for (const pm of this._breathers()) {
+        const r = pm.root;
+        if (!r.visible || (pm === this.model && this.cam.firstPerson)) continue;
+        const dx = r.position.x - cam.x, dz = r.position.z - cam.z;
+        if (dx * dx + dz * dz > 1600) continue;
+        pm.breathT = (pm.breathT ?? Math.random() * 2) - dt;
+        if (pm.breathT > 0) continue;
+        const fast = pm === this.model && this.player.horizontalSpeed > 7;
+        pm.breathT = (fast ? 0.65 : 1.7) + Math.random() * 0.8;
+        pm.head.localToWorld(v.set(0, 0.14, 0.2)); // (just in front of the mouth)
+        const f = r.rotation.y, fx = Math.sin(f), fz = Math.cos(f);
+        this.puffs.emit(v.x, v.y, v.z, { vx: fx * 0.5, vy: 0.12, vz: fz * 0.5, size: 0.24, grow: 1.1, life: 1.5, alpha: 0.5,
+          color: [0.94, 0.96, 1], drag: 1.2, fadeIn: 0.08 });
+      }
+    }
+    if (this.chimneys?.length) this._chimneyPuffs(dt);
+  }
+
+  /** Chimney smoke: the chimneys near you puff now and then. */
+  _chimneyPuffs(dt) {
+    this.chimneyT += dt;
+    if (this.chimneyT < 0.12) return;
+    this.chimneyT = 0;
+    const c = this.player.pos;
+    for (const ch of this.chimneys) {
+      if (Math.abs(ch[0] - c.x) > 140 || Math.abs(ch[2] - c.z) > 140 || Math.random() > 0.3) continue;
+      this.puffs.emit(ch[0] + (Math.random() - 0.5) * 0.4, ch[1] + 0.2, ch[2] + (Math.random() - 0.5) * 0.4, {
+        vx: 0.6 + Math.random() * 0.4, vy: 1.0 + Math.random() * 0.5, vz: 0.25, size: 1.2, grow: 1.9, life: 6, alpha: 0.36,
+        color: [0.7, 0.72, 0.76], drag: 0.15, fadeIn: 0.8 });
+    }
+  }
+
   teardown() {
     document.body.classList.remove('wardrobe'); // (in case you left from the wardrobe)
+    this.puffs?.dispose();
+    this.puffs = null;
     this.gadgets?.dispose();
     this.weather?.dispose();
     this.weather = null;

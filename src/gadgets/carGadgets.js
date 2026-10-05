@@ -172,7 +172,7 @@ export class CarGadgets {
     for (let i = 0; i < 14; i++) {
       this.state.particles.emit(pos.x, pos.y + 1.2, pos.z, {
         vx: (Math.random() - 0.5) * 6, vy: 2 + Math.random() * 4, vz: (Math.random() - 0.5) * 6,
-        size: 0.35, grow: 0, life: 0.6, alpha: 1, color: [0.5, 0.8, 1.6],
+        size: 0.35, grow: 0, life: 0.6, alpha: 1, color: [0.5, 0.8, 1.6], glow: true,
       });
     }
   }

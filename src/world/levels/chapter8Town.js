@@ -206,6 +206,7 @@ function buildAlpineTown(city, g, w) {
   const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
 
   // --- Pitched roofs (one merged mesh), wooden eaves, chimneys
+  city.chimneys = []; // chimney tops [x, y, z]: they smoke (onFootState)
   const tri = [];
   const quad = (a, b, c, d) => tri.push(...a, ...b, ...c, ...a, ...c, ...d);
   const eaves = [];
@@ -242,6 +243,7 @@ function buildAlpineTown(city, g, w) {
       const cap = new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.25, 1.25), snowMat);
       cap.position.set(cx, h + rise + 1.5, cz);
       g.add(ch, cap);
+      city.chimneys.push([cx, h + rise + 1.6, cz]);
     }
   }
   const roofGeo = new THREE.BufferGeometry();

@@ -103,7 +103,10 @@ export class DrivingState extends PlayState {
     // Fewer civilian cars on lower graphics settings.
     const trafficCount = { low: 12, medium: 18, high: 22 }[game.settings.graphics] ?? 18;
     this.traffic = new Traffic(this.scene, this.city, this.rng, trafficCount);
-    this.particles = new ParticleSystem(this.scene, 320);
+    this.particles = new ParticleSystem(this.scene, 700);
+    // Chimney smoke over the rooftops (the snowy mountain town)
+    this.chimneySmoke = this.city.chimneys?.length ? new ParticleSystem(this.scene, 900) : null;
+    this.chimneyT = 0;
     this.roadblocks = new Roadblocks(this.scene, this.city, this.rng);
     this.minimap = new Minimap(game.hud.el.map, this.city);
     this.bigMap = new BigMap(this.minimap);
@@ -184,6 +187,11 @@ export class DrivingState extends PlayState {
     this.cityHack.reset();
     this.setWaypoint(null);
     this._syncCamera(1, true);
+    // The chimneys are already smoking when you arrive
+    if (this.chimneySmoke) {
+      this.chimneySmoke.clear();
+      for (let i = 0; i < 360; i++) { this._chimneyPuffs(1 / 60); this.chimneySmoke.update(1 / 60); }
+    }
   }
 
   /** Put the player's car somewhere (used by modes at the start). */
@@ -398,7 +406,7 @@ export class DrivingState extends PlayState {
       this.carGadgets.update(dt);
       this.setAction(this.cityHack.update(dt) && !this.mode.ghost ? 'Hack junction' : null);
       this.mode.update(dt);
-      this._updateEffects();
+      this._updateEffects(dt);
     }
     // Meshes follow physics bodies
     p.syncMesh();
@@ -417,6 +425,8 @@ export class DrivingState extends PlayState {
     if (!frozen) this.tickTimeOfDay(dt);
     if (!frozen) this.weather.update(dt, this.camera.position);
     this.particles.update(frozen ? 0 : dt);
+    this.particles.setDaylight(this.lighting.daylight);
+    if (this.chimneySmoke) { this.chimneySmoke.update(frozen ? 0 : dt); this.chimneySmoke.setDaylight(this.lighting.daylight); }
 
     // HUD: speedometer, minimap, beacon marker
     hud.setSpeedo(p.speed * 3.6, this.nitro);
@@ -523,7 +533,7 @@ export class DrivingState extends PlayState {
       this.game.hud.toast('Tyres burst!', 'Spike strip. Less grip and a lower top speed for 10 seconds.', 'var(--red)');
       audio.sfx('spike');
       for (let i = 0; i < 30; i++) {
-        this.particles.emit(p.pos.x, 0.4, p.pos.z, { vx: (Math.random() - 0.5) * 8, vy: 2 + Math.random() * 3, vz: (Math.random() - 0.5) * 8, size: 0.35, grow: -0.2, life: 0.5, alpha: 1, color: [1, 0.7, 0.2] });
+        this.particles.emit(p.pos.x, 0.4, p.pos.z, { vx: (Math.random() - 0.5) * 8, vy: 2 + Math.random() * 3, vz: (Math.random() - 0.5) * 8, size: 0.35, grow: -0.2, life: 0.5, alpha: 1, color: [1, 0.7, 0.2], glow: true });
       }
     }
     if (this.flatTyres > 0) {
@@ -532,7 +542,7 @@ export class DrivingState extends PlayState {
       p.gripFactor = 0.45;
       // Sparks from the rims
       if (p.speed > 5 && Math.random() < 0.5) {
-        this.particles.emit(p.pos.x - p.fwdX * 1.4, 0.2, p.pos.z - p.fwdZ * 1.4, { vx: -p.vel.x * 0.2 + (Math.random() - 0.5) * 3, vy: 1.5, vz: -p.vel.z * 0.2 + (Math.random() - 0.5) * 3, size: 0.3, grow: -0.2, life: 0.35, alpha: 1, color: [1, 0.75, 0.3] });
+        this.particles.emit(p.pos.x - p.fwdX * 1.4, 0.2, p.pos.z - p.fwdZ * 1.4, { vx: -p.vel.x * 0.2 + (Math.random() - 0.5) * 3, vy: 1.5, vz: -p.vel.z * 0.2 + (Math.random() - 0.5) * 3, size: 0.3, grow: -0.2, life: 0.35, alpha: 1, color: [1, 0.75, 0.3], glow: true });
       }
       if (this.flatTyres <= 0) {
         p.speedFactor = 1;
@@ -563,15 +573,52 @@ export class DrivingState extends PlayState {
     }
   }
 
-  _updateEffects() {
+  /**
+   * Smoke and spray from the wheels. Drifting (or spinning the wheels from a
+   * standstill) puffs smoke out of both back tyres; on snow it's a spray of
+   * powder instead, and a snowmobile throws snow up behind it at speed.
+   */
+  _updateEffects(dt) {
     const p = this.player;
     const fx = p.fwdX, fz = p.fwdZ;
-    // Tyre smoke when drifting
-    if (p.drifting && Math.random() < 0.8) {
-      for (const side of [-0.95, 0.95]) {
-        const x = p.pos.x - fx * 1.4 - fz * side, z = p.pos.z - fz * 1.4 + fx * side;
-        this.particles.emit(x, p.pos.y + 0.3, z, { vx: (Math.random() - 0.5), vy: 0.6, vz: (Math.random() - 0.5), size: 1.2, grow: 3, life: 1.1, alpha: 0.35, color: [0.75, 0.75, 0.78] });
+    const sled = this.mode.vehicle === 'snowmobile';
+    const snowy = sled || this.lighting.snow; // (snow on the roads)
+    const spin = p.controls.throttle > 0.6 && p.speed < 7 && p.speed > 0.3; // (wheelspin pulling away)
+    if (p.drifting || spin) {
+      const rearZ = sled ? 1.25 : 1.4, sides = sled ? [-0.3, 0.3] : [-0.98, 0.98];
+      for (const side of sides) {
+        if (Math.random() > (spin && !p.drifting ? 0.45 : 0.85)) continue;
+        const x = p.pos.x - fx * rearZ - fz * side, z = p.pos.z - fz * rearZ + fx * side;
+        const kick = (Math.random() - 0.5) * 1.4;
+        if (snowy) {
+          this.particles.emit(x, p.pos.y + 0.25, z, { vx: -p.vel.x * 0.25 + kick, vy: 1.6 + Math.random(), vz: -p.vel.z * 0.25 + kick,
+            size: 0.7, grow: 2.6, life: 1.1, alpha: 0.6, color: [0.95, 0.97, 1.0], drag: 1.8 });
+        } else {
+          this.particles.emit(x, p.pos.y + 0.3, z, { vx: -p.vel.x * 0.12 + kick, vy: 0.45 + Math.random() * 0.4, vz: -p.vel.z * 0.12 + kick,
+            size: 1.1, grow: 3.4, life: 2.4, alpha: 0.36, color: [0.8, 0.8, 0.83], drag: 1.2 });
+        }
       }
+    }
+    // A snowmobile throws powder up behind its track
+    if (sled && p.speed > 6 && Math.random() < Math.min(0.9, p.speed / 30)) {
+      const x = p.pos.x - fx * 1.35, z = p.pos.z - fz * 1.35;
+      this.particles.emit(x + (Math.random() - 0.5) * 0.6, p.pos.y + 0.2, z + (Math.random() - 0.5) * 0.6, { vx: -fx * 2 + (Math.random() - 0.5), vy: 1.4 + Math.random() * 0.8, vz: -fz * 2 + (Math.random() - 0.5),
+        size: 0.5, grow: 2, life: 0.8, alpha: 0.5, color: [0.95, 0.97, 1.0], drag: 2 });
+    }
+    if (this.chimneySmoke) this._chimneyPuffs(dt);
+  }
+
+  /** Chimney smoke: the chimneys near you puff now and then. */
+  _chimneyPuffs(dt) {
+    this.chimneyT += dt;
+    if (this.chimneyT < 0.12) return;
+    this.chimneyT = 0;
+    const c = this.player.pos;
+    for (const ch of this.city.chimneys) {
+      if (Math.abs(ch[0] - c.x) > 150 || Math.abs(ch[2] - c.z) > 150 || Math.random() > 0.3) continue;
+      this.chimneySmoke.emit(ch[0] + (Math.random() - 0.5) * 0.4, ch[1] + 0.2, ch[2] + (Math.random() - 0.5) * 0.4, {
+        vx: 0.7 + Math.random() * 0.4, vy: 1.1 + Math.random() * 0.5, vz: 0.25, size: 1.4, grow: 2.2, life: 6.5, alpha: 0.36,
+        color: [0.7, 0.72, 0.76], drag: 0.15, fadeIn: 0.8 });
     }
   }
 
@@ -630,6 +677,7 @@ export class DrivingState extends PlayState {
     this.police?.clear();
     this.traffic?.clear();
     this.particles?.dispose();
+    this.chimneySmoke?.dispose();
     this.scene?.traverse((o) => {
       if (o.geometry && !o.isInstancedMesh) o.geometry.dispose();
     });

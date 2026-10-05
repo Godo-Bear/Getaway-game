@@ -36,7 +36,11 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 **Settings** (title screen or pause menu): difficulty, master/music/effects volume, look sensitivity, invert Y, first-person view, sprint toggle or hold, crosshair, graphics quality (low / medium / high), weather (story / rain / off), getaway car colour (gold ratings unlock extra colours). Saved in the browser.
 
-**Graphics:** medium and high add post-processing (`src/world/postFx.js`): bloom so neon, lamps, headlights and windows glow, a vignette and a cool/warm colour grade. The sky is a gradient dome with a moon halo and storm clouds (`src/world/lighting.js`). Rain and thunderstorms (`src/world/weather.js`) add rain streaks, wet shiny roads and roofs that reflect the sky, lightning flashes and thunder. Low skips the post-processing for older laptops; phones start on medium.
+**Graphics:** medium and high add post-processing (`src/world/postFx.js`): bloom so neon, lamps, headlights and windows glow, a vignette and a cool/warm colour grade. The sky is a gradient dome with drifting clouds (more of them in bad weather; lit orange by the city at night, white by day, pink and gold at sunrise and sunset), a big low sun that sets the sky on fire round it, a moon halo, and twinkling stars of different sizes and colours that go out behind the clouds (`src/world/lighting.js`; Low graphics uses a cheaper one-layer cloud). Rain and thunderstorms (`src/world/weather.js`) add rain streaks, wet shiny roads and roofs that reflect the sky, lightning flashes and thunder; snow falls as soft round flakes.
+
+**Reflections and light beams** (`src/world/atmosphere.js`): car paint, glass, chrome rims and building windows reflect a small picture of the sky all round (the sky colours, a skyline with lit windows at night or snowy mountains in Frostvale, the sun or moon), repainted when the time of day changes. At night in rain or snow, street lamps and headlights show soft cones of light, as if lit up by the raindrops and flakes.
+
+**Smoke and breath** (`src/vehicles/particles.js`, one draw call per system): soft, lumpy, spinning puffs that fade into the fog and darken at night. Tyre smoke when you drift or spin the wheels (snow spray in the snow and on the snowmobile), breath clouds from everyone's mouths in the cold, and smoke from the chimneys in Frostvale (already rising when a level starts). Low skips the post-processing for older laptops; phones start on medium.
 
 **Audio:** recorded sounds in `public/audio` (see CREDITS.md), plus sounds synthesised with the Web Audio API.
 
@@ -197,7 +201,7 @@ src/
   main.js              boot, renderer, game loop, state machine setup
   style.css            HUD and menu styles
   core/                input, collision world, camera, save system, utils, state machine
-  world/               rooftop city, street city, materials, lighting (times of day), mesh batching
+  world/               rooftop city, street city, materials, lighting (times of day, sky, clouds, stars), atmosphere (reflections, light beams), weather, mesh batching
   editor/              Level Editor levels: share codes and building them
   player/              on-foot controller (parkour physics) and box-character model
   vehicles/            car physics, car models, traffic, particles, hacking junctions

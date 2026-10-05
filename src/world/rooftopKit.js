@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { makeShaftMaterial, lampShaftGeometry } from './atmosphere.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeRng } from '../core/utils.js';
 import { CollisionWorld } from '../core/collision.js';
@@ -647,14 +648,19 @@ export function buildStreetLamps(lamps) {
   const halos = new THREE.InstancedMesh(haloGeo, poolMat.clone(), n);
   halos.material.userData.nightGlow = true;
   halos.material.opacity = 0.9;
+  // Soft beams of light under each lamp (only in rain and snow at night)
+  const shaftGeo = lampShaftGeometry(5.9, 0.3, 3);
+  shaftGeo.translate(0, 5.9, 0);
+  const shafts = new THREE.InstancedMesh(shaftGeo, makeShaftMaterial(0xffb060, 0.32), n);
   lamps.forEach(([x, z], i) => {
     m.makeTranslation(x, 0, z);
     poles.setMatrixAt(i, m);
     heads.setMatrixAt(i, m);
     pools.setMatrixAt(i, m);
     halos.setMatrixAt(i, m);
+    shafts.setMatrixAt(i, m);
   });
-  g.add(poles, heads, pools, halos);
+  g.add(poles, heads, pools, halos, shafts);
   return g;
 }
 

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeGlowMaterial, getGlowTexture } from '../world/materials.js';
 import { PlayerModel } from '../player/playerModel.js';
+import { addReflections, makeShaftMaterial, headlightShaftGeometry } from '../world/atmosphere.js';
 
 // Car meshes (the player's getaway car, police cruisers, traffic, vans, taxis).
 // Cars face +Z: headlights at +Z, tail lights at -Z.
@@ -28,13 +29,23 @@ function mat(key, make) {
   return matCache.get(key);
 }
 const lambert = (color) => mat(`l${color}`, () => new THREE.MeshLambertMaterial({ color }));
-/** Shiny car paint (a sharp highlight from the sun and street lights). */
-const paintMat = (color) => new THREE.MeshPhongMaterial({ color, specular: 0x5a5a5a, shininess: 70 });
+/** Shiny car paint: a sharp highlight, and the sky and city lights reflected in it. */
+const paintMat = (color) => addReflections(new THREE.MeshPhongMaterial({ color, specular: 0x5a5a5a, shininess: 70 }), 0.14);
 const paint = (color) => mat(`p${color}`, () => paintMat(color));
-const glassMat = (tint) => mat(`g${tint}`, () => new THREE.MeshPhongMaterial({ color: tint ?? 0x18222f, specular: 0x9aaabb, shininess: 110 }));
+const glassMat = (tint) => mat(`g${tint}`, () => addReflections(new THREE.MeshPhongMaterial({ color: tint ?? 0x18222f, specular: 0x9aaabb, shininess: 110 }), 0.5));
 const TRIM = 0x121316;
 const trim = () => lambert(TRIM);
-const chrome = () => mat('chrome', () => new THREE.MeshPhongMaterial({ color: 0xb8bec8, specular: 0xffffff, shininess: 120 }));
+const chrome = () => mat('chrome', () => addReflections(new THREE.MeshPhongMaterial({ color: 0xb8bec8, specular: 0xffffff, shininess: 120 }), 0.7));
+/** Headlight beams (only show at night in rain and snow): one shared material. */
+const headBeam = () => mat('headBeam', () => makeShaftMaterial(0xfff0d0, 0.2));
+const HEADLIGHTS = { coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], sled: [[0, 0.64, 1.46]] };
+function addHeadlightBeams(g, key) {
+  const geo2 = geo(`beams:${key}`, () => mergeGeometries(HEADLIGHTS[key].map(([x, y, z]) => headlightShaftGeometry(15, 0.12, 2.6).translate(x, y, z)), false)); // (keeps the uvs: the beam fades along them)
+  const m = new THREE.Mesh(geo2, headBeam());
+  m.renderOrder = 2;
+  g.add(m);
+  return m;
+}
 const plate = () => lambert(0xe8e6dc);
 
 const { PI } = Math;
@@ -475,6 +486,7 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null 
   }));
   beam.material.userData.nightGlow = true;
   g.add(beam);
+  addHeadlightBeams(g, isVan ? 'van' : isPlayer ? 'coupe' : 'sedan');
 
   // Police light bar
   let sirens = null;
@@ -504,7 +516,7 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null 
   const steer = [];
   const rimHex = st.rims ?? 0x777777;
   const wg = wheelGeo(isPlayer || kind === 'police');
-  const rimMat = isPlayer ? new THREE.MeshPhongMaterial({ color: rimHex, specular: 0xcccccc, shininess: 90 }) : null;
+  const rimMat = isPlayer ? addReflections(new THREE.MeshPhongMaterial({ color: rimHex, specular: 0xcccccc, shininess: 90 }), 0.45) : null;
   for (const [x, z] of [[-p.wheelX, -p.wheelZ], [p.wheelX, -p.wheelZ], [-p.wheelX, p.wheelZ], [p.wheelX, p.wheelZ]]) {
     const pivot = new THREE.Group();
     pivot.position.set(x, WHEEL_R, z);
@@ -641,7 +653,7 @@ export function makeSnowmobileMesh({ color = 0xff9f1a, style = null, look = null
   addMesh(body, parts.bars, chrome());
   addMesh(body, parts.struts, dark);
   addMesh(body, parts.stripe, lambert(st.stripe ?? 0x151515), { shadow: false });
-  const shield = new THREE.Mesh(parts.shield, mat('shield', () => new THREE.MeshPhongMaterial({ color: 0x2a3a50, specular: 0xaabbcc, shininess: 100, transparent: true, opacity: 0.55, side: THREE.DoubleSide })));
+  const shield = new THREE.Mesh(parts.shield, mat('shield', () => addReflections(new THREE.MeshPhongMaterial({ color: 0x2a3a50, specular: 0xaabbcc, shininess: 100, transparent: true, opacity: 0.55, side: THREE.DoubleSide }), 0.4)));
   body.add(shield);
   const headMat = mat('head', () => new THREE.MeshBasicMaterial({ color: 0xfff1c4, toneMapped: false }));
   const tailMat = new THREE.MeshBasicMaterial({ color: 0x881018, toneMapped: false });
@@ -686,6 +698,7 @@ export function makeSnowmobileMesh({ color = 0xff9f1a, style = null, look = null
     new THREE.MeshBasicMaterial({ map: getGlowTexture(), color: 0xfff0c0, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
   beam.material.userData.nightGlow = true;
   g.add(beam);
+  addHeadlightBeams(g, 'sled');
   const flames = new THREE.Group();
   const f = new THREE.Mesh(geo('flame', () => { const c = new THREE.ConeGeometry(0.16, 1.2, 8); c.rotateX(-PI / 2); c.translate(0, 0, -0.6); return c; }), makeGlowMaterial(0x40b0ff, 0.85));
   f.position.set(0, 0.5, -1.35);

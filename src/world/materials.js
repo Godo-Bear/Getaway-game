@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { makeRng } from '../core/utils.js';
+import { addReflections } from './atmosphere.js';
 
 // All shared materials and procedurally drawn textures live here.
 // Textures are painted onto <canvas> elements at start-up, so the game has no
@@ -39,6 +40,7 @@ export const FACADE_UV = [FACADE_COLS * WINDOW_SPACING, FACADE_ROWS * FLOOR_HEIG
  *  - map: what the wall looks like in any light (grey wall, dark glass)
  *  - emissive: only the LIT windows, which glow on their own at night
  *  - dayMap: the same wall in daylight (the glass reflects the sky)
+ *  - spec: where the glass is (white), so only the windows reflect
  */
 function makeFacadeTextures(seed) {
   const rng = makeRng(seed);
@@ -110,7 +112,16 @@ function makeFacadeTextures(seed) {
     for (let y = 0; y < FACADE_ROWS; y++) g.fillRect(0, y * ch + ch - 6, size, 6);
     drawWindows(g, false, true);
   });
-  return { map, emissive, dayMap };
+  // Glass mask: dark windows reflect fully, lit ones a little (they glow instead)
+  const spec = canvasTexture(size, (g) => {
+    g.fillStyle = '#000';
+    g.fillRect(0, 0, size, size);
+    for (const w of lit) {
+      g.fillStyle = w.on ? '#555' : '#fff';
+      g.fillRect(w.x * cw + cw * 0.27, w.y * ch + ch * 0.25, cw * 0.46, ch * 0.48);
+    }
+  }, { srgb: false });
+  return { map, emissive, dayMap, spec };
 }
 
 let cache = null;
@@ -161,13 +172,17 @@ export function getMaterials() {
 
   cache = {
     // Building walls: window texture + glowing lit windows. Vertex colour tints the wall.
-    wall: lambert({
+    // The glass reflects the sky and the city (specularMap = where the glass is).
+    wall: addReflections(new THREE.MeshPhongMaterial({
       map: facade.map,
       emissiveMap: facade.emissive,
       emissive: 0xffffff,
       emissiveIntensity: 1.4,
       vertexColors: true,
-    }),
+      specularMap: facade.spec,
+      specular: 0x3a3a3a,
+      shininess: 60,
+    }), 0.55),
     facade, // (the lighting swaps wall.map to facade.dayMap in daylight)
     // Plain walls (stairwell huts, parapets, side walls without windows)
     concrete: lambert({ map: concreteTex, vertexColors: true }),

@@ -5,6 +5,7 @@ import { MeshBatcher } from './meshBatcher.js';
 import { getMaterials, getGlowTexture, makeTextTexture, FACADE_UV } from './materials.js';
 import { RoadGraph } from '../ai/roadGraph.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { makeShaftMaterial, lampShaftGeometry } from './atmosphere.js';
 
 // Street-level city for the driving modes.
 //
@@ -83,6 +84,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const buildingsList = [];
   const roofs = [];     // alpine: pitched roofs to put on the buildings [x0, z0, x1, z1, h]
   const banks = [];     // alpine: snowbanks along the kerbs
+  const chimneys = [];  // alpine: chimney tops [x, y, z] (they smoke)
   const minimapShapes = []; // for drawing the minimap: { type, x0, z0, x1, z1 }
 
   const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
@@ -220,7 +222,9 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
           roofs.push([bx0, bz0, bx1, bz1, h]);
           if (rng() < 0.5) { // a stone chimney
             const cx = rng.range(bx0 + 2, bx1 - 2), cz = rng.range(bz0 + 2, bz1 - 2);
-            batch.addBlock(cx, h, cz, 1.2, Math.min(bx1 - bx0, bz1 - bz0) * 0.45 + 1.5, 1.2, { side: 'concrete', top: 'plain', color: 0x7a7470, uvScale: [1, 2] });
+            const chH = Math.min(bx1 - bx0, bz1 - bz0) * 0.45 + 1.5;
+            batch.addBlock(cx, h, cz, 1.2, chH, 1.2, { side: 'concrete', top: 'plain', color: 0x7a7470, uvScale: [1, 2] });
+            chimneys.push([cx, h + chH, cz]);
           }
         }
         // Glowing shop front along the bottom (warm windows in the mountains)
@@ -487,6 +491,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     garages,
     isUnderBridge: (x, z) => Math.abs(z - elZ) < EL_HALF && x > outer && x < outerMax,
     train,
+    chimneys,
   };
 }
 
@@ -584,6 +589,10 @@ function buildLamps(lamps) {
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   }), n);
   pools.material.userData.nightGlow = true; // (fades out in daylight)
+  // Soft beams of light under each lamp (only in rain and snow at night)
+  const shaftGeo = lampShaftGeometry(6.7, 0.28, 3.4);
+  shaftGeo.translate(0, 6.8, 2.0);
+  const shafts = new THREE.InstancedMesh(shaftGeo, makeShaftMaterial(0xffb060, 0.32), n);
   const m = new THREE.Matrix4();
   lamps.forEach(([x, z, facing], i) => {
     // Lamps along X-roads lean over the road toward +Z or -Z
@@ -592,8 +601,9 @@ function buildLamps(lamps) {
     arms.setMatrixAt(i, m);
     heads.setMatrixAt(i, m);
     pools.setMatrixAt(i, m);
+    shafts.setMatrixAt(i, m);
   });
-  g.add(poles, arms, heads, pools);
+  g.add(poles, arms, heads, pools, shafts);
   // Lamps along Z-roads: same set rotated 90 degrees around the city centre
   // (the grid is square and symmetric, so this lines up exactly).
   const g2 = g.clone();
