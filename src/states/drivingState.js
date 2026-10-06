@@ -31,6 +31,8 @@ import { FreeDriveMode } from './modes/freeDriveMode.js';
 import { SideJobsMode } from './modes/sideJobsMode.js';
 import { ChaseHelicopter } from '../ai/chaseHelicopter.js';
 import { StreetLife } from '../world/streetLife.js';
+import { rumble } from '../core/haptics.js';
+import { addStat } from '../core/stats.js';
 import { setShopDaylight } from '../world/shopfronts.js';
 
 // Driving game state: everything the driving modes share.
@@ -407,13 +409,20 @@ export class DrivingState extends PlayState {
 
   /** Crashes: a bang (and a message for big ones), but no damage: the car has no health. */
   _damage(amount, impact) {
-    if (impact > 5) audio.sfx('crash', { vol: clamp(impact / 20, 0.3, 1) });
+    if (impact > 5) { audio.sfx('crash', { vol: clamp(impact / 20, 0.3, 1) }); rumble(clamp(impact / 22, 0.3, 1), 90 + impact * 6); }
     if (impact > 14) this.game.hud.toast('Crash!', '', 'var(--red)');
   }
 
   frameUpdate(dt, frozen) {
     const p = this.player;
     const hud = this.game.hud;
+    // Distance driven (Stats)
+    if (!frozen && this._statPos) {
+      const d = Math.hypot(p.pos.x - this._statPos.x, p.pos.z - this._statPos.z);
+      if (d < 10) this._driven = (this._driven || 0) + d;
+      if (this._driven > 60) { addStat(this.game, 'carM', this._driven); this._driven = 0; }
+    }
+    (this._statPos ||= p.pos.clone()).copy(p.pos);
     // M (or Esc) again closes the big map
     const input = this.game.input;
     // (not on the same frame it opened, or one press would open AND close it)
@@ -556,6 +565,7 @@ export class DrivingState extends PlayState {
       if (police.timeSinceSeen > need) {
         police.searching = true;
         this.mode.onEvade?.();
+        addStat(this.game, 'escapes');
       }
     }
     if (police.justReacquired) {

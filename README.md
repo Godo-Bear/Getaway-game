@@ -181,6 +181,12 @@ service cloud.firestore {
   * **Hide in the shops**: duck behind a counter and they can't see you (and the helicopter can't see into a shop or a stairwell).
   * **Alarms and shutters**: after a robbery the shopkeeper calls the police (another half star, and they know where you are for a while), and once you're out the metal shutters roll down: that shop's closed.
   * **Minimap and big map on foot** (Free Run and Rooftop Run): the same map as in the car, with the little shops (brown), parks and the stairwell doors (yellow); M or tap it for the big map and a waypoint.
+* **Things to do** (Free Run on foot):
+  * **Jobs**: three contacts stand round the city (a yellow "!" and an orange beam; yellow dots on the minimap). Walk up and press E: a courier run (pick up a package on a roof, drop it off), a shop snatch (rob one shop's till, get to the drop-off), a rooftop dash (three markers) or losing a tail (three stars: shake them all), each against the clock. $150-$250 (double with police on).
+  * **Parkour challenges**: three courses round the roofs of a block (cyan beams; Frostvale: street sprints). Run into the start, then through every ring. Your best time is saved with a recording of the run, and next time its **ghost** races you.
+  * **Shop counters**: at a till, E opens the counter: buy an espresso or an energy drink (run 15% faster for a minute), a hoodie and cap (a disguise: two stars off and they lose you), a burner phone (one star off), a tag finder app (crew tags on the minimap), a lucky charm (cash bags pay double), or rob the till.
+  * **Stats and achievements** (title screen > Stats): distance on foot and driven, tills, pickpockets, police lost, most wanted, officers down, tags, jobs, challenges, things bought, and 17 achievements that pay out once ($100-$1000).
+  * **Rumble and vibration**: a gamepad rumbles, and a phone buzzes, on punches, big landings, crashes and getting caught (Settings > Vibration).
 * **A living world** (Free Run):
   * **Pick the time and the weather** in the Free Run menu: *Day & night* (the clock runs, a full day every 12 minutes, and keeps going when you swap between walking and the car), or fixed Day / Dusk / Night; Clear / Rain / Storm / Fog (Frostvale: Snow / Blizzard / Fog / Clear).
   * **Puddles and wet streets**: in the rain, puddles on the ground round you reflect the sky and the lights, with rain rings rippling across them; the shiny wet roads and roofs now show on medium graphics too (low gets the puddles). Fog closes the city in.

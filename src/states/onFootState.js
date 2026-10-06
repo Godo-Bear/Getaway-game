@@ -27,6 +27,8 @@ import { CustomLevelMode } from './modes/customLevelMode.js';
 import { TrainMode } from './modes/trainMode.js';
 import { PrisonMode } from './modes/prisonMode.js';
 import { setShopDaylight } from '../world/shopfronts.js';
+import { rumble } from '../core/haptics.js';
+import { addStat } from '../core/stats.js';
 import { GlacierMode } from './modes/glacierMode.js';
 
 // On-foot game state: everything the on-foot modes have in common.
@@ -250,10 +252,19 @@ export class OnFootState extends PlayState {
     const p = this.player;
     const hud = this.game.hud;
 
+    // Distance on foot (Stats): counted in steps, not teleports
+    if (this._statPos && !this.paused && !this.inCard && !this.over) {
+      const d = Math.hypot(p.pos.x - this._statPos.x, p.pos.z - this._statPos.z);
+      if (d < 3) this._walked = (this._walked || 0) + d;
+      if (this._walked > 25) { addStat(this.game, 'footM', this._walked); this._walked = 0; }
+    }
+    (this._statPos ||= p.pos.clone()).copy(p.pos);
+
     // React to movement events (landing dip etc.)
     for (const e of p.events) {
       if (e.type === 'land' && e.impact > 6) {
         this.cam.addLandingDip(e.impact);
+        if (e.impact > 9) rumble(Math.min(1, e.impact / 16), 140);
         audio.sfx('land', { vol: Math.min(1, e.impact / 18) });
       } else if (e.type === 'land' && e.impact > 2) audio.sfx('step');
       if (e.type === 'jump') audio.sfx('jump');
@@ -380,6 +391,7 @@ export class OnFootState extends PlayState {
 
   /** Respawn ~1.5 s back along your path (so you don't land on the edge again). */
   respawnToSafety(message) {
+    rumble(0.7, 250);
     const list = this.safePositions;
     const entry = list.length > 3 ? list[list.length - 4] : list[0];
     if (entry) this.placePlayer(entry.pos.clone().setY(entry.pos.y + 0.05), entry.facing - Math.PI);
@@ -444,7 +456,7 @@ export class OnFootState extends PlayState {
       const dx = q.x - p.pos.x, dz = q.z - p.pos.z, d = Math.hypot(dx, dz);
       return d < reach && Math.abs(q.y - p.pos.y) < 1.3 && (d < 0.6 || (dx * fx + dz * fz) / d > 0.5);
     };
-    const hit = (big = heavy) => { audio.sfx(big ? 'uppercut' : 'land', { vol: 1 }); this.cam.addLandingDip?.(big ? 7 : 4); };
+    const hit = (big = heavy) => { audio.sfx(big ? 'uppercut' : 'land', { vol: 1 }); this.cam.addLandingDip?.(big ? 7 : 4); rumble(big ? 0.8 : 0.45, big ? 160 : 90); };
     const m = this.mode;
     // Guards, police patrols, bounty hunters (they sometimes block)
     for (const sq of [m.guards, m.patrols, m.mailGuard].filter(Boolean)) {
@@ -475,6 +487,7 @@ export class OnFootState extends PlayState {
         u.model.knockDown({ upIn: 1.9 });
         hud.toast('Officer down!', 'Run: they\'ll be back up in a few seconds.', 'var(--amber)', 2.5);
         m.onCrime?.('officer');
+        addStat(this.game, 'officersDown');
         return;
       }
     }
@@ -569,6 +582,7 @@ export class OnFootState extends PlayState {
           audio.sfx('land', { vol: 1 });
           hud.toast('Slide tackle!', 'Officer down. Run!', 'var(--amber)', 2.5);
           m.onCrime?.('officer');
+          addStat(this.game, 'officersDown');
         }
       }
     }
@@ -599,6 +613,7 @@ export class OnFootState extends PlayState {
     this.game.hud.toast(`Pickpocketed! +$${got}`, 'A wallet for the Shop. Don\'t let the police see you do it.', 'var(--safe)', 2.5);
     for (const sq of [m.patrols, m.guards].filter(Boolean)) if (sq.units.some((u) => u.seesPlayer)) sq.alarmAt(this.player.pos);
     m.onCrime?.('pickpocket');
+    addStat(this.game, 'pickpockets');
   }
 
   /** Modes show their action (Knock out, ...); with none, behind someone it's Pickpocket. */

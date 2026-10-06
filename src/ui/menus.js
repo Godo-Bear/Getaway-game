@@ -16,6 +16,7 @@ import { admin } from '../core/admin.js';
 import { showAdminPanel } from './adminPanel.js';
 import { diff, DIFFICULTY_LIST, setDifficulty } from '../core/difficulty.js';
 import { FREE_MAPS, mapUnlocked } from '../states/modes/freeRoam.js';
+import { statsHtml } from '../core/stats.js';
 import { neonLogoSvg } from './neonLogo.js';
 
 const overlay = document.getElementById('overlay');
@@ -201,6 +202,7 @@ export function showTitle(actions) {
       <button class="pill" data-go="account">${cloud.user ? '<span class="dot"></span>' : ''}Account</button>
       <button class="pill" data-go="settings">Settings</button>
       <button class="pill" data-go="controls">Controls</button>
+      <button class="pill" data-go="stats">Stats</button>
       <button class="pill" data-go="editor">Level Editor</button>
       ${admin.on ? '<button class="pill pill-admin" data-go="admin">Admin</button>' : ''}
     </div>`, [], { title: true });
@@ -214,6 +216,7 @@ export function showTitle(actions) {
     account: () => showAccount(back),
     settings: () => actions.settings(back),
     controls: () => showCard(controlsHtml(), [{ label: 'Back', primary: true, onClick: back }]),
+    stats: () => showCard(statsHtml(), [{ label: 'Back', primary: true, onClick: back }]),
     admin: () => showAdminPanel(back),
     editor: () => actions.editor(),
   };

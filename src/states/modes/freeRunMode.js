@@ -12,6 +12,8 @@ import { diff } from '../../core/difficulty.js';
 import { Crowd, Shopkeepers } from '../../ai/crowd.js';
 import { FootMap } from '../../ui/footMap.js';
 import { CrewTags } from '../../world/crewTags.js';
+import { addStat, maxStat } from '../../core/stats.js';
+import { FreeJobs, Challenges, openCounter } from './freeActivities.js';
 import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons, applyFreeSky, busyness, isRushHour } from './freeRoam.js';
 import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 
@@ -69,6 +71,10 @@ export class FreeRunMode {
     this.officers.setActive(0);
     // Hidden crew tags to collect (remembered per map)
     this.tags = new CrewTags(city.group, city, this.map.id, { seed: this.map.foot.seed });
+    // Jobs from contacts, parkour challenges, and what you've bought
+    this.jobs = new FreeJobs(this);
+    this.challenges = new Challenges(this);
+    this.buffs = { speed: 0 };
     this.heat = 0;
     this.calm = 0;
     return city;
@@ -212,7 +218,7 @@ export class FreeRunMode {
       b.bag.rotation.y += dt * 2;
       b.ring.rotation.z += dt;
       if (p.pos.distanceTo(b.pos) < 2.2) { // running past it picks it up
-        freeEarn(s.game, BAG_CASH * (this.police ? 2 : 1), 'Cash bag!');
+        freeEarn(s.game, BAG_CASH * (this.police ? 2 : 1) * (this.charm ? 2 : 1), 'Cash bag!');
         this._placeBag(b);
       }
     }
@@ -251,6 +257,7 @@ export class FreeRunMode {
     const tag = this.tags.update(dt, p);
     if (tag) {
       const n = this.tags.found, all = this.tags.total;
+      addStat(s.game, 'tags');
       freeEarn(s.game, 25, `Crew tag ${n}/${all}!`, n < all ? 'Hidden on the hardest roofs (and gazebos, fire escapes...). Find them all for a big bonus.' : '');
       audio.sfx('checkpoint', { vol: 0.8 });
       if (n === all) { freeEarn(s.game, 1000, `Every crew tag in ${this.map.name}!`, 'The whole city knows your crew now.'); audio.sfx('win'); }
@@ -266,8 +273,18 @@ export class FreeRunMode {
       }
     }
     const atTill = inShop && !inShop.robbed && Math.hypot(inShop.till.x - p.pos.x, inShop.till.z - p.pos.z) < 1.6 ? inShop : null;
-    s.setAction(atTill ? 'Rob the till' : null);
-    if (atTill && s.game.input.wasPressed('interact')) this._robTill(atTill);
+    const contact = this.jobs.nearContact(p);
+    s.setAction(atTill ? 'Shop counter' : contact ? 'Take a job' : null);
+    if (s.game.input.wasPressed('interact')) {
+      if (atTill) { openCounter(this, atTill); return; } // (buy something, or rob it)
+      if (contact) this.jobs.start(contact);
+    }
+    // What you bought: running faster for a while
+    if (this.buffs.speed > 0) this.buffs.speed -= dt;
+    p.speedScale = this.buffs.speed > 0 ? 1.15 : 1;
+    // Jobs and challenges (they point the marker while they're on)
+    const job = this.jobs.update(dt);
+    const race = this.challenges.update(dt);
     this._shutters(dt);
     // Behind a shop counter: out of sight
     const behindCounter = !!inShop && Math.hypot(inShop.keeper.pos.x - p.pos.x, inShop.keeper.pos.z - p.pos.z) < 1.7;
@@ -291,15 +308,23 @@ export class FreeRunMode {
       ...(this.officers?.units || []).filter((u) => !u.inactive && u.model.root.visible).map((u) => ({ x: u.pc.pos.x, z: u.pc.pos.z, color: '#ff3346' })),
       ...(this.heli ? [{ x: this.heli.pos.x, z: this.heli.pos.z, color: '#ff3346', size: 1.8 }] : []),
     ];
-    const way = this.map2.update(dots, best ? best.pos : null);
-    if (way) {
+    for (const c of this.jobs.contacts) if (!this.jobs.job) dots.push({ x: c.pos.x, z: c.pos.z, color: '#ffb020', size: 1.3 });
+    for (const c of this.challenges.courses) if (!this.challenges.run) dots.push({ x: c.pts[0].x, z: c.pts[0].z, color: '#39e6ff', size: 1.2 });
+    if (this.tagScan) for (const tg of this.tags.tags) if (!tg.found) dots.push({ x: tg.pos.x, z: tg.pos.z, color: '#ffd040', size: 0.8 });
+    const goal = job?.pos || race?.pos || null;
+    const way = this.map2.update(dots, goal || (best ? best.pos : null), goal ? (race ? '#39e6ff' : '#ffb020') : '#4dffa6');
+    if (goal) {
+      hud.setMarker(goal.clone().setY(goal.y + 1.6), s.camera, job ? job.label : race.label, race ? '#39e6ff' : '#ffb020', p.pos.distanceTo(goal));
+    } else if (way) {
       hud.setMarker(new THREE.Vector3(way.x, 2, way.z), s.camera, 'Waypoint', '#ff5ad0', Math.hypot(way.x - p.pos.x, way.z - p.pos.z));
     } else if (onStreet && nearCar && !this.city.groundLevel) {
       hud.setMarker(nearCar.pos.clone().setY(nearCar.pos.y + 2.2), s.camera, 'Your car', '#39a8ff', carD);
     } else if (best) hud.setMarker(best.pos.clone().setY(best.pos.y + 1.5), s.camera, 'Cash', 'var(--safe)', bd);
     else hud.setMarker(null);
     const stars = this.stars;
-    hud.setStats(`<span>Time <b>${formatTime(t)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
+    const doing = job ? `<span>${job.name} <b style="color:${job.left < 15 ? 'var(--red)' : '#ffb020'}">${formatTime(Math.max(0, job.left))}</b></span>`
+      : race ? `<span>${race.name} <b style="color:#39e6ff">${formatTime(race.t)}</b>${race.best ? ` · best ${formatTime(race.best)}` : ''}</span>` : '';
+    hud.setStats(`${doing}<span>Time <b>${formatTime(t)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
       `<span>Wanted <b style="color:${stars ? '#ffd040' : '#6a6f7c'};letter-spacing:1px">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</b></span>` +
       `<span>Tags <b style="color:#ffd040">${this.tags.found}/${this.tags.total}</b></span><span>Car <b>${Math.round(carD)} m</b></span>`);
   }
@@ -321,6 +346,7 @@ export class FreeRunMode {
     this.heat = Math.min(5, this.heat + add);
     this.calm = 0;
     if (kind === 'till' || kind === 'officer') this.officers?.alert(10);
+    maxStat(this.state.game, 'maxWanted', this.stars);
     if (this.stars > before) {
       audio.sfx('sting', { vol: 0.35 });
       this.state.game.hud.toast(`Wanted ${'★'.repeat(this.stars)}`, this.stars >= 3 ? 'The helicopter\'s coming. Lose them: get out of sight, hide in a stairwell, a shop or a crowd.' : 'The police are after you. Get out of sight and lay low to lose them.', '#ffd040', 3);
@@ -336,6 +362,8 @@ export class FreeRunMode {
     audio.sfx('alarm', { vol: 0.5 });
     freeEarn(s.game, (30 + Math.floor(this.rng() * 31)) * (this.police ? 2 : 1), 'Till robbed!', 'The alarm\'s going: get out before the shutters come down!');
     this.onCrime('till');
+    addStat(s.game, 'tills');
+    this.jobs.onRob(shop);
     if (this.heli) { this.heli.lastSeen.copy(p.pos); this.heli.spot.set(p.pos.x + 12, 0, p.pos.z + 12); }
   }
 
@@ -441,14 +469,33 @@ export class FreeRunMode {
       if (this.heat > 0) hud.toast(`Wanted ${'★'.repeat(this.stars)}`, 'They\'re losing track of you. Stay out of sight.', 'var(--safe)', 2);
       else {
         hud.toast('Lost them!', this.police ? 'Back to the usual patrols.' : 'The police have given up. You\'re free.', 'var(--safe)', 3);
+        addStat(s.game, 'escapes');
         audio.sfx('checkpoint', { vol: 0.5 });
         if (!this.police) freeEarn(s.game, 15, 'Escaped!', '');
       }
     }
   }
 
+  /** Something you bought at a shop counter. */
+  onBuy(id, name) {
+    const hud = this.state.game.hud;
+    if (id === 'energy' || id === 'coffee') { this.buffs.speed = 60; hud.toast(name, 'You\'re running 15% faster for a minute.', 'var(--safe)', 2.5); }
+    else if (id === 'disguise') {
+      this.heat = Math.max(0, Math.ceil(this.heat - 0.01) - 2);
+      this.officers.tipT = 0; this.officers.lostFor = 99; this.calm = 0;
+      hud.toast('New look', this.heat ? `Wanted ${'★'.repeat(this.stars)}: they've lost track of you.` : 'Nobody recognises you now.', 'var(--safe)', 3);
+    } else if (id === 'burner') {
+      this.heat = Math.max(0, Math.ceil(this.heat - 0.01) - 1);
+      this.officers.tipT = 0;
+      hud.toast('A fake tip, called in', this.heat ? `Wanted ${'★'.repeat(this.stars)}.` : 'The police are off chasing nothing.', 'var(--safe)', 3);
+    } else if (id === 'scanner') { this.tagScan = true; hud.toast('Tag finder', 'The crew tags you haven\'t found show on your minimap (yellow).', 'var(--safe)', 3); }
+    else if (id === 'charm') { this.charm = true; hud.toast('Lucky charm', 'Cash bags pay double for the rest of this session.', 'var(--safe)', 3); }
+    else hud.toast(name, 'Enjoy.', 'var(--safe)', 2);
+  }
+
   _caught(msg) {
     const s = this.state;
+    this.jobs.fail();
     audio.sfx('caught');
     this.spotted = 0;
     this.heat = 0;
@@ -478,6 +525,9 @@ export class FreeRunMode {
     this.map2?.dispose();
     this.map2 = null;
     this.tags?.dispose();
+    this.jobs?.dispose();
+    this.challenges?.dispose();
+    if (this.state.player) this.state.player.speedScale = 1;
     this.carBtn?.remove();
     this.carBtn = null;
   }

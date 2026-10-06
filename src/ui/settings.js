@@ -34,6 +34,7 @@ export function showSettings(game, onBack) {
     ${slider('set-sens', 'Mouse / look sensitivity', s.mouseSensitivity, 0.3, 2.5, 0.05, (v) => `${Number(v).toFixed(2)}x`)}
     <label class="setting check" for="set-invert"><span>Invert look up/down</span><input type="checkbox" id="set-invert" ${s.invertY ? 'checked' : ''}></label>
     <label class="setting check" for="set-fp"><span>First-person view on foot (V)</span><input type="checkbox" id="set-fp" ${s.firstPerson ? 'checked' : ''}></label>
+    <label class="setting check" for="set-vib"><span>Vibration (gamepad rumble, phone buzz on hits and crashes)</span><input type="checkbox" id="set-vib" ${s.vibration !== false ? 'checked' : ''}></label>
     <label class="setting check" for="set-sprint"><span>Sprint stays on (press sprint once to switch it on or off)</span><input type="checkbox" id="set-sprint" ${s.sprintToggle !== false ? 'checked' : ''}></label>
     <label class="setting check" for="set-cross"><span>Crosshair on foot</span><input type="checkbox" id="set-cross" ${s.crosshair !== false ? 'checked' : ''}></label>
     ${touchy ? `<div class="seg wrap"><button class="chip cz-open" id="set-touch">Move phone buttons</button></div>
@@ -78,6 +79,7 @@ export function showSettings(game, onBack) {
   document.getElementById('set-auto').addEventListener('change', (e) => { s.autoGraphics = e.target.checked; apply(); });
   document.getElementById('set-fp').addEventListener('change', (e) => { s.firstPerson = e.target.checked; apply(); });
   document.getElementById('set-sprint').addEventListener('change', (e) => { s.sprintToggle = e.target.checked; apply(); });
+  document.getElementById('set-vib').addEventListener('change', (e) => { s.vibration = e.target.checked; apply(); });
   document.getElementById('set-cross').addEventListener('change', (e) => { s.crosshair = e.target.checked; apply(); });
   for (const b of document.querySelectorAll('#set-quality [data-q]')) {
     b.addEventListener('click', (e) => {
