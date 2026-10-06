@@ -38,5 +38,7 @@ Chapters 1-5 keep their existing mole stories and deductions as they are.
 
 - Vite + Three.js. `npx vite build` must pass. The game must work on phones
   (touch controls, portrait and landscape).
+- With every update, add an entry at the top of `UPDATES` in
+  `src/ui/updates.js` (title screen > Updates lists them, newest first).
 - Commit and push to the working branch when done; the GitHub Pages site
   deploys automatically.

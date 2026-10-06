@@ -48,6 +48,8 @@ Press **F3** (or **`**) in game for an FPS / debug readout.
 
 The title matches the app icon: **GETAWAY** is an amber neon-tube sign (each letter drawn from the title font's outline as a glass tube with a hot core and a glow, golden at the top and deep orange at the bottom; it flickers on the first time, the W buzzes now and then, and a glint twinkles on the G; `src/ui/neonLogo.js`), over the same rainy neon city as the icon (`src/assets/title/keyart.webp`, rendered from a 3D scene) that slowly drifts, with rain falling over it (`src/states/titleState.js`). There's no 3D city to build or draw on the title, so it opens fast on phones.
 
+**Updates** (a pill on the title screen) lists everything that's been added to the game, newest first, back to the first version. A dot on the pill means there's something you haven't seen yet, and the new ones are tagged NEW. The list lives in `src/ui/updates.js`: add an entry at the top with every update.
+
 ## Loading screen
 
 While the game downloads, and whenever a level is being built (a chapter part, Free Run, Street Chase, a custom level), a loading screen shows the neon **GETAWAY** sign over the blurred rainy city, what's loading (e.g. *Chapter 1 · The Harbor Trust Job / The heist*), a progress bar with a little getaway car driving along it, and a gameplay tip that changes every few seconds. Code: `src/ui/loader.js` (the markup is in `index.html` so it shows straight away); `src/core/stateMachine.js` shows it and builds the level a frame later so it's on screen first.
