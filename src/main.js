@@ -134,6 +134,7 @@ function start(renderer) {
   else if (mode === 'rooftop') game.sm.change('onFoot', { mode: 'survival' });
   else if (mode === 'free') game.sm.change('onFoot', { mode: 'free' });
   else if (mode === 'freecar') game.sm.change('driving', { mode: 'free' });
+  else if (mode === 'jobs') game.sm.change('driving', { mode: 'jobs' });
   else if (mode === 'speedrun') startSpeedrun(game, 'chapter1');
   else if (mode === 'chase') game.sm.change('driving', { mode: 'survival' });
   else if (mode === 'drive1') startPart(game, 'chapter1', 2, { fresh: true });

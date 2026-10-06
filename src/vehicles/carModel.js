@@ -41,7 +41,7 @@ const trim = () => lambert(TRIM);
 const chrome = () => mat('chrome', () => addReflections(new THREE.MeshPhongMaterial({ color: 0xb8bec8, specular: 0xffffff, shininess: 120 }), 0.7));
 /** Headlight beams (only show at night in rain and snow): one shared material. */
 const headBeam = () => mat('headBeam', () => makeShaftMaterial(0xfff0d0, 0.2));
-const HEADLIGHTS = { bike: [[0, 0.98, 0.92]], muscle: [[-0.64, 0.8, 2.32], [0.64, 0.8, 2.32]], rally: [[-0.6, 0.86, 2.02], [0.6, 0.86, 2.02]], coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], sled: [[0, 0.64, 1.46]] };
+const HEADLIGHTS = { bike: [[0, 0.98, 0.92]], muscle: [[-0.64, 0.8, 2.32], [0.64, 0.8, 2.32]], rally: [[-0.6, 0.86, 2.02], [0.6, 0.86, 2.02]], coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], bus: [[-0.9, 0.85, 5.52], [0.9, 0.85, 5.52]], truck: [[-0.85, 1.05, 4.12], [0.85, 1.05, 4.12]], sled: [[0, 0.64, 1.46]] };
 function addHeadlightBeams(g, key) {
   const geo2 = geo(`beams:${key}`, () => mergeGeometries(HEADLIGHTS[key].map(([x, y, z]) => headlightShaftGeometry(15, 0.12, 2.6).translate(x, y, z)), false)); // (keeps the uvs: the beam fades along them)
   const m = new THREE.Mesh(geo2, headBeam());
@@ -406,13 +406,92 @@ function buildVan(body, bodyMat) {
   return { p, parts };
 }
 
+/** A city bus: long and tall, a row of lit windows down each side. */
+function buildBus(body, bodyMat) {
+  const p = { wheelZ: 3.6, wheelX: 1.12, arch: 0.55, top: [[-5.45, 0.4], [-5.5, 3.0], [-5.35, 3.15], [5.25, 3.15], [5.5, 2.95], [5.55, 0.5], [5.5, 0.4]] };
+  const parts = geo('body:bus', () => {
+    const W = 2.5, hw = W / 2;
+    const out = { shell: extrudeAcross(bodyShape(p), W, 0.08) };
+    out.glass = merge([
+      box(2.2, 1.45, 0.04, 0, 2.05, 5.56),                                       // big windscreen
+      ...[-1, 1].map((sx) => box(0.03, 0.95, 9.4, sx * (hw + 0.01), 2.25, -0.35)), // side windows
+      box(1.8, 0.7, 0.04, 0, 2.4, -5.51),                                         // back window
+      box(0.05, 2.3, 1.1, -(hw + 0.015), 1.6, 4.45), box(0.05, 2.3, 1.1, -(hw + 0.015), 1.6, -0.4), // glass doors (on the kerb side)
+    ]);
+    out.trim = merge([
+      ...[-1, 1].flatMap((sx) => [box(0.03, 0.16, 10.6, sx * (hw + 0.012), 1.15, 0), // a band along the sides
+        ...[-3.6, -1.2, 1.2, 3.6].map((z) => box(0.04, 0.95, 0.12, sx * (hw + 0.02), 2.25, z - 0.35))]), // window pillars
+      box(2.3, 0.16, 0.08, 0, 0.5, 5.56), box(2.3, 0.16, 0.08, 0, 0.5, -5.52),     // bumpers
+      box(1.6, 0.35, 2.4, 0, 3.3, -1.5),                                           // air-con on the roof
+      ...[-1, 1].map((sx) => box(0.08, 0.5, 0.08, sx * (hw + 0.25), 2.4, 5.2)),     // mirror arms
+    ]);
+    const wells = [];
+    for (const wz of [p.wheelZ, -p.wheelZ]) {
+      const w = new THREE.CylinderGeometry(p.arch - 0.01, p.arch - 0.01, W - 0.1, 12, 1, true, -PI / 2, PI);
+      w.rotateZ(PI / 2);
+      w.translate(0, WHEEL_R - 0.02, wz);
+      wells.push(w);
+    }
+    out.wells = merge(wells);
+    out.head = merge([-1, 1].map((sx) => box(0.36, 0.2, 0.05, sx * 0.9, 0.85, 5.56)));
+    out.tail = merge([-1, 1].map((sx) => box(0.16, 0.5, 0.05, sx * 1.05, 1.0, -5.53)));
+    out.plates = merge([box(0.5, 0.13, 0.02, 0, 0.75, 5.57), box(0.5, 0.13, 0.02, 0, 0.75, -5.55)]);
+    out.sign = box(1.6, 0.26, 0.05, 0, 2.92, 5.57); // the route sign
+    return out;
+  });
+  addMesh(body, parts.shell, bodyMat);
+  addMesh(body, parts.glass, mat('busGlass', () => new THREE.MeshLambertMaterial({ color: 0x1c2630, emissive: 0x8a6a2c })), { shadow: false });
+  addMesh(body, parts.trim, trim());
+  addMesh(body, parts.wells, mat('well', () => new THREE.MeshLambertMaterial({ color: 0x08080a, side: THREE.DoubleSide })), { shadow: false });
+  addMesh(body, parts.plates, plate(), { shadow: false });
+  addMesh(body, parts.sign, mat('busSign', () => new THREE.MeshBasicMaterial({ color: 0xffa020, toneMapped: false })), { shadow: false });
+  return { p, parts };
+}
+
+/** A box truck: a cab up front and a big cargo box behind. */
+function buildTruck(body, bodyMat, boxColor) {
+  const p = { wheelZ: 2.7, wheelX: 1.08, arch: 0.55, top: [[-4.1, 0.45], [-4.1, 1.05], [1.75, 1.05], [1.85, 2.75], [2.95, 2.8], [3.85, 1.65], [4.1, 1.3], [4.12, 0.5], [4.05, 0.45]] };
+  const parts = geo('body:truck', () => {
+    const W = 2.35, hw = W / 2;
+    const out = { shell: extrudeAcross(bodyShape(p), W) };
+    out.box = box(2.45, 2.45, 5.75, 0, 2.3, -1.2);
+    out.glass = merge([bar([2.95, 2.72], [3.8, 1.7], 0, 0.03, 2.0, -0.04), ...[-1, 1].map((sx) => box(0.03, 0.62, 0.8, sx * (hw + 0.01), 2.2, 2.45))]);
+    out.trim = merge([box(2.3, 0.18, 0.1, 0, 0.5, 4.12), box(2.4, 0.12, 0.12, 0, 0.6, -4.12), box(1.4, 0.4, 0.06, 0, 1.05, 4.1),
+      box(2.47, 0.08, 5.77, 0, 1.12, -1.2), box(2.47, 0.08, 5.77, 0, 3.5, -1.2),                       // box rails
+      ...[-1, 1].map((sx) => box(0.08, 0.6, 0.08, sx * (hw + 0.22), 2.2, 3.0))]);                         // mirrors
+    const wells = [];
+    for (const wz of [p.wheelZ, -p.wheelZ]) {
+      const w = new THREE.CylinderGeometry(p.arch - 0.01, p.arch - 0.01, W - 0.1, 12, 1, true, -PI / 2, PI);
+      w.rotateZ(PI / 2);
+      w.translate(0, WHEEL_R - 0.02, wz);
+      wells.push(w);
+    }
+    out.wells = merge(wells);
+    out.head = merge([-1, 1].map((sx) => box(0.38, 0.18, 0.05, sx * 0.85, 1.05, 4.13)));
+    out.tail = merge([-1, 1].map((sx) => box(0.16, 0.36, 0.05, sx * 1.05, 0.85, -4.14)));
+    out.plates = merge([box(0.5, 0.13, 0.02, 0, 0.75, 4.14), box(0.5, 0.13, 0.02, 0, 0.75, -4.15)]);
+    return out;
+  });
+  addMesh(body, parts.shell, bodyMat);
+  addMesh(body, parts.box, lambert(boxColor));
+  addMesh(body, parts.glass, glassMat(null), { shadow: false });
+  addMesh(body, parts.trim, trim());
+  addMesh(body, parts.wells, mat('well', () => new THREE.MeshLambertMaterial({ color: 0x08080a, side: THREE.DoubleSide })), { shadow: false });
+  addMesh(body, parts.plates, plate(), { shadow: false });
+  return { p, parts };
+}
+
+export const BUS_COLORS = [0xd8382a, 0x2a6ad8, 0xe8b820, 0x2a9a5a];
+export const TRUCK_BOXES = [0xe8e6e0, 0xd8d0c0, 0x3a6aa8, 0xc8402a];
+
 /**
  * @param {object} opts
- * @param {'player'|'police'|'civilian'|'van'|'taxi'} opts.kind
+ * @param {'player'|'police'|'civilian'|'van'|'taxi'|'bus'|'truck'} opts.kind
+ * @param {number} [opts.boxColor] - a truck's cargo box
  * @param {number} opts.color
  * @param {object} [opts.style] - the player's car: { stripe, rims, spoiler, tint, glow }
  */
-export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null, parked = false } = {}) {
+export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null, parked = false, boxColor = 0xe8e6e0 } = {}) {
   if (kind === 'player' && style?.body === 'bike') return makeBikeMesh({ color, style, parked }); // (the Street Bike)
   const st = style || { stripe: 0x151515, rims: 0x777777, spoiler: true, tint: null, glow: null };
   const g = new THREE.Group();
@@ -428,6 +507,10 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null,
   let p, parts;
   if (isVan) {
     ({ p, parts } = buildVan(body, bodyMat));
+  } else if (kind === 'bus') {
+    ({ p, parts } = buildBus(body, bodyMat));
+  } else if (kind === 'truck') {
+    ({ p, parts } = buildTruck(body, bodyMat, boxColor));
   } else {
     const key = isPlayer ? (PROFILES[st.body] ? st.body : 'coupe') : 'sedan';
     parts = bodyParts(key);
@@ -507,8 +590,9 @@ export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null,
     blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false,
   }));
   beam.material.userData.nightGlow = true;
+  beam.position.z = kind === 'bus' ? 3.3 : kind === 'truck' ? 1.9 : 0; // (from the front of the long ones)
   g.add(beam);
-  addHeadlightBeams(g, isVan ? 'van' : isPlayer ? (HEADLIGHTS[st.body] ? st.body : 'coupe') : 'sedan');
+  addHeadlightBeams(g, isVan ? 'van' : HEADLIGHTS[kind] ? kind : isPlayer ? (HEADLIGHTS[st.body] ? st.body : 'coupe') : 'sedan');
 
   // Police light bar
   let sirens = null;

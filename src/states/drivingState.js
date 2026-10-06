@@ -30,6 +30,7 @@ import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 import { FreeDriveMode } from './modes/freeDriveMode.js';
 import { SideJobsMode } from './modes/sideJobsMode.js';
 import { ChaseHelicopter } from '../ai/chaseHelicopter.js';
+import { StreetLife } from '../world/streetLife.js';
 
 // Driving game state: everything the driving modes share.
 //   - the street city, the player's car, police, traffic, smoke particles
@@ -106,6 +107,8 @@ export class DrivingState extends PlayState {
     const trafficCount = { low: 12, medium: 18, high: 22 }[game.settings.graphics] ?? 18;
     this.traffic = new Traffic(this.scene, this.city, this.rng, trafficCount);
     this.particles = new ParticleSystem(this.scene, 700);
+    // People on the pavements, parked cars, bins and benches, steaming drains
+    this.life = new StreetLife(this.scene, this.city, this.rng, { graphics: game.settings.graphics, particles: this.particles });
     // Chimney smoke over the rooftops (the snowy mountain town)
     this.chimneySmoke = this.city.chimneys?.length ? new ParticleSystem(this.scene, 900) : null;
     this.chimneyT = 0;
@@ -186,6 +189,7 @@ export class DrivingState extends PlayState {
     this.firstStart = false;
     this.police.lastKnown.copy(this.player.pos);
     this.traffic.scatter(this.player);
+    this.life.scatter(this.player);
     this.nitroPickups.scatter(this.player);
     this.carGadgets.reset();
     this.cityHack.reset();
@@ -213,6 +217,7 @@ export class DrivingState extends PlayState {
     c.nitro = input.isDown('nitro') && this.nitro > 0.02;      // Space
     if (input.wasPressed('horn')) {
       this.traffic.honk(this.player);
+      this.life.honk(this.player);
       audio.sfx('horn');
     }
     if (input.wasPressed('camera')) this.camMode = (this.camMode + 1) % 2;
@@ -286,8 +291,9 @@ export class DrivingState extends PlayState {
     this.carGadgets.simulate(dt);
     this._helicopter(dt, cops);
     this.mode.simulate?.(dt);
-    const all = [p, ...this.police.cars, ...this.traffic.cars, ...(this.mode.extraCars?.() ?? [])];
+    const all = [p, ...this.police.cars, ...this.traffic.cars, ...this.life.cars, ...(this.mode.extraCars?.() ?? [])];
     this.traffic.update(dt, p, this.camera, all, this.police.units);
+    this.life.update(dt, p, this.camera, [p, ...this.police.cars]);
 
     // --- Admin: super speed and infinite nitro
     if (!(this.flatTyres > 0)) p.speedFactor = admin.flag('superSpeed') ? 1.35 : 1;
@@ -435,6 +441,7 @@ export class DrivingState extends PlayState {
     p.syncMesh();
     this.police.syncMeshes(this.time);
     this.traffic.syncMeshes();
+    this.life.syncMeshes();
     this.mode.syncMeshes?.();
     this.city.trafficLights.update(frozen ? 0 : dt);
     this.city.train.update(frozen ? 0 : dt);
@@ -733,6 +740,7 @@ export class DrivingState extends PlayState {
     this.roadblocks?.clear();
     this.police?.clear();
     this.traffic?.clear();
+    this.life?.dispose();
     this.particles?.dispose();
     this.chimneySmoke?.dispose();
     this.scene?.traverse((o) => {

@@ -44,6 +44,24 @@ export const CAR_SPECS = {
     grip: 10, driftGrip: 2, steerLow: 2.2, steerHigh: 1.2,
     nitroAccel: 0, nitroMaxFactor: 1, mass: 0.9,
   },
+  // City buses and box trucks in the traffic: slow and heavy (they shove
+  // you about, not the other way round). Longer, so more collision circles.
+  bus: {
+    maxSpeed: 16, accel: 5, brake: 22, reverseMax: 4,
+    grip: 10, driftGrip: 2, steerLow: 1.6, steerHigh: 0.9,
+    nitroAccel: 0, nitroMaxFactor: 1, mass: 3, circles: [-3.75, -1.25, 1.25, 3.75],
+  },
+  truck: {
+    maxSpeed: 18, accel: 6, brake: 24, reverseMax: 5,
+    grip: 10, driftGrip: 2, steerLow: 1.8, steerHigh: 1.0,
+    nitroAccel: 0, nitroMaxFactor: 1, mass: 2.4, circles: [-2.7, -0.9, 0.9, 2.7],
+  },
+  // Parked at the kerb: handbrake on, but you can shove them
+  parked: {
+    maxSpeed: 1, accel: 0, brake: 30, reverseMax: 0, // (maxSpeed only matters for steering, which they never do)
+    grip: 9, driftGrip: 3, steerLow: 1, steerHigh: 1,
+    nitroAccel: 0, nitroMaxFactor: 1, mass: 1.1,
+  },
 };
 
 const GRAVITY = 24;
@@ -226,7 +244,7 @@ const _hits = [];
 export function collideCarWithWorld(car, world) {
   let maxImpact = 0;
   const fx = Math.sin(car.heading), fz = Math.cos(car.heading);
-  for (const off of CAR_CIRCLES) {
+  for (const off of car.spec.circles || CAR_CIRCLES) {
     const cx = car.pos.x + fx * off, cz = car.pos.z + fz * off;
     const r = CAR_RADIUS;
     world.query(cx - r, car.pos.y + 0.3, cz - r, cx + r, car.pos.y + 1.5, cz + r, _hits);
@@ -280,13 +298,14 @@ export function collideCars(cars, onHit) {
       const b = cars[j];
       if (!b.active) continue;
       const dx0 = b.pos.x - a.pos.x, dz0 = b.pos.z - a.pos.z;
-      if (dx0 * dx0 + dz0 * dz0 > 36) continue; // far apart: skip quickly
+      const reach = 2.4 + (a.spec.circles ? 4 : 1.3) + (b.spec.circles ? 4 : 1.3);
+      if (dx0 * dx0 + dz0 * dz0 > reach * reach) continue; // far apart: skip quickly
       if (Math.abs(a.pos.y - b.pos.y) > 1.5) continue; // one is jumping over the other
       const afx = Math.sin(a.heading), afz = Math.cos(a.heading);
       const bfx = Math.sin(b.heading), bfz = Math.cos(b.heading);
       let best = null;
-      for (const oa of CAR_CIRCLES) {
-        for (const ob of CAR_CIRCLES) {
+      for (const oa of a.spec.circles || CAR_CIRCLES) {
+        for (const ob of b.spec.circles || CAR_CIRCLES) {
           const ax = a.pos.x + afx * oa, az = a.pos.z + afz * oa;
           const bx = b.pos.x + bfx * ob, bz = b.pos.z + bfz * ob;
           const dx = bx - ax, dz = bz - az;

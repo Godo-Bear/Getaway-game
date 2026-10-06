@@ -467,6 +467,10 @@ class AudioManager {
           this._tone(4720, 0.1, 'sine', 0.03 * v, w);
         });
         return;
+      case 'clang': // a bin or a hydrant knocked flying by a car
+        this._noiseHit(0.14, 1300 + Math.random() * 600, 1.8, 0.35 * vol, 0, 'bandpass');
+        this._tone(380 + Math.random() * 120, 0.18, 'triangle', 0.08 * vol, 0, 300);
+        return;
       case 'block': // a punch blocked on a forearm
         this._noiseHit(0.1, 420, 1.4, 0.55 * vol);
         this._tone(140, 0.09, 'sine', 0.12 * vol, 0, 90);

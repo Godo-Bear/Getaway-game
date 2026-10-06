@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Car, CAR_SPECS } from './car.js';
-import { makeCarMesh, CIVILIAN_COLORS } from './carModel.js';
+import { makeCarMesh, CIVILIAN_COLORS, BUS_COLORS, TRUCK_BOXES } from './carModel.js';
 import { driveToward, handleStuck, makeAiState } from '../ai/driver.js';
 import { LANE_OFFSETS } from '../world/streetCity.js';
 
@@ -19,19 +19,23 @@ const _frustum = new THREE.Frustum();
 const _m = new THREE.Matrix4();
 
 class Civilian {
-  constructor(scene, rng) {
-    const kind = rng() < 0.15 ? 'van' : rng() < 0.2 ? 'taxi' : 'civilian';
-    const color = kind === 'taxi' ? 0xe8b820 : kind === 'van' ? 0x9a9c9f : CIVILIAN_COLORS[Math.floor(rng() * CIVILIAN_COLORS.length)];
-    this.mesh = makeCarMesh({ kind, color });
+  constructor(scene, rng, kind = null) {
+    kind ||= rng() < 0.15 ? 'van' : rng() < 0.2 ? 'taxi' : 'civilian';
+    const pick = (list) => list[Math.floor(rng() * list.length)];
+    const color = kind === 'taxi' ? 0xe8b820 : kind === 'van' ? 0x9a9c9f : kind === 'bus' ? pick(BUS_COLORS) : kind === 'truck' ? pick([0xd8d4cc, 0x2a4a8a, 0x8a1c1c, 0x2e2e33]) : pick(CIVILIAN_COLORS);
+    this.mesh = makeCarMesh({ kind, color, boxColor: pick(TRUCK_BOXES) });
     scene.add(this.mesh);
-    this.car = new Car(CAR_SPECS.civilian, this.mesh);
+    this.kind = kind;
+    this.car = new Car(CAR_SPECS[kind] || CAR_SPECS.civilian, this.mesh);
+    // Half its length (for keeping a gap and stopping at the line)
+    this.half = kind === 'bus' ? 5.5 : kind === 'truck' ? 4.1 : 2.4;
     this.car.active = true;
     this.car.isCivilian = true;
     this.car.unit = this;
     this.ai = makeAiState();
     this.from = null;
     this.to = null;
-    this.lane = LANE_OFFSETS[rng() < 0.5 ? 0 : 1];
+    this.lane = LANE_OFFSETS[this.half > 3 || rng() < 0.5 ? 0 : 1]; // (buses and trucks keep to the inside lane)
     this.swerve = 0;       // extra sideways offset while swerving
     this.swerveTimer = 0;
     this.knockedTimer = 0; // > 0 after being hit: just rolls to a stop
@@ -44,7 +48,9 @@ export class Traffic {
     this.city = city;
     this.rng = rng;
     this.civs = [];
-    for (let i = 0; i < count; i++) this.civs.push(new Civilian(scene, rng));
+    // A bus and a truck or two among the cars
+    const big = count >= 16 ? ['bus', 'bus', 'truck', 'truck'] : ['bus', 'truck'];
+    for (let i = 0; i < count; i++) this.civs.push(new Civilian(scene, rng, big[i] || null));
   }
 
   get cars() {
@@ -71,7 +77,7 @@ export class Traffic {
       const d = Math.hypot(p.x - player.pos.x, p.z - player.pos.z);
       if (d < minD || d > maxD) continue;
       if (camera && _frustum.containsPoint(_v.set(p.x, 1, p.z))) continue;
-      if (this.civs.some((o) => o !== c && Math.hypot(o.car.pos.x - p.x, o.car.pos.z - p.z) < 10)) continue;
+      if (this.civs.some((o) => o !== c && Math.hypot(o.car.pos.x - p.x, o.car.pos.z - p.z) < 6 + c.half + o.half)) continue;
       c.from = a;
       c.to = b;
       c.car.place(p.x, p.z, Math.atan2(b.x - a.x, b.z - a.z));
@@ -146,21 +152,23 @@ export class Traffic {
 
       // Traffic light at the far intersection
       const axis = Math.abs(fx) > 0.5 ? 'x' : 'z';
-      const stopLine = len - this.city.roadWidth / 2 - 4;
+      const stopLine = len - this.city.roadWidth / 2 - 1.6 - c.half;
       const light = lights.state(b, axis);
       if (light !== 'green' && along < stopLine && along > stopLine - 25) {
         const distToLine = stopLine - along;
         speed = Math.min(speed, Math.max(0, (distToLine - 1) * 0.8));
       }
 
-      // Don't drive into cars in front
+      // Don't drive into cars in front (keeping a gap of a few metres
+      // between bumpers, whatever the length of the two)
       for (const o of otherCars) {
         if (o === car) continue;
         const dx = o.pos.x - car.pos.x, dz = o.pos.z - car.pos.z;
         const ahead = dx * car.fwdX + dz * car.fwdZ;
-        if (ahead <= 0 || ahead > 14) continue;
+        const gap = ahead - c.half - (o.unit?.half ?? 2.4);
+        if (ahead <= 0 || gap > 9) continue;
         const side = Math.abs(-dx * car.fwdZ + dz * car.fwdX);
-        if (side < 2.4) speed = Math.min(speed, Math.max(0, (ahead - 6) * 1.2));
+        if (side < 2.4) speed = Math.min(speed, Math.max(0, (gap - 1.5) * 1.2));
       }
 
       driveToward(car, target.x, target.z, speed);

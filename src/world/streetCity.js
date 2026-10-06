@@ -86,6 +86,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const banks = [];     // alpine: snowbanks along the kerbs
   const chimneys = [];  // alpine: chimney tops [x, y, z] (they smoke)
   const minimapShapes = []; // for drawing the minimap: { type, x0, z0, x1, z1 }
+  const kerbs = [];     // pavement edges (see addKerbs)
 
   const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
 
@@ -171,6 +172,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       }
       if (LANDMARKS[kind]) {
         landmarks[`${i},${j}`] = makeLandmark(x0, z0, x1, z1, LANDMARKS[kind]);
+        addKerbs(x0, z0, x1, z1, { west: [[z0 + 14, z1 - 14]] }); // (keep the door clear)
         continue;
       }
       // Sidewalk slab (visual only - too low to block the car)
@@ -181,6 +183,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       const ix0 = x0 + SIDEWALK, ix1 = x1 - SIDEWALK, iz0 = z0 + SIDEWALK, iz1 = z1 - SIDEWALK;
       if (kind === 'garage') {
         makeGarage(x0, z0, x1, z1, ix0, iz0, ix1, iz1);
+        const cz = (z0 + z1) / 2;
+        addKerbs(x0, z0, x1, z1, { west: [[cz - 11, cz + 11]] }); // (keep the way in clear)
         continue;
       }
       if (kind === 'alley') {
@@ -189,12 +193,14 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         const w = 7;
         if (alongX) {
           const mz = (z0 + z1) / 2 + rng.range(-6, 6);
+          addKerbs(x0, z0, x1, z1, { west: [[mz - 6, mz + 6]], east: [[mz - 6, mz + 6]] });
           fillBuildings(ix0, iz0, ix1, mz - w / 2);
           fillBuildings(ix0, mz + w / 2, ix1, iz1);
           alleys.push({ x0, x1, z0: mz - w / 2, z1: mz + w / 2 });
           batch.addBox({ x: x0, y: 0.01, z: mz - w / 2 }, { x: x1, y: 0.02, z: mz + w / 2 }, { side: null, top: 'asphalt', color: 0x777777, topScale: [6, 6] });
         } else {
           const mx = (x0 + x1) / 2 + rng.range(-6, 6);
+          addKerbs(x0, z0, x1, z1, { north: [[mx - 6, mx + 6]], south: [[mx - 6, mx + 6]] });
           fillBuildings(ix0, iz0, mx - w / 2, iz1);
           fillBuildings(mx + w / 2, iz0, ix1, iz1);
           alleys.push({ x0: mx - w / 2, x1: mx + w / 2, z0, z1 });
@@ -202,8 +208,24 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         }
       } else {
         fillBuildings(ix0, iz0, ix1, iz1);
+        addKerbs(x0, z0, x1, z1, {});
       }
     }
+  }
+
+  /**
+   * The four pavement edges of a block, for the street life (people walking,
+   * parked cars, bins and benches). `a`-`b` runs along the kerb, `n` points
+   * out to the road; `keepClear` lists stretches (along the side, in world
+   * x or z) where nothing may be parked or put down (alley mouths, doors).
+   */
+  function addKerbs(x0, z0, x1, z1, clear) {
+    kerbs.push(
+      { a: [x0, z0], b: [x1, z0], n: [0, -1], keepClear: clear.north || [] },
+      { a: [x0, z1], b: [x1, z1], n: [0, 1], keepClear: clear.south || [] },
+      { a: [x0, z0], b: [x0, z1], n: [-1, 0], keepClear: clear.west || [] },
+      { a: [x1, z0], b: [x1, z1], n: [1, 0], keepClear: clear.east || [] },
+    );
   }
 
   function fillBuildings(x0, z0, x1, z1) {
@@ -425,6 +447,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   minimapShapes.push({ type: 'bridge', x0: outer, z0: elZ - EL_HALF, x1: outerMax, z1: elZ + EL_HALF });
   }
 
+  // Where the street lamps stand (world x, z), so nothing is parked on them.
+  // The lamps on the Z roads are the same set turned 90 degrees (buildLamps).
+  const lampSpots = [];
+  for (const [x, z] of lamps) lampSpots.push([x, z], [z, -x]);
+
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));
   group.add(buildRampMeshes(ramps));
@@ -492,6 +519,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     isUnderBridge: (x, z) => Math.abs(z - elZ) < EL_HALF && x > outer && x < outerMax,
     train,
     chimneys,
+    kerbs, lampSpots, alpine, elZ, sidewalk: SIDEWALK,
   };
 }
 
