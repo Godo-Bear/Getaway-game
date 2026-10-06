@@ -89,7 +89,7 @@ export function buildChapter3Headquarters() {
     policeCars.push(m);
   }
   const carPos = new THREE.Vector3(6, 14, -106);
-  const car = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle() });
+  const car = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle(), parked: true });
   car.position.copy(carPos);
   car.rotation.y = Math.PI;
   group.add(car);

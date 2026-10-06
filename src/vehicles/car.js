@@ -33,6 +33,12 @@ export const CAR_SPECS = {
     grip: 11, driftGrip: 2.2, steerLow: 3.1, steerHigh: 1.45,
     nitroAccel: 20, nitroMaxFactor: 1.3, mass: 0.7,
   },
+  // Police motorbikes: quick and nimble, but one good knock puts them down
+  policeBike: {
+    maxSpeed: 41, accel: 20, brake: 40, reverseMax: 10,
+    grip: 11, driftGrip: 2.2, steerLow: 3.0, steerHigh: 1.35,
+    nitroAccel: 0, nitroMaxFactor: 1, mass: 0.6,
+  },
   civilian: {
     maxSpeed: 20, accel: 9, brake: 30, reverseMax: 6,
     grip: 10, driftGrip: 2, steerLow: 2.2, steerHigh: 1.2,
@@ -191,6 +197,12 @@ export class Car {
     this.mesh.rotation.set(this.pitch, this.heading, this.roll, 'YXZ');
     if (this.mesh.userData.wheels) {
       for (const w of this.mesh.userData.wheels) w.rotation.x = this.wheelSpin;
+    }
+    // A motorbike leans into the corners (more the faster it goes)
+    if (this.mesh.userData.lean) {
+      const want = clamp(-this.yawRate * Math.min(this.speed, 40) * 0.035, -0.75, 0.75);
+      this.leanVis = damp(this.leanVis || 0, this.airborne ? 0 : want, 8, 1 / 60);
+      this.mesh.userData.lean.rotation.z = this.leanVis;
     }
     // Front wheels turn with the steering
     if (this.mesh.userData.steer) {

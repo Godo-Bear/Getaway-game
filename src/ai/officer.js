@@ -16,8 +16,30 @@ import { POLICE_LOOK } from '../player/people.js';
 // they run to where they last saw you and search around there instead.
 // Officers that fall or get left far behind come back out of a stairwell
 // near you a few seconds later.
+//
+// streets: they chase you down on the street too (Free Run). If you climb up
+// or drop down and they can't follow, they come back out near your level a
+// few seconds later: a rooftop stairwell, or a doorway on the street.
 
 const CATCH_DIST = 1.25;
+
+/**
+ * Where police on foot come out in a rooftop city: its stairwell huts (and
+ * water towers) up on the roofs, and doorways along every street.
+ */
+export function rooftopCitySpawns(city) {
+  const street = [];
+  for (let i = 0; i < city.blockCenters.length - 1; i++) {
+    const st = city.blockCenters[i] + city.pitch / 2;
+    for (const along of city.blockCenters) street.push(new THREE.Vector3(st, 0, along), new THREE.Vector3(along, 0, st));
+  }
+  return [...(city.hideSpots || []), ...street];
+}
+
+/** Is this spot inside a stairwell hut or under a water tower? */
+export function inHideSpot(city, pos) {
+  return (city.hideSpots || []).some((h) => Math.hypot(h.x - pos.x, h.z - pos.z) < 1.5 && Math.abs(h.y - pos.y) < 1);
+}
 const STEP = 1 / 60;
 
 export class OfficerSquad {
@@ -27,7 +49,8 @@ export class OfficerSquad {
    * @param {THREE.Vector3[]} spawns - where officers come out (stairwell huts)
    * @param {{count:number, speed?:number}} opts - speed = fraction of your speed
    */
-  constructor(scene, world, spawns, { count = 2, speed = 0.86 } = {}) {
+  constructor(scene, world, spawns, { count = 2, speed = 0.86, streets = false } = {}) {
+    this.streets = streets;
     this.scene = scene;
     this.world = world;
     this.spawns = spawns;
@@ -58,7 +81,9 @@ export class OfficerSquad {
       const d = Math.hypot(sp.x - playerPos.x, sp.z - playerPos.z);
       return d > 20 && d < 70;
     });
-    const list = options.length ? options : this.spawns;
+    // (on the streets: come out at your level, on the roofs or down on the street)
+    const level = this.streets ? options.filter((sp) => Math.abs(sp.y - playerPos.y) < 3) : [];
+    const list = level.length ? level : options.length ? options : this.spawns;
     const sp = list[Math.floor(Math.random() * list.length)];
     u.pc.teleport(sp.x + (Math.random() - 0.5), sp.y + 0.05, sp.z + (Math.random() - 0.5), 0);
     u.model.root.visible = false;
@@ -110,7 +135,10 @@ export class OfficerSquad {
       const catchDist = hidden ? 0.7 : CATCH_DIST; // they'd have to walk right into your hiding spot
       if (Math.hypot(dx, dz) < catchDist && Math.abs(player.pos.y - p.y) < 1.4 && player.state !== 'zip') result = 'caught';
       // Fell off, or hopelessly behind: come back out of a stairwell soon.
-      if (p.y < 2 || Math.hypot(dx, dz) > 90) { u.waitTimer = 3; u.model.root.visible = false; }
+      // (On the streets they follow you down; if you're a floor or more above or
+      // below them for a while, they come back out near your level.)
+      u.offLevel = this.streets && Math.abs(player.pos.y - p.y) > 4 ? (u.offLevel || 0) + dt : 0;
+      if ((p.y < 2 && !this.streets) || p.y < -3 || Math.hypot(dx, dz) > 90 || u.offLevel > 5) { u.waitTimer = 3; u.offLevel = 0; u.model.root.visible = false; }
     }
     return result;
   }

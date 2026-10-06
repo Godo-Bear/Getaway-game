@@ -187,7 +187,7 @@ export function buildChapter1Rooftops() {
     m.position.set(x, 13, z);
     group.add(m);
   }
-  const car = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle() });
+  const car = makeCarMesh({ kind: 'player', color: playerCarColour(), style: playerCarStyle(), parked: true });
   car.position.copy(carPos);
   car.rotation.y = Math.PI;
   group.add(car);

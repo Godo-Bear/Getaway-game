@@ -38,6 +38,8 @@ export const CAR_BODIES = [
   { id: 'coupe', name: 'Getaway Coupe', note: 'The all-rounder', price: 0 },
   { id: 'muscle', name: 'Muscle Car', note: 'Fastest on the straights, but it slides', price: 4000, chapter: 5,
     specs: { maxSpeed: 46, accel: 18.5, grip: 8.6, driftGrip: 1.3, steerLow: 2.5, steerHigh: 1.05, mass: 1.15 } },
+  { id: 'bike', name: 'Street Bike', note: 'Quickest off the line and slips through traffic, but it\'s light: the police can shove you about', price: 6000, chapter: 7, iceGrip: 0.55,
+    specs: { maxSpeed: 44, accel: 23, grip: 11, driftGrip: 2.4, steerLow: 3.3, steerHigh: 1.4, mass: 0.6 } },
   { id: 'rally', name: 'Rally Hatch', note: 'Grips on snow and ice, turns on a coin', price: 5000, chapter: 9, iceGrip: 0.85,
     specs: { maxSpeed: 40, accel: 19, grip: 12.5, driftGrip: 2.1, steerLow: 3.0, steerHigh: 1.3 } },
 ];

@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { Car, CAR_SPECS } from '../vehicles/car.js';
-import { makeCarMesh, updateSirens } from '../vehicles/carModel.js';
+import { makeCarMesh, makeBikeMesh, updateSirens } from '../vehicles/carModel.js';
 import { driveToward, handleStuck, makeAiState } from './driver.js';
 
 // Police pursuit AI.
@@ -27,10 +27,12 @@ const _frustum = new THREE.Frustum();
 const _projScreen = new THREE.Matrix4();
 
 export class PoliceUnit {
-  constructor(scene) {
-    this.mesh = makeCarMesh({ kind: 'police' });
+  /** bike: a police motorbike (quick, but a good knock puts it down) */
+  constructor(scene, { bike = false } = {}) {
+    this.bike = bike;
+    this.mesh = bike ? makeBikeMesh({ police: true }) : makeCarMesh({ kind: 'police' });
     scene.add(this.mesh);
-    this.car = new Car(CAR_SPECS.police, this.mesh);
+    this.car = new Car(bike ? CAR_SPECS.policeBike : CAR_SPECS.police, this.mesh);
     this.car.active = true;
     this.car.isPolice = true;
     this.car.unit = this;
@@ -68,7 +70,7 @@ export class PoliceForce {
   /** Make sure there are `count` cruisers, spawning new ones off-screen. */
   setCount(count, player, camera) {
     while (this.units.length < count) {
-      const u = new PoliceUnit(this.scene);
+      const u = new PoliceUnit(this.scene, { bike: this.units.length % 3 === 2 }); // (every third one is on a motorbike)
       this.units.push(u);
       this.respawn(u, player, camera);
     }

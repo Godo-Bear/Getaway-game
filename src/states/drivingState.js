@@ -29,6 +29,7 @@ import { StreetChaseMode } from './modes/streetChaseMode.js';
 import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 import { FreeDriveMode } from './modes/freeDriveMode.js';
 import { SideJobsMode } from './modes/sideJobsMode.js';
+import { ChaseHelicopter } from '../ai/chaseHelicopter.js';
 
 // Driving game state: everything the driving modes share.
 //   - the street city, the player's car, police, traffic, smoke particles
@@ -165,6 +166,8 @@ export class DrivingState extends PlayState {
   }
 
   restart() {
+    this.heli?.dispose();
+    this.heli = null;
     this.flatTyres = 0;
     this.player.speedFactor = 1;
     this.player.gripFactor = 1;
@@ -281,6 +284,7 @@ export class DrivingState extends PlayState {
     this.police.setCount(cops, p, this.camera);
     this.police.update(dt, p, heat, this.camera);
     this.carGadgets.simulate(dt);
+    this._helicopter(dt, cops);
     this.mode.simulate?.(dt);
     const all = [p, ...this.police.cars, ...this.traffic.cars, ...(this.mode.extraCars?.() ?? [])];
     this.traffic.update(dt, p, this.camera, all, this.police.units);
@@ -303,6 +307,16 @@ export class DrivingState extends PlayState {
       const rec = this.nearTrack.get(other);
       if (rec) rec.hit = true;
       if (impact > 4) this._damage((impact - 4) * 0.008, impact);
+      // A police motorbike goes down with one good knock
+      const bikeUnit = other.isPolice && other.unit?.bike && impact > 5 && !(other.unit.stunned > 0) ? other.unit : null;
+      if (bikeUnit) {
+        bikeUnit.stunned = 4;
+        bikeUnit.emp = false;
+        bikeUnit.spinDir = Math.random() < 0.5 ? -1 : 1;
+        other.gripFactor = 0.2;
+        other.yawRate += bikeUnit.spinDir * 4;
+        this.game.hud.toast('Bike down!', 'That police bike is out of the chase for a moment.', '#ff5a5a', 1.5);
+      }
       if (other.isPolice && impact > 6) {
         this.mode.onPoliceRam?.();
         // Ram Plating (gadget): a hard hit spins the cruiser out.
@@ -344,6 +358,7 @@ export class DrivingState extends PlayState {
       screech: skid * 0.45,
       nitro: p.boosting ? 0.3 : 0,
       siren: this.police.units.length ? clamp(1 - nearest / 160, 0.03, 1) * 0.55 : 0,
+      rotor: this.heli ? clamp(1 - Math.hypot(this.heli.pos.x - p.pos.x, this.heli.pos.z - p.pos.z) / 160, 0.05, 1) * 0.5 : 0,
       city: 0.07,
       music: 0.55,
       intensity: chased ? 0.85 + clamp(1 - nearest / 60, 0, 0.15) : 0.35,
@@ -469,6 +484,37 @@ export class DrivingState extends PlayState {
       hud.setDebug(`${this.game.fps.toFixed(0)} fps\ncalls ${this.game.renderer.info.render.calls}\n` +
         this.police.units.map((u) => u.mode[0]).join('') + ` seen ${this.police.timeSinceSeen.toFixed(1)}s`);
     } else hud.setDebug('');
+  }
+
+  /**
+   * The police helicopter: it joins a chase when the heat is high (3 stars and
+   * up). While your car is in its light the cops always know where you are.
+   * It goes home when they've lost you for a while.
+   */
+  _helicopter(dt, cops) {
+    const police = this.police, p = this.player;
+    const chasing = cops > 0 && police.everSeen && !police.searching && !this.mode.pursuitPaused && !this.mode.ghost;
+    if (!this.heli) {
+      if (!chasing || this.mode.heat < 3 || this.mode.noHelicopter || !(this.time > 4)) return;
+      const a = Math.random() * Math.PI * 2;
+      this.heli = new ChaseHelicopter(this.scene, this.city.world, { x: p.pos.x + Math.cos(a) * 140, z: p.pos.z + Math.sin(a) * 140 });
+      this.game.hud.toast('Police helicopter!', 'In its searchlight you can\'t lose the cops. Outrun it on a straight with nitro, or hide in a garage or under the railway.', 'var(--red)', 5);
+      return;
+    }
+    if (this.time && police.jammed > 0) this.heli.blinded = Math.max(this.heli.blinded || 0, 0.2); // (radio jammed: they can't call you in)
+    const lit = this.heli.chase(dt, p, diff().copSpeed) && !this.inGarage;
+    if (lit) {
+      police.lastKnown.copy(p.pos);
+      police.timeSinceSeen = 0;
+      if (police.searching) { police.searching = false; police.justReacquired = true; }
+      police.everSeen = true;
+    }
+    // Lost you for a good while: it flies off home
+    if (this.heli.lostFor > 25 || cops === 0 || this.mode.pursuitPaused) {
+      this.heli.dispose();
+      this.heli = null;
+      if (cops > 0) this.game.hud.toast('The helicopter gave up', 'It\'s flying back to base.', 'var(--safe)', 2.5);
+    }
   }
 
   /** Is the player somewhere the cops struggle to see (alley, park, under the El, a garage)? */
@@ -674,6 +720,8 @@ export class DrivingState extends PlayState {
   }
 
   teardown() {
+    this.heli?.dispose();
+    this.heli = null;
     this.mode?.teardown?.();
     this.weather?.dispose();
     this.weather = null;

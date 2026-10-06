@@ -3,6 +3,9 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { makeGlowMaterial, getGlowTexture } from '../world/materials.js';
 import { PlayerModel } from '../player/playerModel.js';
 import { addReflections, makeShaftMaterial, headlightShaftGeometry } from '../world/atmosphere.js';
+import { currentLook } from '../player/outfits.js';
+import { POLICE_LOOK } from '../player/people.js';
+import { save } from '../core/save.js';
 
 // Car meshes (the player's getaway car, police cruisers, traffic, vans, taxis).
 // Cars face +Z: headlights at +Z, tail lights at -Z.
@@ -38,7 +41,7 @@ const trim = () => lambert(TRIM);
 const chrome = () => mat('chrome', () => addReflections(new THREE.MeshPhongMaterial({ color: 0xb8bec8, specular: 0xffffff, shininess: 120 }), 0.7));
 /** Headlight beams (only show at night in rain and snow): one shared material. */
 const headBeam = () => mat('headBeam', () => makeShaftMaterial(0xfff0d0, 0.2));
-const HEADLIGHTS = { muscle: [[-0.64, 0.8, 2.32], [0.64, 0.8, 2.32]], rally: [[-0.6, 0.86, 2.02], [0.6, 0.86, 2.02]], coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], sled: [[0, 0.64, 1.46]] };
+const HEADLIGHTS = { bike: [[0, 0.98, 0.92]], muscle: [[-0.64, 0.8, 2.32], [0.64, 0.8, 2.32]], rally: [[-0.6, 0.86, 2.02], [0.6, 0.86, 2.02]], coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], sled: [[0, 0.64, 1.46]] };
 function addHeadlightBeams(g, key) {
   const geo2 = geo(`beams:${key}`, () => mergeGeometries(HEADLIGHTS[key].map(([x, y, z]) => headlightShaftGeometry(15, 0.12, 2.6).translate(x, y, z)), false)); // (keeps the uvs: the beam fades along them)
   const m = new THREE.Mesh(geo2, headBeam());
@@ -409,7 +412,8 @@ function buildVan(body, bodyMat) {
  * @param {number} opts.color
  * @param {object} [opts.style] - the player's car: { stripe, rims, spoiler, tint, glow }
  */
-export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null } = {}) {
+export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null, parked = false } = {}) {
+  if (kind === 'player' && style?.body === 'bike') return makeBikeMesh({ color, style, parked }); // (the Street Bike)
   const st = style || { stripe: 0x151515, rims: 0x777777, spoiler: true, tint: null, glow: null };
   const g = new THREE.Group();
   const body = new THREE.Group(); // tilts for pitch/roll without moving wheels' parent
@@ -639,6 +643,123 @@ export const CIVILIAN_COLORS = [0x8a1c1c, 0x1f3f8a, 0xd8d4cc, 0x2e2e33, 0x5a6a3a
  * care which one you're on.
  * @param {{color:number, style?:object, look?:object}} opts
  */
+/**
+ * A motorbike with its rider: your Street Bike, or a police bike (police: true).
+ * The bike leans into corners (userData.lean, set by Car.syncMesh). parked:
+ * nobody on it.
+ */
+export function makeBikeMesh({ color = 0xff9f1a, style = null, police = false, parked = false } = {}) {
+  const st = style || { stripe: 0x151515, rims: 0x777777 };
+  const g = new THREE.Group();
+  const lean = new THREE.Group(); // tips over in the corners
+  g.add(lean);
+  const body = new THREE.Group();
+  lean.add(body);
+  const paintC = police ? 0xf2f2f2 : color;
+  const bodyMat = police ? paint(paintC) : paintMat(paintC);
+  const dark = trim();
+  const parts = geo('bike', () => {
+    const tank = new THREE.CapsuleGeometry(0.2, 0.42, 4, 10); tank.rotateX(PI / 2); tank.scale(1, 0.85, 1); tank.translate(0, 0.98, 0.18);
+    const tail = merge([box(0.3, 0.14, 0.5, 0, 0.98, -0.62, 0.18, 0, 0), box(0.22, 0.1, 0.2, 0, 1.0, -0.92, 0.3, 0, 0)]);
+    const fairing = merge([box(0.42, 0.42, 0.18, 0, 1.0, 0.72, -0.5, 0, 0), box(0.5, 0.12, 0.5, 0, 0.62, 0.05)]); // nose and belly pan
+    const frame = merge([box(0.12, 0.12, 1.0, 0, 0.66, -0.2, 0.35, 0, 0), box(0.1, 0.5, 0.1, 0, 0.62, 0.48, -0.35, 0, 0), box(0.34, 0.3, 0.42, 0, 0.55, -0.05)]); // spine, head tube, engine
+    const seat = box(0.28, 0.08, 0.62, 0, 1.06, -0.32, 0.08, 0, 0);
+    const pipe = new THREE.CylinderGeometry(0.06, 0.08, 0.7, 8); pipe.rotateX(PI / 2 - 0.25); pipe.translate(0.2, 0.62, -0.6);
+    const head = box(0.2, 0.12, 0.05, 0, 0.98, 0.84, -0.4, 0, 0);
+    const tailL = box(0.18, 0.06, 0.04, 0, 0.98, -1.03);
+    const stripe = merge([-1, 1].map((sx) => box(0.012, 0.06, 0.4, sx * 0.205, 1.0, 0.18)));
+    // Front: fork, mudguard and handlebars (they turn with the steering)
+    const fork = merge([-1, 1].map((sx) => box(0.05, 0.62, 0.05, sx * 0.1, 0.62, 0.02, -0.35, 0, 0)));
+    const bars = merge([box(0.62, 0.04, 0.04, 0, 1.1, -0.08), box(0.05, 0.22, 0.05, 0, 1.0, -0.04)]);
+    const guard = box(0.16, 0.04, 0.42, 0, 0.72, 0.02);
+    // A wheel: a fat tyre round a disc
+    const tyre = new THREE.TorusGeometry(0.28, 0.08, 8, 22); tyre.rotateY(PI / 2);
+    const rim = merge([new THREE.CylinderGeometry(0.2, 0.2, 0.05, 16).rotateZ(PI / 2), ...[0, 1, 2].map((i) => box(0.04, 0.42, 0.05, 0, 0, 0, i * PI / 3, 0, 0))]);
+    return { tank, tail, fairing, frame, seat, pipe, head, tailL, stripe, fork, bars, guard, tyre, rim };
+  });
+  addMesh(body, parts.tank, bodyMat);
+  addMesh(body, parts.tail, bodyMat);
+  addMesh(body, parts.fairing, bodyMat);
+  addMesh(body, parts.frame, dark);
+  addMesh(body, parts.seat, mat('bikeSeat', () => new THREE.MeshLambertMaterial({ color: 0x141416 })));
+  addMesh(body, parts.pipe, chrome());
+  addMesh(body, parts.stripe, police ? paint(0x1d3566) : lambert(st.stripe ?? 0x151515), { shadow: false });
+  const headMat = mat('head', () => new THREE.MeshBasicMaterial({ color: 0xfff1c4, toneMapped: false }));
+  const tailMat = new THREE.MeshBasicMaterial({ color: 0x881018, toneMapped: false });
+  addMesh(body, parts.head, headMat, { shadow: false });
+  addMesh(body, parts.tailL, tailMat, { shadow: false });
+
+  // Wheels and the steering front end
+  const wheels = [], steer = [];
+  const rimMat = police ? chrome() : lambert(st.rims ?? 0x777777);
+  const wheel = (parent, z) => {
+    const w = new THREE.Group();
+    w.position.set(0, 0.36, z);
+    const t = new THREE.Mesh(parts.tyre, mat('bikeTyre', () => new THREE.MeshLambertMaterial({ color: 0x141416 })));
+    const r = new THREE.Mesh(parts.rim, rimMat);
+    t.castShadow = true;
+    w.add(t, r);
+    parent.add(w);
+    wheels.push(w);
+  };
+  wheel(lean, -0.72);
+  const front = new THREE.Group();
+  front.position.set(0, 0, 0.74);
+  front.add(new THREE.Mesh(parts.fork, dark), new THREE.Mesh(parts.bars, dark), new THREE.Mesh(parts.guard, bodyMat));
+  wheel(front, 0);
+  lean.add(front);
+  steer.push(front);
+
+  // Police: red and blue lights on the back
+  let sirens = null;
+  if (police) {
+    const red = new THREE.MeshBasicMaterial({ color: 0xff2233, toneMapped: false });
+    const blue = new THREE.MeshBasicMaterial({ color: 0x2266ff, toneMapped: false });
+    const r = new THREE.Mesh(geo('bikeSirenL', () => box(0.1, 0.12, 0.1, -0.16, 1.2, -0.85)), red);
+    const b = new THREE.Mesh(geo('bikeSirenR', () => box(0.1, 0.12, 0.1, 0.16, 1.2, -0.85)), blue);
+    body.add(r, b);
+    const glowR = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xff2030, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    const glowB = new THREE.Sprite(new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0x2060ff, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+    glowR.position.set(-0.2, 1.25, -0.85);
+    glowB.position.set(0.2, 1.25, -0.85);
+    glowR.scale.setScalar(2.6);
+    glowB.scale.setScalar(2.6);
+    body.add(glowR, glowB);
+    sirens = { r, b, glowR, glowB, red, blue };
+  }
+
+  // The rider: crouched over the tank, hands on the bars
+  let rider = null;
+  if (!parked) {
+    rider = new PlayerModel(police ? POLICE_LOOK : undefined);
+    if (!police) rider.setLook(currentLook(save.data.settings));
+    const p = rider.pose;
+    p.hipL = p.hipR = -1.25; p.kneeL = p.kneeR = 1.85;
+    p.shL = p.shR = -1.25; p.elL = p.elR = -0.45; p.shLz = -0.18; p.shRz = 0.18;
+    p.lean = 0.55; p.headPitch = -0.35;
+    rider._apply({ state: 'ground', gliding: false });
+    rider.root.position.set(0, 0.32, -0.42);
+    lean.add(rider.root);
+  }
+
+  // Headlight on the road, nitro flame from the exhaust
+  const beam = new THREE.Mesh(geo('bikeBeam', () => { const pl = new THREE.PlaneGeometry(3.5, 11); pl.rotateX(-PI / 2); pl.translate(0, 0.06, 7.5); return pl; }),
+    new THREE.MeshBasicMaterial({ map: getGlowTexture(), color: 0xfff0c0, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  beam.material.userData.nightGlow = true;
+  g.add(beam);
+  addHeadlightBeams(lean, 'bike');
+  const flames = new THREE.Group();
+  const fl = new THREE.Mesh(geo('flame', () => { const c = new THREE.ConeGeometry(0.16, 1.2, 8); c.rotateX(-PI / 2); c.translate(0, 0, -0.6); return c; }), makeGlowMaterial(0x40b0ff, 0.85));
+  fl.position.set(0.2, 0.55, -0.92);
+  flames.add(fl);
+  flames.visible = false;
+  lean.add(flames);
+
+  mergeStatic(body, new Set([tailMat, sirens?.red, sirens?.blue].filter(Boolean)));
+  g.userData = { wheels, steer, sirens, flames, body, beam, tailMat, underglow: null, paint: police ? null : bodyMat, rider, lean, bike: true };
+  return g;
+}
+
 export function makeSnowmobileMesh({ color = 0xff9f1a, style = null, look = null } = {}) {
   const st = style || { stripe: 0x151515, rims: 0x777777, glow: null };
   const g = new THREE.Group();

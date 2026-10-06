@@ -4,6 +4,7 @@ import { makeGlowMaterial } from '../../world/materials.js';
 import { makeCarMesh } from '../../vehicles/carModel.js';
 import { playerCarColour, playerCarStyle } from '../../vehicles/carColours.js';
 import { Helicopter } from '../../ai/helicopter.js';
+import { OfficerSquad, rooftopCitySpawns, inHideSpot } from '../../ai/officer.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 import { admin } from '../../core/admin.js';
@@ -94,7 +95,7 @@ export class FreeRunMode {
     const color = playerCarColour();
     this.cars = picked.map((s) => {
       const g = new THREE.Group();
-      const mesh = makeCarMesh({ kind: 'player', color, style: playerCarStyle() });
+      const mesh = makeCarMesh({ kind: 'player', color, style: playerCarStyle(), parked: true });
       mesh.rotation.y = s.heading;
       g.add(mesh);
       const ring = new THREE.Mesh(new THREE.RingGeometry(3.4, 3.9, 36), makeGlowMaterial(0x39a8ff, 0.7));
@@ -199,6 +200,7 @@ export class FreeRunMode {
         this.heli = new Helicopter(s.scene, s.world, { startPos: new THREE.Vector3(p.pos.x + Math.cos(a) * 60, 0, p.pos.z + Math.sin(a) * 60) });
         hud.toast('Police helicopter!', 'Stay out of the spotlight. Hide under water towers or in stairwell huts.', 'var(--red)', 4);
       }
+      this._officers(dt);
       if (this.heli) {
         const params = { spotSpeed: 6.2 * diff().spot, fill: 0.5 * diff().fill, lead: 0.2 };
         this.heli.update(dt, s.policeTarget, params);
@@ -241,6 +243,32 @@ export class FreeRunMode {
       `<span>Car <b>${Math.round(carD)} m</b></span>`);
   }
 
+  /**
+   * Police on foot (police on): they chase you over the rooftops and down on
+   * the street. Lose them with zip lines and wall-runs, or hide in a
+   * stairwell hut or under a water tower. Punch or tackle them to slow them.
+   */
+  _officers(dt) {
+    const s = this.state, p = s.player, hud = s.game.hud;
+    if (!this.officers) {
+      // They come out of the rooftop stairwells, and doorways on the streets
+      this.officers = new OfficerSquad(s.scene, s.world, rooftopCitySpawns(this.city), { count: 3, speed: 0.84 * diff().officerSpeed, streets: true });
+      this.officers.units.forEach((u, i) => { u.waitTimer = 6 + i * 3; });
+    }
+    if (!this.officersAnnounced && this.officers.units.some((u) => u.waitTimer <= 0)) {
+      this.officersAnnounced = true;
+      hud.toast('Police on foot!', 'They chase you over the roofs and down on the street. Lose them with zip lines and wall-runs, hide in a stairwell hut, or punch them.', 'var(--red)', 5);
+      audio.sfx('sting', { vol: 0.4 });
+    }
+    const hidden = inHideSpot(this.city, p.pos);
+    const lure = s.gadgets?.lure ? s.gadgets.lure.pos : null;
+    if (this.officers.update(dt, p, hidden || s.concealed, lure) === 'caught' && !admin.flag('god')) {
+      audio.sfx('caught');
+      s.respawnToSafety('Caught by the police! Back to safety.');
+      this.officers.scatter(p.pos);
+    }
+  }
+
   /** When on the street, the "ladder" helper steps aside for the car marker. */
   get streetMarker() {
     return true;
@@ -249,6 +277,8 @@ export class FreeRunMode {
   teardown() {
     this.heli?.dispose();
     this.heli = null;
+    this.officers?.dispose();
+    this.officers = null;
     this.carBtn?.remove();
     this.carBtn = null;
   }

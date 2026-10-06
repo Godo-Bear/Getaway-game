@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { generateRooftopCity, findClearRoofSpot } from '../../world/rooftopCity.js';
 import { makeGlowMaterial } from '../../world/materials.js';
 import { Helicopter } from '../../ai/helicopter.js';
+import { OfficerSquad, rooftopCitySpawns, inHideSpot } from '../../ai/officer.js';
 import { save } from '../../core/save.js';
 import { earn } from '../../gadgets/gadgets.js';
 import { admin } from '../../core/admin.js';
@@ -56,6 +57,8 @@ export class RooftopRunMode {
     this.hidden = false;
     for (const h of this.helis) h.dispose();
     this.helis = [];
+    this.officers?.dispose();
+    this.officers = null;
     const hud = this.state.game.hud;
     hud.setPhase('Rooftop Run');
     hud.setObjective('Stay out of the spotlights');
@@ -157,6 +160,19 @@ export class RooftopRunMode {
 
     if (!this.hidden) this.score += dt * 10 * this.level;
 
+    // From wanted level 2, police on foot join in: over the roofs and down on the street
+    if (this.level >= 2) {
+      if (!this.officers) {
+        this.officers = new OfficerSquad(s.scene, s.world, rooftopCitySpawns(this.city), { count: 3, speed: 0.84 * d.officerSpeed, streets: true });
+        this.officers.units.forEach((u, i) => { u.waitTimer = 2 + i * 12; }); // (one more every 12 s)
+        hud.toast('Police on foot!', 'Officers are coming out of the stairwells. Don\'t let them catch you: zip lines, wall-runs, punches, or hide.', 'var(--red)', 4);
+      }
+      if (this.officers.update(dt, p, inHideSpot(this.city, p.pos) || s.concealed, target !== p ? target.pos : null) === 'caught' && !admin.flag('god')) {
+        this._caught();
+        return;
+      }
+    }
+
     const pk = this.pickup;
     if (pk.group.visible) {
       pk.bag.rotation.y += dt * 2;
@@ -209,5 +225,7 @@ export class RooftopRunMode {
   teardown() {
     for (const h of this.helis) h.dispose();
     this.helis = [];
+    this.officers?.dispose();
+    this.officers = null;
   }
 }

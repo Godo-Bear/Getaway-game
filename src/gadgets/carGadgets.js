@@ -170,6 +170,7 @@ export class CarGadgets {
         this._spark(u.car.pos);
       }
     }
+    if (s.heli) s.heli.blinded = T(EMP_TIME); // (the helicopter's searchlight cuts out too)
     // ...and it shorts out the roadblocks nearby (barriers and spike strips gone)
     const rb = s.roadblocks, far = admin.flag('infiniteRange') ? 1e9 : EMP_RADIUS;
     let blocks = 0;
@@ -224,6 +225,7 @@ export class CarGadgets {
   _jammer() {
     const s = this.state, p = s.player, police = s.police;
     police.jammed = T(JAM_TIME);
+    if (s.heli) s.heli.blinded = T(JAM_TIME);
     if (s.roadblocks) s.roadblocks.cooldown = Math.max(s.roadblocks.cooldown, T(JAM_TIME) + 4); // (nobody can call in a roadblock either)
     if (police.everSeen) {
       // They think you went the other way: the search starts 150 m off.
