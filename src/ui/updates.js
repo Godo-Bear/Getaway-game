@@ -5,6 +5,12 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-06', title: 'Driving on different levels', items: [
+    'A bigger city with three levels to drive on',
+    'The Skyway: a ring road 9 m up round the outside of the city, with on-ramps from the streets',
+    'Drive along the railway tracks across the city (watch out for the train!)',
+    'The Highline: the highest road, 18 m up, over the middle of the city',
+  ] },
   { date: '2026-10-06', title: 'Updates list', items: [
     'An Updates button on the home screen: everything that\'s been added to the game, newest first',
   ] },

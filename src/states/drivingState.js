@@ -309,6 +309,7 @@ export class DrivingState extends PlayState {
       const impact = collideCarWithWorld(car, this.city.world);
       if (car === p && impact > 5) this._damage((impact - 5) * 0.012, impact);
     }
+    this._levels(dt);
     collideCars(all, (a, b, impact) => {
       a.lastImpact = Math.max(a.lastImpact, impact);
       b.lastImpact = Math.max(b.lastImpact, impact);
@@ -537,10 +538,57 @@ export class DrivingState extends PlayState {
     }
   }
 
-  /** Is the player somewhere the cops struggle to see (alley, park, under the El, a garage)? */
+  /** Is the player somewhere the cops struggle to see (alley, park, under the El or a bridge, a garage)? */
   get playerHidden() {
     const p = this.player.pos;
-    return this.inGarage || this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z) || this.city.isUnderBridge(p.x, p.z);
+    return this.inGarage || this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z) || this.city.isUnderBridge(p.x, p.z, p.y);
+  }
+
+  /**
+   * The elevated roads: the train on the railway knocks you aside, a car that
+   * goes over the edge onto the ground outside the city is put back, and the
+   * first time you get up onto each level it says where you are.
+   */
+  _levels(dt) {
+    const p = this.player, city = this.city;
+    // The train (you can drive along its tracks)
+    const hit = city.train.hit?.(p.pos);
+    if (hit) {
+      p.pos.z += hit.pushZ;
+      const into = p.vel.z * -hit.side;
+      if (into > 0) p.vel.z += into * hit.side * 1.4;
+      p.vel.x = p.vel.x * 0.4 + hit.speed * 0.8;
+      p.vel.z += hit.side * 6;
+      p.syncMesh();
+      if (!(this._trainHitT > 0)) {
+        this._trainHitT = 2;
+        this._damage(0.12, 22);
+        audio.sfx('crash1', { vol: 0.9 });
+        this.game.hud.toast('Hit by the train!', 'Stay off the track it\'s on.', 'var(--red)', 2);
+      }
+    }
+    if (this._trainHitT > 0) this._trainHitT -= dt;
+    // Over the edge onto the ground outside the wall: back on the road
+    if (city.offMap?.(p.pos.x, p.pos.z, p.pos.y) && !p.airborne) {
+      const n = city.graph.nearestNode(p.pos.x, p.pos.z);
+      p.place(n.x, n.z, p.heading);
+      this.game.hud.toast('Back on the road', 'You went over the edge.', 'var(--cyan)', 2);
+    }
+    // Where you are (first time on each level, this drive)
+    const on = city.elevated?.onSurface(p.pos.x, p.pos.z, p.pos.y);
+    const label = on?.label;
+    if (label && label !== this._levelLabel && !(this._levelsSeen ||= new Set()).has(label)) {
+      this._levelsSeen.add(label);
+      const say = {
+        'Skyway ramp': ['Up to the Skyway', 'A ring road 9 m up, all the way round the city.'],
+        Skyway: ['The Skyway', 'Round the outside of the city. The railway and the Highline join it: look for the gaps in the rail.'],
+        'the railway': ['On the railway', 'Drive the tracks right across the city. Watch out for the train!'],
+        'Highline ramp': ['Up to the Highline', 'The highest road in the city, 18 m up.'],
+        'the Highline': ['The Highline', 'Over the middle of the city and over the railway. The police can\'t follow you up here, but the helicopter can.'],
+      }[label];
+      if (say) this.game.hud.toast(say[0], say[1], 'var(--cyan)', 3);
+    }
+    this._levelLabel = label;
   }
 
   get inGarage() {

@@ -178,7 +178,7 @@ export class Car {
     this.pos.z += this.vel.z * dt;
 
     // --- Vertical: ramps and jumps
-    const ground = groundHeight(this.pos.x, this.pos.z);
+    const ground = groundHeight(this.pos.x, this.pos.z, this.pos.y); // (from where the car is: on a bridge, or under it)
     if (this.airborne) {
       this.airTime += dt;
       this.vy -= GRAVITY * dt;
