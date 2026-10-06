@@ -206,7 +206,9 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
   // Street centre lines (for parking the Free Run car at street level)
   const blockCenters = Array.from({ length: blocks }, (_, i) => blockCenter(i));
   return { group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
-    shops: dress.shops, parks: dress.parks, walks: dress.walks, blockKinds: kindOf };
+    shops: dress.shops, parks: dress.parks, walks: dress.walks, blockKinds: kindOf,
+    // (spots for hidden collectibles: the tops of towers, huts, upper roof levels, fire escapes, gazebos)
+    perches: [...kit.perches, ...dress.perches, ...kit.buildings.filter((b) => b.tower).map((b) => new THREE.Vector3((b.minX + b.maxX) / 2, b.h, (b.minZ + b.maxZ) / 2))] };
 }
 
 function splitSpan(rng, start, length, parts) {

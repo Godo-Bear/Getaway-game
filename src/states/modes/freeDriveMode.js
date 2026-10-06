@@ -1,6 +1,6 @@
 import { formatTime } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
-import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
+import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons, applyFreeSky, busyness, isRushHour } from './freeRoam.js';
 
 // Free Run, in the car: cruise the city. The other half of a Free Run
 // session (FreeRunMode is the rooftops).
@@ -21,7 +21,7 @@ export class FreeDriveMode {
     this.hudSections = this.police ? ['tl', 'map', 'speedo', 'meter', 'controls', 'marker'] : ['tl', 'map', 'speedo', 'controls', 'marker'];
     this.heat = this.police ? 2 : 1;
     this.map = freeMap(state.game);          // (which city: picked in the Free Run menu)
-    this.weather = this.map.snow ? 'snow' : undefined;
+    applyFreeSky(this, state.game, this.map); // (the time and weather you picked; the clock keeps going)
   }
 
   cityOptions() {
@@ -104,6 +104,15 @@ export class FreeDriveMode {
 
   update(dt) {
     const s = this.state, p = s.player, hud = s.game.hud;
+    // The clock (carries on on foot), and traffic and people by the hour:
+    // packed at rush hour (with horns at the lights), quiet at night
+    const hour = s.lighting.hour;
+    freeSession(s.game).hour = hour;
+    const busy = busyness(hour), rush = isRushHour(hour);
+    s.traffic.setDensity(busy, rush);
+    if (s.life) s.life.share = busy;
+    if (rush && !this._rush && this.timeCycle) hud.toast('Rush hour', 'The roads are jammed: watch for queues at the lights.', 'var(--cyan)', 3);
+    this._rush = rush;
 
     // T (or the button): out of the car, on foot
     if (this.toFoot || s.game.input.wasPressed('car')) {

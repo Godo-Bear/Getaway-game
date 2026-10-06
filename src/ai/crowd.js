@@ -107,7 +107,16 @@ export class Crowd {
 
   /** @param {object} [player] - the PlayerController (they flinch when you sprint past) */
   update(dt, player = null) {
+    // share: how many of the pooled people are out (fewer at night, all at rush hour)
+    const poolN = this.pool ? this.pool.count : 0, out = Math.round(poolN * (this.share ?? 1));
+    let k = 0;
     for (const p of this.people) {
+      if (p.pooled && k++ >= out) {
+        // At home: out of sight and out of the way
+        if (!p.off) { p.off = true; p.model.root.visible = false; p.body.pos.y = -100; p.home = false; }
+        continue;
+      }
+      if (p.off) { p.off = false; p.home = false; }
       // Pooled people far away from you come and walk somewhere near you instead
       if (p.pooled && player) {
         const d = Math.hypot(p.body.pos.x - player.pos.x, p.body.pos.z - player.pos.z);

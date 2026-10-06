@@ -11,7 +11,8 @@ import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { Crowd, Shopkeepers } from '../../ai/crowd.js';
 import { FootMap } from '../../ui/footMap.js';
-import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
+import { CrewTags } from '../../world/crewTags.js';
+import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons, applyFreeSky, busyness, isRushHour } from './freeRoam.js';
 import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 
 // Free Run, on foot: roam the rooftops. One half of a Free Run session
@@ -38,7 +39,7 @@ export class FreeRunMode {
     this.fromCar = !!params.fromCar; // (just got out of the car: start next to it)
     this.police = freeSession(state.game).police;
     this.map = freeMap(state.game);          // (which city: picked in the Free Run menu)
-    this.weather = this.map.snow ? 'snow' : undefined;
+    applyFreeSky(this, state.game, this.map); // (the time and weather you picked; the clock keeps going)
     this.hudSections = ['tl', 'map', 'meter', 'controls', 'marker'];
     this.heli = null;
   }
@@ -66,6 +67,8 @@ export class FreeRunMode {
     // setting and your wanted level)
     this.officers = new OfficerSquad(this.state.scene, city.world, rooftopCitySpawns(city), { count: 6, speed: 0.84 * diff().officerSpeed, streets: true });
     this.officers.setActive(0);
+    // Hidden crew tags to collect (remembered per map)
+    this.tags = new CrewTags(city.group, city, this.map.id, { seed: this.map.foot.seed });
     this.heat = 0;
     this.calm = 0;
     return city;
@@ -235,8 +238,23 @@ export class FreeRunMode {
       return;
     }
 
+    // The clock (carries on in the car) and how busy the streets are
+    const hour = s.lighting.hour;
+    freeSession(s.game).hour = hour;
+    this.crowd.share = busyness(hour);
+    const rush = isRushHour(hour);
+    if (rush && !this._rush && this.timeCycle) hud.toast('Rush hour', 'The pavements are packed: easy to get lost in the crowd.', 'var(--cyan)', 3);
+    this._rush = rush;
     this.crowd.update(dt, p);
     this.keepers.update(dt, p);
+    // Crew tags
+    const tag = this.tags.update(dt, p);
+    if (tag) {
+      const n = this.tags.found, all = this.tags.total;
+      freeEarn(s.game, 25, `Crew tag ${n}/${all}!`, n < all ? 'Hidden on the hardest roofs (and gazebos, fire escapes...). Find them all for a big bonus.' : '');
+      audio.sfx('checkpoint', { vol: 0.8 });
+      if (n === all) { freeEarn(s.game, 1000, `Every crew tag in ${this.map.name}!`, 'The whole city knows your crew now.'); audio.sfx('win'); }
+    }
 
     // Shops: walk in through the door; rob the till (once a shop)
     const inShop = p.pos.y < 2 ? this.city.shops?.find((sh) => sh.inside(p.pos.x, p.pos.z)) : null;
@@ -283,7 +301,7 @@ export class FreeRunMode {
     const stars = this.stars;
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
       `<span>Wanted <b style="color:${stars ? '#ffd040' : '#6a6f7c'};letter-spacing:1px">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</b></span>` +
-      `<span>Car <b>${Math.round(carD)} m</b></span>`);
+      `<span>Tags <b style="color:#ffd040">${this.tags.found}/${this.tags.total}</b></span><span>Car <b>${Math.round(carD)} m</b></span>`);
   }
 
   // ---------------------------------------------------------------- crime and the police
@@ -439,6 +457,11 @@ export class FreeRunMode {
     this.officers.scatter(s.player.pos);
   }
 
+  /** Frostvale is played in the streets: no "climb back up" help. */
+  get indoors() {
+    return !!this.city?.groundLevel;
+  }
+
   /** When on the street, the "ladder" helper steps aside for the car marker. */
   get streetMarker() {
     return true;
@@ -454,6 +477,7 @@ export class FreeRunMode {
     this.officers = null;
     this.map2?.dispose();
     this.map2 = null;
+    this.tags?.dispose();
     this.carBtn?.remove();
     this.carBtn = null;
   }

@@ -391,7 +391,10 @@ export class StreetLife {
   }
 
   _updatePeople(dt, player, fr, movers) {
-    for (const pe of this.people) {
+    const out = Math.round(this.people.length * (this.share ?? 1)); // (fewer people out at night)
+    for (let i = 0; i < this.people.length; i++) {
+      const pe = this.people[i];
+      if (i >= out) { if (pe.walk) { pe.walk = null; pe.model.root.visible = false; } continue; }
       if (!pe.walk) { this._placePerson(pe, player, fr, 40, 95); continue; }
       const pos = pe.body.pos;
       const d = Math.hypot(pos.x - player.pos.x, pos.z - player.pos.z);

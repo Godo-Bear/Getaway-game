@@ -308,6 +308,12 @@ export class NightLighting {
     this._apply();
   }
 
+  /** Fog (Free Run's weather): the city fades into a grey mist. */
+  setMist(on) {
+    this.mist = !!on;
+    this._apply();
+  }
+
   /** 0 at night, 1 in full daylight. */
   get daylight() { return 1 - this.look.win / NIGHT.win; }
 
@@ -342,6 +348,11 @@ export class NightLighting {
     if (k > 0) grey(fog.color, k * 0.6).multiplyScalar(1 - k * 0.2);
     fog.near = (L.sun > 0.5 ? 80 : 60) - k * 25;
     fog.far = (L.sun > 0.5 ? 380 : 320) - k * 110;
+    if (this.mist && !this.blizzard) {
+      fog.color.lerp(_a.setRGB(0.5, 0.52, 0.56).multiplyScalar(0.25 + L.sun * 0.85), 0.7);
+      fog.near = 8;
+      fog.far = 120;
+    }
     if (this.blizzard) {
       // Whiteout: everything past a few car lengths disappears into the snow
       fog.color.lerp(_a.setRGB(0.42, 0.46, 0.52).multiplyScalar(0.35 + L.sun * 0.9), 0.75);

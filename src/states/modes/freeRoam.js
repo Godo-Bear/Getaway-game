@@ -34,8 +34,38 @@ export function mapUnlocked(id) {
 }
 
 export function freeSession(game) {
-  return (game.freeRoam ||= { police: false, cash: 0, map: 'downtown' });
+  return (game.freeRoam ||= { police: false, cash: 0, map: 'downtown', weather: 'auto', time: 'cycle', hour: null });
 }
+
+/**
+ * Free Run's time and weather (picked in the menu), for a mode to use:
+ * sets mode.time / timeCycle (day and night come round, carrying on when
+ * you swap between walking and the car) and mode.weather / weatherForced.
+ */
+export function applyFreeSky(mode, game, map) {
+  const ses = freeSession(game);
+  if ((ses.time || 'cycle') === 'cycle') {
+    mode.time = ses.hour ?? 16.5; // (late afternoon: rush hour, then the sun goes down)
+    mode.timeCycle = true;
+  } else mode.time = ses.time;
+  const w = ses.weather || 'auto';
+  if (w === 'auto') mode.weather = map.snow ? 'snow' : undefined;
+  else { mode.weather = w; mode.weatherForced = true; }
+}
+
+/**
+ * How busy the streets are at this hour (0-1): quiet at night, packed at
+ * rush hour (7:30-9:30 and 16:30-18:30).
+ */
+export function busyness(hour) {
+  const h = ((hour % 24) + 24) % 24;
+  if ((h >= 7.5 && h < 9.5) || (h >= 16.5 && h < 18.5)) return 1;
+  if (h < 5.5 || h >= 23) return 0.3;
+  if (h < 7.5) return 0.55;
+  if (h >= 20) return 0.5;
+  return 0.75;
+}
+export const isRushHour = (hour) => busyness(hour) >= 1;
 
 /** The map this Free Run session is on. */
 export function freeMap(game) {
@@ -44,8 +74,8 @@ export function freeMap(game) {
 }
 
 /** Start a Free Run session (from the title screen). */
-export function startFreeRoam(game, { police = false, inCar = false, map = 'downtown' } = {}) {
-  game.freeRoam = { police, cash: 0, map: mapUnlocked(map) ? map : 'downtown' };
+export function startFreeRoam(game, { police = false, inCar = false, map = 'downtown', weather = 'auto', time = 'cycle' } = {}) {
+  game.freeRoam = { police, cash: 0, map: mapUnlocked(map) ? map : 'downtown', weather, time, hour: null };
   game.sm.change(inCar ? 'driving' : 'onFoot', { mode: 'free' });
 }
 

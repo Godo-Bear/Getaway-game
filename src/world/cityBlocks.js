@@ -53,6 +53,7 @@ export class CityDresser {
     this.shops = [];     // { kind, name, min, max, door, till, inside(x, z) }
     this.parks = [];     // { x0, z0, x1, z1, center }
     this.walks = [];     // { a: [x, z], b: [x, z] } where people can walk
+    this.perches = [];   // hard-to-reach spots (the top of a fire escape, a gazebo roof): hidden collectibles
   }
 
   _range(a, b) { return a + this.rng() * (b - a); }
@@ -318,6 +319,7 @@ export class CityDresser {
     kit.block(gx + 2.9, 0, gz, 1.2, 0.6, 1.6, { side: 'plain', top: 'plain', color: 0x7a5a3a }, 'planter'); // (step up)
     kit.batch.addBlock(gx + 2.9, 0.6, gz, 1.0, 0.25, 1.4, { side: 'plain', top: 'plain', color: A ? 0xe8eef5 : 0xd84a7a });
     kit.hideSpots.push(new THREE.Vector3(gx, 0.05, gz));
+    this.perches.push(new THREE.Vector3(gx, 3.25, gz)); // (on the gazebo's roof)
     // Flower beds
     if (!A) {
       for (const [fx, fz] of [[cx - 12, cz], [cx + 12, cz], [cx, cz - 12], [cx, cz + 12]]) {
@@ -395,6 +397,7 @@ export class CityDresser {
     // Nothing in the way (lamps, signs, other buildings)?
     if (kit.world.query(...box(mid - 3, mid + 3, fromY + 0.3, b.h, 0.05), []).length) return false;
     const rail = { side: 'plain', top: 'plain', color: 0x1d1f23 };
+    { const i = ys.length - 1, a0 = mid + (i % 2 ? -0.2 : -2.6), [px0, , pz0, px1, , pz1] = box(a0, a0 + 2.8, 0, 0); this.perches.push(new THREE.Vector3((px0 + px1) / 2, ys[i], (pz0 + pz1) / 2)); }
     ys.forEach((y, i) => {
       const a0 = mid + (i % 2 ? -0.2 : -2.6), a1 = a0 + 2.8;
       const [x0, , z0, x1, , z1] = box(a0, a1, y - 0.15, y);

@@ -3,6 +3,7 @@ import { Car, CAR_SPECS } from './car.js';
 import { makeCarMesh, CIVILIAN_COLORS, BUS_COLORS, TRUCK_BOXES } from './carModel.js';
 import { driveToward, handleStuck, makeAiState } from '../ai/driver.js';
 import { LANE_OFFSETS } from '../world/streetCity.js';
+import { audio } from '../core/audio.js';
 
 // Civilian traffic.
 //
@@ -54,7 +55,34 @@ export class Traffic {
   }
 
   get cars() {
-    return this.civs.map((c) => c.car);
+    return this.civs.filter((c) => !c.parkedOff).map((c) => c.car);
+  }
+
+  /**
+   * How busy the roads are (Free Run, by the hour): k = 0..1 of the cars
+   * out (more cars are added the first time it's over the usual number:
+   * rush hour). rush: drivers stuck at the lights lean on their horns.
+   */
+  setDensity(k, rush = false) {
+    this.rush = rush;
+    if (!this.base) this.base = this.civs.length;
+    const want = Math.round(this.base * (0.45 + k * 0.85));
+    while (this.civs.length < want) {
+      const c = new Civilian(this.scene, this.rng);
+      c.parkedOff = true;
+      c.mesh.visible = false;
+      c.car.active = false;
+      this.civs.push(c);
+    }
+    this.civs.forEach((c, i) => {
+      const on = i < want;
+      if (on && c.parkedOff) {
+        c.parkedOff = false; c.mesh.visible = true; c.car.active = true;
+        this.respawn(c, this._player || { pos: new THREE.Vector3() }, this._camera);
+      } else if (!on && !c.parkedOff) {
+        c.parkedOff = true; c.mesh.visible = false; c.car.active = false; c.car.place(9999, 9999, 0);
+      }
+    });
   }
 
   /** Place every car on a random road (used at the start). */
@@ -104,7 +132,11 @@ export class Traffic {
   update(dt, player, camera, otherCars, policeUnits = []) {
     const graph = this.city.graph;
     const lights = this.city.trafficLights;
+    this._player = player;
+    this._camera = camera;
+    this._hornT = (this._hornT ?? 2) - dt;
     for (const c of this.civs) {
+      if (c.parkedOff) continue;
       const car = c.car;
 
       // Pull over for police cars coming up behind with sirens on.
@@ -171,6 +203,11 @@ export class Traffic {
         if (side < 2.4) speed = Math.min(speed, Math.max(0, (gap - 1.5) * 1.2));
       }
 
+      // Rush hour: stuck in a queue at the lights, someone leans on the horn
+      if (this.rush && speed < 0.5 && this._hornT <= 0) {
+        const d = Math.hypot(car.pos.x - player.pos.x, car.pos.z - player.pos.z);
+        if (d < 70 && Math.random() < 0.02) { this._hornT = 2 + Math.random() * 4; audio.sfx('horn', { vol: 0.35 * (1 - d / 70), rate: 0.85 + Math.random() * 0.3 }); }
+      }
       driveToward(car, target.x, target.z, speed);
       if (speed < 0.5) {
         car.controls.throttle = car.forwardSpeed > 0.3 ? -1 : 0;
@@ -180,6 +217,7 @@ export class Traffic {
 
     // Recycle cars that are far from the player so traffic stays around you.
     for (const c of this.civs) {
+      if (c.parkedOff) continue;
       const d = Math.hypot(c.car.pos.x - player.pos.x, c.car.pos.z - player.pos.z);
       if (d > 260) this.respawn(c, player, camera);
     }
@@ -187,6 +225,7 @@ export class Traffic {
 
   syncMeshes() {
     for (const c of this.civs) {
+      if (c.parkedOff) continue;
       c.car.syncMesh();
       // Brake lights
       const braking = c.car.controls.throttle < 0 || c.car.speed < 0.5;

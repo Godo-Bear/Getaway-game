@@ -89,9 +89,10 @@ export class OnFootState extends PlayState {
     // Time of day (the story part decides; otherwise the Time of day setting)
     const tod = pickTime(game.settings, this.mode.time);
     this.lighting.setTime(tod.hour);
-    this.timeCycle = tod.cycle;
+    this.timeCycle = tod.cycle || !!this.mode.timeCycle; // (Free Run: day and night come round)
     // Rain / storm (the story part decides; the Weather setting can override)
-    this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
+    this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather, this.mode.weatherForced), quality: game.settings.graphics });
+    this.weather.addPuddles(this.world); // (puddles round you while it rains)
     // In the cold, everyone's breath clouds; chimneys smoke over the rooftops
     this.cold = this.weather.kind === 'snow' || this.weather.kind === 'blizzard';
     this.chimneys = this.level?.chimneys || null;

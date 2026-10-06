@@ -227,6 +227,10 @@ export function showTitle(actions) {
 function showFreeRunMenu(actions, back) {
   let police = false;
   let map = mapUnlocked(save.data.settings.freeMap) ? save.data.settings.freeMap : 'downtown';
+  let time = save.data.settings.freeTime || 'cycle';
+  let weather = save.data.settings.freeWeather || 'auto';
+  const TIMES = [['cycle', 'Day & night'], ['day', 'Day'], ['dusk', 'Dusk'], ['night', 'Night']];
+  const skies = (id) => (FREE_MAPS[id].snow ? [['auto', 'Snow'], ['blizzard', 'Blizzard'], ['fog', 'Fog'], ['clear', 'Clear']] : [['auto', 'Clear'], ['rain', 'Rain'], ['storm', 'Storm'], ['fog', 'Fog']]);
   const jobsOpen = (save.data.progress.chapterUnlocked || 1) >= 8; // (once the crew reaches Frostvale)
   const render = () => {
     const maps = Object.entries(FREE_MAPS).map(([id, m]) => {
@@ -239,13 +243,15 @@ function showFreeRunMenu(actions, back) {
       <h2>Pick a map</h2>
       <div class="map-picks">${maps}</div>
       <p class="sub">${FREE_MAPS[map].sub} Walk the streets, climb the roofs, walk into the shops, then jump in your car and drive the city. More maps open up as the story goes on.</p>
-      <div class="tabs" style="margin:6px 0 4px">
+      <div class="tabs" style="margin:6px 0 4px">${TIMES.map(([v, l]) => `<button class="tab${time === v ? ' on' : ''}" data-time="${v}">${l}</button>`).join('')}</div>
+      <div class="tabs" style="margin:0 0 4px">${skies(map).map(([v, l]) => `<button class="tab${weather === v ? ' on' : ''}" data-wx="${v}">${l}</button>`).join('')}</div>
+      <div class="tabs" style="margin:0 0 4px">
         <button class="tab${police ? '' : ' on'}" data-pol="0">No police</button>
         <button class="tab${police ? ' on' : ''}" data-pol="1">With police (double cash)</button>
       </div>`,
     [
-      { label: FREE_MAPS[map].foot.alpine ? 'Start in the streets' : 'Start on the rooftops', primary: true, onClick: () => actions.freeRun({ police, inCar: false, map }) },
-      { label: 'Start in the car', onClick: () => actions.freeRun({ police, inCar: true, map }) },
+      { label: FREE_MAPS[map].foot.alpine ? 'Start in the streets' : 'Start on the rooftops', primary: true, onClick: () => actions.freeRun({ police, inCar: false, map, time, weather }) },
+      { label: 'Start in the car', onClick: () => actions.freeRun({ police, inCar: true, map, time, weather }) },
       jobsOpen ? { label: 'Frostvale side jobs', sub: 'Races, smash and grabs, deliveries: cash for gadgets and cars', onClick: () => actions.sideJobs() }
         : { label: 'Frostvale side jobs 🔒', sub: 'Opens when the crew reaches Frostvale (Chapter 8)', onClick: () => {} },
       { label: 'Back', onClick: back },
@@ -253,11 +259,15 @@ function showFreeRunMenu(actions, back) {
     for (const el of card.querySelectorAll('[data-pol]')) {
       el.addEventListener('click', (e) => { e.stopPropagation(); police = el.dataset.pol === '1'; render(); });
     }
+    const remember = () => { save.data.settings.freeTime = time; save.data.settings.freeWeather = weather; save.write(); };
+    for (const el of card.querySelectorAll('[data-time]')) el.addEventListener('click', (e) => { e.stopPropagation(); time = el.dataset.time; remember(); render(); });
+    for (const el of card.querySelectorAll('[data-wx]')) el.addEventListener('click', (e) => { e.stopPropagation(); weather = el.dataset.wx; remember(); render(); });
     for (const el of card.querySelectorAll('[data-map]')) {
       el.addEventListener('click', (e) => {
         e.stopPropagation();
         if (!mapUnlocked(el.dataset.map)) return;
         map = el.dataset.map;
+        if (!skies(map).some(([v]) => v === weather)) weather = 'auto'; // (Frostvale has its own skies)
         save.data.settings.freeMap = map;
         save.write();
         render();

@@ -65,13 +65,16 @@ export class Weather {
     lighting.setSnow?.(kind === 'snow' || kind === 'blizzard', kind === 'blizzard');
     setShaftWeather(kind); // (light beams under lamps and from headlights in rain and snow)
     // More clouds in bad weather (a few drift past even on a clear day)
-    lighting.setClouds?.({ rain: 0.6, storm: 0.85, snow: 0.72, blizzard: 1 }[kind] ?? 0.32);
-    if (kind === 'clear') return;
+    lighting.setClouds?.({ rain: 0.6, storm: 0.85, snow: 0.72, blizzard: 1, fog: 0.75 }[kind] ?? 0.32);
+    lighting.setMist?.(kind === 'fog');
+    this.quality = quality;
+    if (kind === 'clear' || kind === 'fog') return;
     if (kind === 'snow' || kind === 'blizzard') { this._makeSnow(scene, lighting, quality, kind === 'blizzard'); return; }
 
     lighting.setStorm(kind === 'storm' ? 1 : 0.55);
-    // Shiny wet surfaces cost more to draw: only on high graphics.
-    if (quality === 'high') this._makeWet(post?.renderer, lighting);
+    // Shiny wet surfaces cost more to draw: medium and high graphics (low
+    // still gets the puddles)
+    if (quality !== 'low') this._makeWet(post?.renderer, lighting);
     const n = DROPS[quality] ?? DROPS.medium;
     this.count = n;
     // Each drop is a line: 2 points. We store the drop's position once and
@@ -124,6 +127,78 @@ export class Weather {
     });
   }
 
+  /**
+   * Puddles on the ground round you while it rains (they reflect the sky and
+   * the lights), with rain rings rippling across them. Call once with the
+   * level's collision world (to find the ground); updated in update().
+   */
+  addPuddles(world) {
+    if (!this.rain || this.puddles) return;
+    this.world = world;
+    const N = { low: 40, medium: 60, high: 80 }[this.quality] ?? 60;
+    const geo = new THREE.PlaneGeometry(1, 1);
+    geo.rotateX(-Math.PI / 2);
+    const mat = new THREE.MeshStandardMaterial({
+      color: 0x2a3038, roughness: 0.04, metalness: 0.9, envMap: this.env || null, envMapIntensity: 2.2,
+      alphaMap: puddleTexture(), transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2,
+    });
+    if (!this.env) { mat.metalness = 0.2; mat.color.set(0x7a8698); mat.roughness = 0.15; mat.opacity = 0.55; } // (no reflections: just a sheen)
+    this.puddles = new THREE.InstancedMesh(geo, mat, N);
+    this.puddles.frustumCulled = false;
+    this.puddleList = Array.from({ length: N }, () => ({ x: 0, y: -99, z: 0, s: 1, r: 0 }));
+    this.scene.add(this.puddles);
+    // Rain rings on the puddles (additive, fading out as they spread)
+    const ringGeo = new THREE.RingGeometry(0.85, 1, 20);
+    ringGeo.rotateX(-Math.PI / 2);
+    this.rings = new THREE.InstancedMesh(ringGeo, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }), 90);
+    this.rings.frustumCulled = false;
+    this.ringList = Array.from({ length: 90 }, () => ({ t: 1, x: 0, y: -99, z: 0 }));
+    this.rings.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(90 * 3), 3);
+    this.scene.add(this.rings);
+    this._puddleAt = 0;
+    this._m = new THREE.Matrix4();
+  }
+
+  _updatePuddles(dt, c) {
+    const m = this._m, list = this.puddleList, R = 60;
+    let moved = false;
+    // Puddles too far away move to a new spot near you (on flat ground)
+    for (let i = 0; i < list.length; i++) {
+      const p = list[i];
+      if (Math.abs(p.x - c.x) < R && Math.abs(p.z - c.z) < R && p.y > -50) continue;
+      for (let tries = 0; tries < 4; tries++) {
+        const x = c.x + (Math.random() * 2 - 1) * R, z = c.z + (Math.random() * 2 - 1) * R;
+        const g = this.world.groundHeight(x, z, c.y + 40);
+        if (!Number.isFinite(g) || g < -2) continue;
+        Object.assign(p, { x, y: g + 0.025, z, s: 0.9 + Math.random() * 2.6, r: Math.random() * 3 });
+        m.makeRotationY(p.r).scale(new THREE.Vector3(p.s * (1 + Math.random() * 0.6), 1, p.s)).setPosition(p.x, p.y, p.z);
+        this.puddles.setMatrixAt(i, m);
+        moved = true;
+        break;
+      }
+    }
+    if (moved) this.puddles.instanceMatrix.needsUpdate = true;
+    // Rings: new ones pop up on puddles near you
+    this._puddleAt += dt * (this.kind === 'storm' ? 55 : 32);
+    const col = new THREE.Color();
+    for (let i = 0; i < this.ringList.length; i++) {
+      const r = this.ringList[i];
+      if (r.t >= 1 && this._puddleAt >= 1) {
+        this._puddleAt -= 1;
+        const p = list[Math.floor(Math.random() * list.length)];
+        if (p.y < -50 || Math.abs(p.x - c.x) > 30 || Math.abs(p.z - c.z) > 30) continue;
+        Object.assign(r, { t: 0, x: p.x + (Math.random() - 0.5) * p.s * 0.8, y: p.y + 0.01, z: p.z + (Math.random() - 0.5) * p.s * 0.8 });
+      }
+      if (r.t < 1) r.t += dt * 1.6;
+      const k = Math.min(1, r.t), sc = 0.05 + k * 0.32;
+      m.makeScale(sc, 1, sc).setPosition(r.x, r.t < 1 ? r.y : -99, r.z);
+      this.rings.setMatrixAt(i, m);
+      this.rings.setColorAt(i, col.setScalar(0.35 * (1 - k)));
+    }
+    this.rings.instanceMatrix.needsUpdate = true;
+    this.rings.instanceColor.needsUpdate = true;
+  }
+
   /** Snowflakes: points in a box round the camera, falling slowly and swaying. */
   _makeSnow(scene, lighting, quality, blizzard = false) {
     lighting.setStorm(blizzard ? 0.6 : 0.3);
@@ -172,6 +247,7 @@ export class Weather {
   update(dt, center) {
     if (this.snow) { this._updateSnow(dt, center); this.lighting.update(dt, 0); return; }
     if (!this.rain) { this.lighting.update(dt, 0); return; }
+    if (this.puddles) this._updatePuddles(dt, center);
     const n = this.count, d = this.drops;
     const fall = FALL_SPEED * dt;
     // Streak direction = velocity direction
@@ -233,6 +309,13 @@ export class Weather {
       this.rain.geometry.dispose();
       this.rain.material.dispose();
     }
+    for (const im of [this.puddles, this.rings]) {
+      if (!im) continue;
+      this.scene.remove(im);
+      im.geometry.dispose();
+      im.material.dispose();
+    }
+    this.lighting.setMist?.(false);
   }
 }
 
@@ -240,10 +323,29 @@ export class Weather {
  * Which weather to use: the story part can ask for one ('storm' in Chapter 4);
  * the Weather setting can force rain everywhere, or turn it off.
  */
-export function pickWeather(settings, wanted = 'clear') {
+export function pickWeather(settings, wanted = 'clear', forced = false) {
   if (wanted === 'indoor') return 'clear';
+  if (forced) return wanted || 'clear'; // (Free Run: you picked it in the menu)
   if (wanted === 'snow' || wanted === 'blizzard') return wanted; // (the mountains always have snow)
   if (settings.weather === 'off') return 'clear';
   if (settings.weather === 'rain' && wanted === 'clear') return 'rain';
   return wanted;
+}
+
+/** A soft, blobby puddle shape (white = puddle) for the alpha map. */
+let _puddleTex = null;
+function puddleTexture() {
+  if (_puddleTex) return _puddleTex;
+  const c = document.createElement('canvas');
+  c.width = c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = '#000'; g.fillRect(0, 0, 128, 128);
+  for (let i = 0; i < 7; i++) {
+    const x = 64 + (Math.random() - 0.5) * 50, y = 64 + (Math.random() - 0.5) * 50, r = 18 + Math.random() * 22;
+    const grd = g.createRadialGradient(x, y, r * 0.4, x, y, r);
+    grd.addColorStop(0, 'rgba(255,255,255,0.95)'); grd.addColorStop(1, 'rgba(255,255,255,0)');
+    g.fillStyle = grd; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill();
+  }
+  _puddleTex = new THREE.CanvasTexture(c);
+  return _puddleTex;
 }

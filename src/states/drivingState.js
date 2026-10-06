@@ -131,10 +131,11 @@ export class DrivingState extends PlayState {
     // Time of day (the story part decides; otherwise the Time of day setting)
     const tod = pickTime(game.settings, this.mode.time);
     this.lighting.setTime(tod.hour);
-    this.timeCycle = tod.cycle;
+    this.timeCycle = tod.cycle || !!this.mode.timeCycle; // (Free Run: day and night come round)
     this.police.sightScale = (1 + 0.3 * this.lighting.daylight) * (this.mode.weather === 'blizzard' ? 0.5 : 1); // cops see further in daylight, much less in a blizzard
     // Rain / storm (the story part decides; the Weather setting can override)
-    this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather), quality: game.settings.graphics });
+    this.weather = new Weather(this.scene, this.lighting, game.post, { kind: pickWeather(game.settings, this.mode.weather, this.mode.weatherForced), quality: game.settings.graphics });
+    this.weather.addPuddles(this.city.world); // (puddles round you while it rains)
 
     game.hud.show(this.mode.hudSections);
     game.hud.showControls(CONTROLS.driving);

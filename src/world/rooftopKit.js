@@ -37,6 +37,7 @@ export class RooftopKit {
     this.extra = new THREE.Group(); // one-off meshes (crane towers, big signs...)
     this.zipLines = [];    // [{ a, b }] handed to the player controller
     this.ladders = [];     // [{ x, z, nx, nz, y0, y1 }] filled in by finish()
+    this.perches = [];     // hard-to-reach spots (hut roofs, upper roof levels): for hidden collectibles
     this._facades = [];    // buildings still to draw (in finish(), after their stairwells are cut)
   }
 
@@ -142,6 +143,7 @@ export class RooftopKit {
    */
   hut(x, y, z, doorSide = 0, size = 3.0) {
     const s = size, h = 2.6, t = 0.2, door = 1.3, doorH = 2.2;
+    this.perches.push(new THREE.Vector3(x, y + h + 0.2, z));
     const look = { side: 'concrete', top: 'concrete', color: 0x8d8a84, uvScale: [3, 3] };
     const wall = (ax0, az0, ax1, az1, y0 = y, y1 = y + h) => this.solid(ax0, y0, az0, ax1, y1, az1, look, 'hut');
     const x0 = x - s / 2, x1 = x + s / 2, z0 = z - s / 2, z1 = z + s / 2;
@@ -166,6 +168,7 @@ export class RooftopKit {
 
   /** A taller upper level on a roof (climb it from a crate or AC unit). */
   setback(x, y, z, w, d, h = 3.2, tint = 0x8a8f9c) {
+    this.perches.push(new THREE.Vector3(x, y + h, z));
     this.block(x, y, z, w, h, d, { side: 'wall', top: 'roof', color: tint, uvScale: FACADE_UV, topScale: [6, 6] }, 'building');
   }
 
