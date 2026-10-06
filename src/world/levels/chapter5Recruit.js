@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { generateRooftopCity } from '../rooftopCity.js';
 import { makeCarMesh } from '../../vehicles/carModel.js';
 import { playerCarColour, playerCarStyle } from '../../vehicles/carColours.js';
+import { DOWNTOWN_FOOT } from '../maps.js';
 import { makeTextTexture } from '../materials.js';
 
 // ======================================================================
@@ -25,9 +26,9 @@ const ST = (i) => C(i) + PITCH / 2;                // street centre (after block
 const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter5Recruit() {
-  // A park across from Cafe Luna and another to the east, rows of little
-  // shops on three blocks (the blocks the story uses stay as they were)
-  const city = generateRooftopCity({ seed: 5150, blocks: BLOCKS, kinds: { '2,3': 'park', '4,2': 'park', '1,1': 'shops', '3,3': 'shops', '0,2': 'shops', '1,3': 'shops' } });
+  // Harbor City downtown: the same city as Free Run (this chapter's 5 x 5
+  // blocks are the middle of it)
+  const city = generateRooftopCity(DOWNTOWN_FOOT);
   const w = city.world;
   const g = city.group;
   const lambert = (color) => new THREE.MeshLambertMaterial({ color });

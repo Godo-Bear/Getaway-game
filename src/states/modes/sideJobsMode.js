@@ -1,6 +1,7 @@
 import { formatTime } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 import { diff } from '../../core/difficulty.js';
+import { FROSTVALE_CAR } from '../../world/maps.js';
 import { earn } from '../../gadgets/gadgets.js';
 
 // Frostvale side jobs: quick jobs round town for cash, between the big ones
@@ -17,7 +18,7 @@ import { earn } from '../../gadgets/gadgets.js';
 // no pay, and the next job comes up.
 
 const CITY = {
-  seed: 1313, blocks: 8, alpine: true,
+  ...FROSTVALE_CAR, // (Frostvale's streets, the same as Free Run and the story)
   forceKinds: { '6,6': 'cabin', '4,4': 'hotel', '2,2': 'church', '1,7': 'sentinel', '0,7': 'airstrip', '3,3': 'park', '5,2': 'park', '2,5': 'park' },
 };
 const KINDS = ['race', 'grab', 'delivery'];

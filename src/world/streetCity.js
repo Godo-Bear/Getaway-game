@@ -161,6 +161,21 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     blockKinds[Math.floor(blocks * blocks * 0.3)] = 'park';
     blockKinds[Math.floor(blocks * blocks * 0.7)] = 'park';
   }
+  // Spread the parks out: never two parks next to each other (not even
+  // corner to corner); a park that is gets moved somewhere on its own.
+  {
+    const spread = makeRng(seed * 3 + 17);
+    const at = (i, j) => (i >= 0 && j >= 0 && i < blocks && j < blocks ? blockKinds[i * blocks + j] : null);
+    const lonely = (i, j) => { for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) if ((di || dj) && at(i + di, j + dj) === 'park') return false; return true; };
+    let moved = 0;
+    for (let i = 0; i < blocks; i++) for (let j = 0; j < blocks; j++) {
+      if (at(i, j) === 'park' && !lonely(i, j)) { blockKinds[i * blocks + j] = 'buildings'; moved++; }
+    }
+    for (let tries = 0; moved > 0 && tries < 400; tries++) {
+      const i = Math.floor(spread() * blocks), j = Math.floor(spread() * blocks);
+      if (at(i, j) === 'buildings' && lonely(i, j)) { blockKinds[i * blocks + j] = 'park'; moved--; }
+    }
+  }
   for (const [key, kind] of Object.entries(forceKinds)) {
     const [i, j] = key.split(',').map(Number);
     blockKinds[i * blocks + j] = kind;

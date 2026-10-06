@@ -48,6 +48,16 @@ export class CollisionWorld {
     return box;
   }
 
+  /** Take a box out again (e.g. to cut a stairwell into a building). */
+  removeBox(box) {
+    const i = this.boxes.indexOf(box);
+    if (i >= 0) this.boxes.splice(i, 1);
+    for (const list of this.cells.values()) {
+      const k = list.indexOf(box);
+      if (k >= 0) list.splice(k, 1);
+    }
+  }
+
   /** Convenience: add a box from its centre-bottom position and size. */
   addBlock(x, y, z, w, h, d, props) {
     return this.addBox(x - w / 2, y, z - d / 2, x + w / 2, y + h, z + d / 2, props);

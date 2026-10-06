@@ -4,6 +4,7 @@
 
 import { earn } from '../../gadgets/gadgets.js';
 import { audio } from '../../core/audio.js';
+import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR } from '../../world/maps.js';
 import { save } from '../../core/save.js';
 
 /**
@@ -14,7 +15,7 @@ export const FREE_MAPS = {
   downtown: {
     name: 'Downtown', where: 'Harbor City', unlock: 1, icon: '🏙️',
     sub: 'Tall apartments, shop blocks and parks. Where it all started.',
-    foot: { seed: 1234, blocks: 7 }, car: { seed: 777, blocks: 8 },
+    foot: DOWNTOWN_FOOT, car: DOWNTOWN_CAR, // (the same city as the story and every other mode)
   },
   oldtown: {
     name: 'Old Town', where: 'Harbor City', unlock: 4, icon: '🌳',
@@ -24,7 +25,7 @@ export const FREE_MAPS = {
   frostvale: {
     name: 'Frostvale', where: 'the mountains', unlock: 8, icon: '🏔️', snow: true,
     sub: 'The snowy ski town: chalet shops, snowy parks and pine trees.',
-    foot: { seed: 8181, blocks: 6, alpine: true, parks: 0.18, shopBlocks: 0.38 }, car: { seed: 1313, blocks: 8, alpine: true },
+    foot: FROSTVALE_FOOT, car: FROSTVALE_CAR, // (the story's Frostvale)
   },
 };
 

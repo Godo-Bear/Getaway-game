@@ -9,6 +9,7 @@ import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { Crowd } from '../../ai/crowd.js';
+import { DOWNTOWN_FOOT } from '../../world/maps.js';
 import { audio } from '../../core/audio.js';
 
 // Rooftop Run: endless helicopter survival.
@@ -40,10 +41,11 @@ export class RooftopRunMode {
   }
 
   build() {
-    // A new city layout every run.
+    // Harbor City downtown (the same city as Free Run and the story);
+    // where the cash and the helicopters turn up changes every run.
     this.seed = (Math.random() * 1e9) | 0;
     this.rng = makeRng(this.seed ^ 0x5bd1);
-    const city = generateRooftopCity({ seed: this.seed, blocks: 7 });
+    const city = generateRooftopCity(DOWNTOWN_FOOT);
     this.city = city;
     this._buildPickup();
     // People down in the streets and the parks (life below the rooftops)

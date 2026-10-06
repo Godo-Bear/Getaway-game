@@ -9,6 +9,7 @@ import { FugitiveCar } from '../../ai/fugitive.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
+import { DOWNTOWN_CAR, FROSTVALE_CAR } from '../../world/maps.js';
 import { diff } from '../../core/difficulty.js';
 
 // A story part played in a car (any chapter). The part's data decides:
@@ -51,7 +52,10 @@ export class ChapterDriveMode {
   get vehicle() { return this.part.vehicle || 'car'; }
 
   cityOptions() {
-    return this.part.city;
+    // Harbor City's or Frostvale's streets (the same as Free Run): the part
+    // only adds its own landmarks (forceKinds) on top
+    const base = this.part.city.alpine ? FROSTVALE_CAR : DOWNTOWN_CAR;
+    return { ...this.part.city, seed: base.seed, blocks: base.blocks };
   }
 
   build() {

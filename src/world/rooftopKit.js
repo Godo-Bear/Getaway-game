@@ -37,6 +37,7 @@ export class RooftopKit {
     this.extra = new THREE.Group(); // one-off meshes (crane towers, big signs...)
     this.zipLines = [];    // [{ a, b }] handed to the player controller
     this.ladders = [];     // [{ x, z, nx, nz, y0, y1 }] filled in by finish()
+    this._facades = [];    // buildings still to draw (in finish(), after their stairwells are cut)
   }
 
   /** A solid box: collider + visible geometry. */
@@ -78,12 +79,13 @@ export class RooftopKit {
    */
   building(x0, z0, x1, z1, h, { tint, lips = true, windows = true, tower = false, top = 'roof' } = {}) {
     const rng = this.rng;
-    this.world.addBox(x0, 0, z0, x1, h, z1, { tag: 'building' });
-    this.batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: h, z: z1 },
-      windows
-        ? { side: 'wall', top, color: tint ?? rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), Math.floor(rng() * 8) / 8], topScale: [6, 6] }
-        : { side: 'concrete', top, color: tint ?? 0x8a8a88, uvScale: [4, 4], topScale: [6, 6] });
-    const b = { minX: x0, maxX: x1, minZ: z0, maxZ: z1, h, tower };
+    const collider = this.world.addBox(x0, 0, z0, x1, h, z1, { tag: 'building' });
+    const look = windows
+      ? { side: 'wall', top, color: tint ?? rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), Math.floor(rng() * 8) / 8], topScale: [6, 6] }
+      : { side: 'concrete', top, color: tint ?? 0x8a8a88, uvScale: [4, 4], topScale: [6, 6] };
+    // (drawn in finish(): a stairwell may be cut into it for its ladder)
+    const b = { minX: x0, maxX: x1, minZ: z0, maxZ: z1, h, tower, collider, look };
+    this._facades.push(b);
     this.buildings.push(b);
     if (lips) this.lips(b);
     return b;
@@ -253,6 +255,69 @@ export class RooftopKit {
     this.extra.add(face);
   }
 
+  /**
+   * Cut a stairwell into building `b` behind ladder spot `L` (on its wall,
+   * n = out of the wall): a doorway from the street, a shaft 1.5 m wide and
+   * 1.7 m deep up to an open hatch in the roof, and the ladder on the back of
+   * the shaft. Moves L inside. Returns false (and changes nothing) if the
+   * building is too small or something on the roof is in the way.
+   */
+  _stairwell(b, L, clear) {
+    const SW = 1.5, SD = 1.7, T = 0.2, DOOR = 1.0, DOOR_H = 2.3;
+    if (!b.collider || b.h < 4) return false;
+    const alongX = L.nz !== 0;
+    const depth = alongX ? b.maxZ - b.minZ : b.maxX - b.minX;
+    if (depth < SD + 1.8) return false;
+    const tx = -L.nz, tz = L.nx;
+    // room for the shaft along the wall
+    const along = alongX ? L.x : L.z, lo = alongX ? b.minX : b.minZ, hi = alongX ? b.maxX : b.maxZ;
+    if (along - SW / 2 < lo + 0.4 || along + SW / 2 > hi - 0.4) return false;
+    // nothing on the roof over the hole, nothing inside the building there
+    const face = { nx: L.nx, nz: L.nz };
+    if (!clear(L.x, L.z, face, -SD - 0.15, -0.02, SW / 2 + 0.1, b.h + LIP + 0.05, b.h + 2.6)) return false;
+    const P = (a, d) => [L.x + tx * a - L.nx * d, L.z + tz * a - L.nz * d];
+    const rect = (a0, d0, a1, d1) => {
+      const [ax, az] = P(a0, d0), [bx, bz] = P(a1, d1);
+      return [Math.min(ax, bx), Math.min(az, bz), Math.max(ax, bx), Math.max(az, bz)];
+    };
+    const [sx0, sz0, sx1, sz1] = rect(-SW / 2, 0, SW / 2, SD);
+    const hits = this.world.query(sx0 + 0.05, 0.3, sz0 + 0.05, sx1 - 0.05, b.h - 0.1, sz1 - 0.05, []);
+    if (hits.some((h) => h !== b.collider)) return false;
+
+    // The building's box, less the shaft (up to four pieces), plus the front
+    // wall with the doorway in it
+    const y0 = b.collider.min.y, h = b.h;
+    const pieces = [];
+    const R = [b.minX, b.minZ, b.maxX, b.maxZ];
+    for (const [a, c, d, e] of [[R[0], R[1], sx0, R[3]], [sx1, R[1], R[2], R[3]], [sx0, R[1], sx1, sz0], [sx0, sz1, sx1, R[3]]]) {
+      if (d - a > 0.01 && e - c > 0.01) pieces.push([a, y0, c, d, h, e]);
+    }
+    const front = (a0, a1, ya, yb) => { const [a, c, d, e] = rect(a0, 0, a1, T); pieces.push([a, ya, c, d, yb, e]); };
+    front(-SW / 2, -DOOR / 2, y0, h);
+    front(DOOR / 2, SW / 2, y0, h);
+    front(-DOOR / 2, DOOR / 2, DOOR_H, h);
+    this.world.removeBox(b.collider);
+    for (const [a, ya, c, d, yb, e] of pieces) this.world.addBox(a, ya, c, d, yb, e, { tag: 'building' });
+    b.stairwell = { pieces };
+    // Plain walls inside the shaft (not the outside windows), a lamp over the
+    // door, and a dim light inside
+    const lining = { side: 'plain', top: null, color: 0x6a6660 };
+    for (const [a0, d0, a1, d1] of [[-SW / 2, T, -SW / 2 + 0.03, SD], [SW / 2 - 0.03, T, SW / 2, SD], [-SW / 2, SD - 0.03, SW / 2, SD]]) {
+      const [a, c, d, e] = rect(a0, d0, a1, d1);
+      this.batch.addBox({ x: a, y: y0, z: c }, { x: d, y: h - 0.02, z: e }, lining);
+    }
+    { const [a, c, d, e] = rect(-0.3, -0.14, 0.3, 0); this.batch.addBox({ x: a, y: DOOR_H + 0.12, z: c }, { x: d, y: DOOR_H + 0.26, z: e }, { side: 'glow', top: 'glow', color: 0xffd890 }); }
+    { const [a, c, d, e] = rect(-0.25, SD - 0.06, 0.25, SD - 0.03); this.batch.addBox({ x: a, y: 3.0, z: c }, { x: d, y: 3.15, z: e }, { side: 'glow', top: null, color: 0xc8b890 }); }
+    { const [a, c, d, e] = rect(-SW / 2 + 0.05, T + 0.05, SW / 2 - 0.05, SD - 0.05); this.batch.addBox({ x: a, y: y0 + 0.16, z: c }, { x: d, y: y0 + 0.17, z: e }, { side: null, top: 'glow', color: HIDE_GLOW }); }
+    // The ladder: on the back wall of the shaft, facing the door
+    const [lx, lz] = P(0, SD);
+    L.x = lx; L.z = lz;
+    // In here the helicopter can't see you (and police on foot come out of it)
+    const [hx, hz] = P(0, SD / 2 + T / 2);
+    this.hideSpots.push(new THREE.Vector3(hx, y0, hz));
+    return true;
+  }
+
   /** Decorative construction crane: a lattice mast from the street. */
   craneMast(x, z, h, armDir = 1, armLen = 18) {
     const look = { side: 'plain', top: 'plain', color: 0xc9861e };
@@ -418,6 +483,9 @@ export class RooftopKit {
       }
       if (best) {
         delete best.open;
+        // Inside the building if there's room: a doorway into a little
+        // stairwell, the ladder up its back wall to a hatch in the roof
+        if (!this._stairwell(b, best, clear)) { /* (no room: it stays on the wall outside) */ }
         this.ladders.push(best);
       }
     }
@@ -541,6 +609,11 @@ export class RooftopKit {
   // ------------------------------------------------------------------
   finish() {
     if (!this.noLadders) this._placeLadders();
+    for (const b of this._facades) {
+      if (!b.stairwell) { this.batch.addBox({ x: b.minX, y: 0, z: b.minZ }, { x: b.maxX, y: b.h, z: b.maxZ }, b.look); continue; }
+      for (const [x0, y0, z0, x1, y1, z1] of b.stairwell.pieces) this.batch.addBox({ x: x0, y: y0, z: z0 }, { x: x1, y: y1, z: z1 }, b.look);
+    }
+    this._facades = [];
     const group = new THREE.Group();
     group.add(this.batch.build(getMaterials()));
     if (this.ladders.length) group.add(buildLadders(this.ladders));

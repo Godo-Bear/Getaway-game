@@ -9,8 +9,9 @@ import { makeTextTexture } from './materials.js';
 //    block (with a big apartment block in the middle). Walk in through the
 //    door: shelves, a counter, lights, and a till you can rob (Free Run).
 //    Every kind has its own inside: a mini mart, a cafe, a clothes shop,
-//    a phone shop and a pawn shop. The roofs are low: climb up from the
-//    ladder on the corner shop, then up the fire escape on the apartments.
+//    a phone shop and a pawn shop. The roofs are low: the corner shops have
+//    a ladder inside (by the storeroom) up through a hatch, then climb the
+//    fire escape on the apartments.
 //  - Parks: grass, paths, hedges, trees, benches, a fountain and a gazebo
 //    (hide under it from the helicopter; climb on it from the planter).
 //  - Street trees along the pavements and gardens on some roofs.
@@ -41,8 +42,9 @@ export class CityDresser {
    * @param {import('./rooftopKit.js').RooftopKit} kit
    * @param {{alpine?: boolean, rng: () => number}} opts
    */
-  constructor(kit, { alpine = false, rng }) {
+  constructor(kit, { alpine = false, rng, treeAvoid = [] }) {
     this.kit = kit;
+    this.treeAvoid = treeAvoid;
     this.alpine = alpine;
     this.rng = rng;
     this.trees = [];     // [x, y, z, scale]
@@ -96,7 +98,8 @@ export class CityDresser {
    */
   shop(x0, z0, x1, z1, nx, nz, { cornerSide = 0, kind = null } = {}) {
     const kit = this.kit, rng = this.rng;
-    kind ||= this._pick(KIND_LIST);
+    // (corner shops are cafes or phone shops: the ladder up to the roof is in their back corner)
+    kind ||= cornerSide ? this._pick(['cafe', 'tech']) : this._pick(KIND_LIST);
     const K = KINDS[kind];
     const alongX = nz !== 0;
     const W = alongX ? x1 - x0 : z1 - z0, D = alongX ? z1 - z0 : x1 - x0;
@@ -138,9 +141,15 @@ export class CityDresser {
     B(dl, 0, dr, T, DOOR_H, H, wall);                   // over the door
     B(dl - 0.08, -0.04, dl, T + 0.04, 0, DOOR_H, frame, null);
     B(dr, -0.04, dr + 0.08, T + 0.04, 0, DOOR_H, frame, null);
-    // Roof: walkable, low lips, a light ceiling underneath
+    // Roof: walkable, low lips, a light ceiling underneath (a corner shop has
+    // a hatch in it, over the ladder in the back corner)
     const [rx0, rz0, rx1, rz1] = rect(0, 0, W, D);
-    kit.solid(rx0, H - 0.3, rz0, rx1, H, rz1, { side: 'plain', top: 'roof', bottom: 'plain', color: this.alpine ? 0xd2dae6 : 0xd8d4cc, topScale: [6, 6] }, 'building');
+    const roofLook = { side: 'plain', top: 'roof', bottom: 'plain', color: this.alpine ? 0xd2dae6 : 0xd8d4cc, topScale: [6, 6] };
+    const SR = 1.6, SV = D - 2.6; // the storeroom (corner shops): its width, and where its front is
+    const su0 = cornerSide < 0 ? T : W - T - SR, su1 = su0 + SR;
+    if (cornerSide) {
+      for (const [a, c, d, e] of subtractRect([rx0, rz0, rx1, rz1], rect(su0, SV - 1.4, su1, SV))) kit.solid(a, H - 0.3, c, d, H, e, roofLook, 'building');
+    } else kit.solid(rx0, H - 0.3, rz0, rx1, H, rz1, roofLook, 'building');
     const bld = { minX: rx0, maxX: rx1, minZ: rz0, maxZ: rz1, h: H, shop: true, noLadder: true };
     kit.buildings.push(bld);
     if (!this.alpine) kit.lips(bld, 0.25);
@@ -150,10 +159,13 @@ export class CityDresser {
     this._sign(sign, K.sign, sx, (GLASS_TOP + H) / 2 + 0.05, sz, Math.atan2(nx, nz), Math.min(W * 0.75, 6));
     // An awning over the door
     B(dl - 0.4, -1.1, dr + 0.4, 0, DOOR_H + 0.25, DOOR_H + 0.37, plain(this._pick([0xc8302a, 0x1f6a3a, 0x2a4a9a, 0xd89a1a])), null);
-    // A ladder up the side wall of a corner shop (the way up to the roofs)
+    // Corner shops: the way up to the roofs is inside. A storeroom in the
+    // back corner, the ladder up its front to the hatch in the roof
     if (cornerSide) {
-      const lu = cornerSide < 0 ? 0 : W, [lx, lz] = P(lu, D * 0.55);
-      kit.ladders.push({ x: lx, z: lz, nx: cornerSide < 0 ? -tx : tx, nz: cornerSide < 0 ? -tz : tz, y0: 0, y1: H });
+      B(su0, SV, su1, D - T, 0, H - 0.3, plain(this.alpine ? 0x8a6a4a : 0xb8b2a6));
+      B(su0 + 0.35, SV - 0.03, su1 - 0.35, SV, 0.15, 2.1, plain(0x5a4a3a), null); // (its door)
+      const [lx, lz] = P((su0 + su1) / 2, SV);
+      kit.ladders.push({ x: lx, z: lz, nx, nz, y0: 0, y1: H });
     }
 
     // --- Inside: floor, lights, and what this kind of shop sells
@@ -164,7 +176,7 @@ export class CityDresser {
       B(u - 0.5, D * 0.68, u + 0.5, D * 0.68 + 0.35, H - 0.36, H - 0.3, { side: 'glow', top: null, bottom: 'glow', color: 0xfff2d8 }, null);
     }
     // The counter and its till (on the left or right, away from the door)
-    const left = du > W / 2;
+    const left = cornerSide ? cornerSide > 0 : du > W / 2; // (away from the storeroom)
     const cu0 = left ? T + 0.4 : W - T - 2.6, cu1 = cu0 + 2.2, cv = D * 0.55;
     const counterC = kind === 'tech' ? 0xe8e8ec : kind === 'pawn' ? 0x3a3020 : 0x7a5236;
     B(cu0, cv, cu1, cv + 0.7, 0, 1.0, plain(counterC));
@@ -330,6 +342,7 @@ export class CityDresser {
 
   /** A tree with a trunk you bump into (its leaves are just for looks). */
   tree(x, y, z, s = 1) {
+    if (this.treeAvoid.some(([ax, az, r]) => Math.hypot(ax - x, az - z) < r)) return;
     this.trees.push([x, y, z, s]);
     this.kit.world.addBox(x - 0.25 * s, y, z - 0.25 * s, x + 0.25 * s, y + 2.6 * s, z + 0.25 * s, { tag: 'tree' });
   }
@@ -437,6 +450,12 @@ export class CityDresser {
     }
     return g;
   }
+}
+
+/** A rectangle [x0, z0, x1, z1] less another inside it: up to four pieces. */
+function subtractRect([x0, z0, x1, z1], [hx0, hz0, hx1, hz1]) {
+  const out = [[x0, z0, hx0, z1], [hx1, z0, x1, z1], [hx0, z0, hx1, hz0], [hx0, hz1, hx1, z1]];
+  return out.filter(([a, b, c, d]) => c - a > 0.01 && d - b > 0.01);
 }
 
 /** Instanced trees: round leafy ones in the city, snowy pines in the mountains. */

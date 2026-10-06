@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { generateRooftopCity } from '../rooftopCity.js';
+import { FROSTVALE_FOOT } from '../maps.js';
 import { makeTextTexture, makeGlowMaterial } from '../materials.js';
 
 // ======================================================================
@@ -27,9 +28,8 @@ const ST = (i) => C(i) + PITCH / 2;                // street centre (after block
 const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter8Town(opts = {}) {
-  // A snowy park and rows of little chalet shops on the blocks the story
-  // doesn't use (shopAvoid: the cabin's door and the church)
-  const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS, alpine: true, kinds: { '3,0': 'park', '0,2': 'park', '2,0': 'shops', '3,1': 'shops' }, shopAvoid: [[C(3), C(3) + 21, 4], [C(0), C(0) - 21, 5]] });
+  // Frostvale: the same town as Free Run (this chapter's 4 x 4 blocks are the middle of it)
+  const city = generateRooftopCity(FROSTVALE_FOOT);
   const w = city.world;
   const g = city.group;
   const lambert = (color) => new THREE.MeshLambertMaterial({ color });
@@ -58,7 +58,7 @@ export function buildChapter8Town(opts = {}) {
   };
   for (let i = 0; i < BLOCKS - 1; i++) for (let j = 0; j < BLOCKS - 1; j++) pine(ST(i) + 5.5, ST(j) + 5.5, 0.9 + ((i + j) % 3) * 0.15);
 
-  buildAlpineTown(city, g, w);
+  buildAlpineTown(city, g, w, FROSTVALE_FOOT.blocks);
 
   const spawn = new THREE.Vector3(C(0) + PAV, 0.05, C(1) - 8);
 
@@ -205,10 +205,9 @@ export function dressAlpineTown(city, blocks) {
 //  and the Glacier Bank's cable car climbing the big peak.
 // ----------------------------------------------------------------------
 function buildAlpineTown(city, g, w, blocks = 4) {
-  // (any size of town: Free Run's Frostvale is bigger than the story's)
-  const BLOCKS = blocks;
-  const C = (i) => (i - (BLOCKS - 1) / 2) * PITCH;
-  const ST = (i) => C(i) + PITCH / 2;
+  // (The drifts and the forest fit the whole town; the landmarks - the
+  // cable car, the snowmen, the welcome sign - stay where the story has them.)
+  const NB = blocks, CB = (i) => (i - (NB - 1) / 2) * PITCH;
   const SNOW = 0xd2dae6; // (a soft blue-grey white: pure white snow is blinding in daylight)
   const snowMat = new THREE.MeshLambertMaterial({ color: SNOW });
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x4a3222 });
@@ -281,12 +280,12 @@ function buildAlpineTown(city, g, w, blocks = 4) {
 
   // --- Snowdrifts along the kerbs (between the junctions)
   const drifts = [];
-  for (let i = 0; i < BLOCKS; i++) {
-    for (let j = 0; j < BLOCKS; j++) {
+  for (let i = 0; i < NB; i++) {
+    for (let j = 0; j < NB; j++) {
       for (const side of [-1, 1]) {
         for (let t = -16; t <= 16; t += 8) {
-          drifts.push([C(i) + t + rnd() * 3, C(j) + side * 23.6, true]);
-          drifts.push([C(i) + side * 23.6, C(j) + t + rnd() * 3, false]);
+          drifts.push([CB(i) + t + rnd() * 3, CB(j) + side * 23.6, true]);
+          drifts.push([CB(i) + side * 23.6, CB(j) + t + rnd() * 3, false]);
         }
       }
     }
@@ -299,7 +298,7 @@ function buildAlpineTown(city, g, w, blocks = 4) {
   g.add(driftMesh);
 
   // --- A pine forest round the town
-  const ext = ((BLOCKS - 1) / 2) * PITCH + PITCH / 2 + 12;
+  const ext = ((NB - 1) / 2) * PITCH + PITCH / 2 + 12;
   const pines = [];
   for (let k = 0; k < 520; k++) {
     const x = (rnd() * 2 - 1) * 330, z = (rnd() * 2 - 1) * 330;

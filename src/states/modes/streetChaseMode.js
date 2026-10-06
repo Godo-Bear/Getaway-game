@@ -2,6 +2,7 @@ import { save } from '../../core/save.js';
 import { earn } from '../../gadgets/gadgets.js';
 import { formatTime } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
+import { DOWNTOWN_CAR } from '../../world/maps.js';
 import { diff } from '../../core/difficulty.js';
 
 // Street Chase: endless driving survival.
@@ -23,7 +24,7 @@ export class StreetChaseMode {
   }
 
   cityOptions() {
-    return { seed: (Math.random() * 1e9) | 0, blocks: 8 };
+    return DOWNTOWN_CAR; // (Harbor City's streets: the same as Free Run and the story)
   }
 
   start() {

@@ -27,8 +27,9 @@ const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4
  * @param {number} [o.parks] - share of park blocks in a random mix
  * @param {number} [o.shopBlocks] - share of shop blocks in a random mix
  * @param {boolean} [o.lowRise] - an old town: lower apartments, no towers
+ * @param {number[][]} [o.treeAvoid] - [x, z, radius]: no street trees here (where a story level puts its own things)
  */
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false } = {}) {
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [] } = {}) {
   const kit = new RooftopKit({ seed });
   if (alpine) kit.noLadders = true;
   const rng = kit.rng;
@@ -40,16 +41,35 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
 
   // What goes on each block: apartments, a ring of small shops, or a park.
   // (Their own random numbers: the apartment blocks come out as before.)
-  const dress = new CityDresser(kit, { alpine, rng: makeRng(seed * 17 + 1) });
+  const dress = new CityDresser(kit, { alpine, rng: makeRng(seed * 17 + 1), treeAvoid });
   const kindRng = makeRng(seed * 7 + 3);
   const mid = Math.floor(blocks / 2);
   const kindOf = {};
-  for (let bi = 0; bi < blocks; bi++) {
-    for (let bj = 0; bj < blocks; bj++) {
-      const r = kindRng();
-      kindOf[`${bi},${bj}`] = kinds ? (kinds[`${bi},${bj}`] || 'apartments')
-        : bi === mid && bj === mid ? 'apartments' // (you start on a roof in the middle)
-          : r < parks ? 'park' : r < parks + shopBlocks ? 'shops' : 'apartments';
+  if (kinds) {
+    for (let bi = 0; bi < blocks; bi++) for (let bj = 0; bj < blocks; bj++) kindOf[`${bi},${bj}`] = kinds[`${bi},${bj}`] || 'apartments';
+  } else {
+    // A random mix, with the parks spread out: never two parks next to each
+    // other (not even corner to corner), so there's green all over the city
+    const all = [];
+    for (let bi = 0; bi < blocks; bi++) for (let bj = 0; bj < blocks; bj++) { kindOf[`${bi},${bj}`] = 'apartments'; all.push([bi, bj]); }
+    for (let k = all.length - 1; k > 0; k--) { const r = Math.floor(kindRng() * (k + 1)); [all[k], all[r]] = [all[r], all[k]]; }
+    const isPark = (i, j) => kindOf[`${i},${j}`] === 'park';
+    let want = Math.round(all.length * parks);
+    for (const [bi, bj] of all) {
+      if (want <= 0) break;
+      if (bi === mid && bj === mid) continue; // (you start on a roof in the middle)
+      let near = false;
+      for (let di = -1; di <= 1; di++) for (let dj = -1; dj <= 1; dj++) if (isPark(bi + di, bj + dj)) near = true;
+      if (near) continue;
+      kindOf[`${bi},${bj}`] = 'park';
+      want--;
+    }
+    let shops = Math.round(all.length * shopBlocks);
+    for (const [bi, bj] of all) {
+      if (shops <= 0) break;
+      if (kindOf[`${bi},${bj}`] !== 'apartments' || (bi === mid && bj === mid)) continue;
+      kindOf[`${bi},${bj}`] = 'shops';
+      shops--;
     }
   }
 
