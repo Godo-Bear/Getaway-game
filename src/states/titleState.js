@@ -23,6 +23,7 @@ export class TitleState {
   enter(params = {}) {
     audio.setPlace('harbor');
     audio.surface = null;
+    audio.titleTheme(true); // (the home screen's tune: starts on the first click if sound isn't allowed yet)
     if (!this.scene) {
       this.scene = new THREE.Scene();
       this.lighting = new NightLighting(this.scene, { shadows: false });
@@ -55,13 +56,16 @@ export class TitleState {
   }
 
   exit() {
+    audio.titleTheme(false);
     hideCard();
     if (this.bg) this.bg.hidden = true;
   }
 
   update(dt) {
     this.time += dt;
-    audio.setMix({ music: 0.45, intensity: 0.15, city: 0.06, rain: 0.14 });
+    // The home screen plays its own theme (titleTheme); the game's music and
+    // the rain stay right down so it's not fuzzy
+    audio.setMix({ music: 0.08, intensity: 0.3, rain: 0.04 });
     if (!this.calm) this._rain(Math.min(dt, 0.05));
   }
 

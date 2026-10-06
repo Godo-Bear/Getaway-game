@@ -27,6 +27,9 @@ import { clamp } from './utils.js';
 
 const SAMPLE_SFX = ['cash', 'caught', 'checkpoint', 'click', 'clue', 'crash0', 'crash1', 'door', 'glass',
   'land', 'locked', 'step0', 'step1', 'step2', 'step3', 'step4', 'vault', 'win'];
+// The loops made of noise (rain, wind, city rumble, nitro, tyres) are turned
+// well down: a little goes a long way, and too much just sounds fuzzy.
+const FUZZ = { rain: 0.4, wind: 0.45, city: 0.5, nitro: 0.6, screech: 0.7 };
 const LOOP_NAMES = ['engine', 'screech', 'siren', 'rotor', 'wind', 'city', 'nitro', 'rain'];
 
 // Fake gearbox: the engine note rises, then drops at each gear change.
@@ -105,6 +108,7 @@ class AudioManager {
 
     this._buildLoops();
     this._loadSamples();
+    if (this.wantTitle) this.titleTheme(true); // (the home screen was waiting for the first click)
   }
 
   setVolumes({ masterVolume, musicVolume, sfxVolume }) {
@@ -168,7 +172,7 @@ class AudioManager {
     { const f = this._filter('lowpass', 170), am = ctx.createGain(); am.gain.value = 0.5; this._lfo('square', 11, 0.5, am.gain);
       const g = this._out(); this._noiseSource().connect(f); f.connect(am); am.connect(g); L.rotor = g; }
     // Rain: bright hiss (high noise) with a softer patter underneath
-    { const hp = this._filter('highpass', 1600, 0.5), lp = this._filter('lowpass', 7500, 0.5), g = this._out();
+    { const hp = this._filter('highpass', 1600, 0.5), lp = this._filter('lowpass', 4200, 0.5), g = this._out();
       const n = this._noiseSource(); n.connect(hp); hp.connect(lp); lp.connect(g);
       const pf = this._filter('bandpass', 500, 0.8), pg = this.ctx.createGain(); pg.gain.value = 0.6;
       this._noiseSource().connect(pf); pf.connect(pg); pg.connect(g); L.rain = g; }
@@ -244,6 +248,7 @@ class AudioManager {
   }
 
   _setLoop(name, v) {
+    v *= FUZZ[name] ?? 1; // (the hissy noise beds are kept down)
     const g = this.loops[name];
     if (!g || Math.abs((this.last[name] ?? -1) - v) < 0.004) return;
     this.last[name] = v;
@@ -306,6 +311,81 @@ class AudioManager {
     out.connect(this.layerGain);
     this.tension = out;
     this.tensionLfo = lfo;
+  }
+
+  /**
+   * The home screen's theme: a cool, sneaky heist tune made of notes (no
+   * noise), looping round A minor - F - C - E. A plucked bass, a soft pad, a
+   * twinkling arpeggio and a little lead tune on top. on = true/false.
+   * (Browsers only allow sound after the first click: it starts then.)
+   */
+  titleTheme(on) {
+    this.wantTitle = on;
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    if (!this.titleGain) {
+      this.titleGain = ctx.createGain();
+      this.titleGain.gain.value = 0;
+      this.titleGain.connect(this.musicBus);
+    }
+    const t = ctx.currentTime;
+    this.titleGain.gain.cancelScheduledValues(t);
+    this.titleGain.gain.setTargetAtTime(on ? 0.55 : 0, t, on ? 0.8 : 0.25);
+    if (on && !this._titleTimer) {
+      this._titleBeat = 0;
+      this._titleNext = ctx.currentTime + 0.15;
+      this._titleTimer = setInterval(() => this._titleTick(), 90);
+    } else if (!on && this._titleTimer) {
+      const timer = this._titleTimer;
+      this._titleTimer = null;
+      setTimeout(() => clearInterval(timer), 900); // (let it fade out)
+    }
+  }
+
+  _titleTick() {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state !== 'running') return;
+    const STEP = 60 / 96 / 2; // eighth notes at 96 bpm
+    // 4 bars of 8 eighths: Am, F, C, E (MIDI note numbers)
+    const CHORDS = [[57, 60, 64], [53, 57, 60], [55, 60, 64], [52, 56, 59]];
+    const BASS = [45, 41, 48, 40];
+    // The lead: one note per eighth (0 = rest), 32 steps
+    const LEAD = [76, 0, 0, 72, 74, 0, 76, 0, 77, 0, 76, 0, 72, 0, 0, 0,
+      76, 0, 79, 0, 76, 0, 74, 72, 71, 0, 0, 68, 71, 0, 0, 0];
+    const hz = (n) => 440 * Math.pow(2, (n - 69) / 12);
+    while (this._titleNext < ctx.currentTime + 0.3) {
+      const b = this._titleBeat, t = this._titleNext;
+      const bar = Math.floor(b / 8) % 4, step = b % 8, chord = CHORDS[bar];
+      // Bass: a plucked root on the 1, the "and" of 2, and 4
+      if (step === 0 || step === 3 || step === 6) this._titleNote(hz(BASS[bar] - 12 + (step === 6 ? 12 : 0)), t, 0.32, 'triangle', 0.22, 600);
+      // Pad: the chord, soft and long, at the top of each bar
+      if (step === 0) for (const n of chord) this._titleNote(hz(n), t, STEP * 8, 'sawtooth', 0.025, 900, 0.35);
+      // Arpeggio: chord tones going up and down, an octave higher
+      const arp = [0, 1, 2, 1, 0, 1, 2, 1][step];
+      this._titleNote(hz(chord[arp] + 12), t, 0.16, 'square', 0.018, 2200);
+      // Lead tune (comes in on the second time round)
+      const lead = LEAD[(b % 32)];
+      if (lead && b >= 32) this._titleNote(hz(lead), t, STEP * 1.8, 'sine', 0.07, 4000, 0.02);
+      this._titleBeat = (b + 1) % 64;
+      this._titleNext += STEP;
+    }
+  }
+
+  _titleNote(f, t, dur, type, vol, cutoff, attack = 0.005) {
+    const ctx = this.ctx;
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.value = f;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = cutoff;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + attack + dur);
+    o.connect(lp); lp.connect(g); g.connect(this.titleGain);
+    o.start(t);
+    o.stop(t + attack + dur + 0.05);
   }
 
   /** Frostvale: now and then a soft bell note (like sleigh bells in the distance). */
