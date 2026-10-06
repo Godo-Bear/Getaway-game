@@ -10,6 +10,7 @@ import { audio } from '../../core/audio.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { Crowd, Shopkeepers } from '../../ai/crowd.js';
+import { FootMap } from '../../ui/footMap.js';
 import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
 import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 
@@ -38,7 +39,7 @@ export class FreeRunMode {
     this.police = freeSession(state.game).police;
     this.map = freeMap(state.game);          // (which city: picked in the Free Run menu)
     this.weather = this.map.snow ? 'snow' : undefined;
-    this.hudSections = this.police ? ['tl', 'meter', 'controls', 'marker'] : ['tl', 'controls', 'marker'];
+    this.hudSections = ['tl', 'map', 'meter', 'controls', 'marker'];
     this.heli = null;
   }
 
@@ -61,6 +62,12 @@ export class FreeRunMode {
     const cold = !!this.map.snow; // (winter coats in Frostvale)
     this.crowd = new Crowd(city.group, city.world, [], { pool: { lanes: city.walks, count: n }, seed: 21, cold });
     this.keepers = new Shopkeepers(city.group, city.shops, { count: 3, cold });
+    // Police on foot: up to six (how many are out depends on the police
+    // setting and your wanted level)
+    this.officers = new OfficerSquad(this.state.scene, city.world, rooftopCitySpawns(city), { count: 6, speed: 0.84 * diff().officerSpeed, streets: true });
+    this.officers.setActive(0);
+    this.heat = 0;
+    this.calm = 0;
     return city;
   }
 
@@ -150,6 +157,9 @@ export class FreeRunMode {
     this.outOfLight = 0;
     this.heli?.dispose();
     this.heli = null;
+    this.heat = 0;
+    this.calm = 0;
+    this.map2 ||= new FootMap(s, this.city); // (the minimap, and M for the big map)
     for (const b of this.bags) this._placeBag(b);
     hud.setPhase(`Free Run · ${this.map.name}${this.police ? ' · police on' : ''}`);
     hud.setObjective(this.city.groundLevel ? `Explore ${this.map.name}` : 'Explore the rooftops');
@@ -170,7 +180,7 @@ export class FreeRunMode {
   _carButton() {
     this.carBtn?.remove();
     const b = document.createElement('button');
-    b.className = 'free-car-btn';
+    b.className = 'free-car-btn below-map';
     b.innerHTML = '🚗 Get in a car <kbd>T</kbd>';
     const go = (e) => { e.preventDefault(); e.stopPropagation(); this.toCar = true; };
     b.addEventListener('pointerdown', go);
@@ -234,104 +244,199 @@ export class FreeRunMode {
       this.inShop = inShop;
       if (inShop && !inShop.visited) {
         inShop.visited = true;
-        hud.toast(inShop.name, inShop.robbed ? 'Already cleaned out.' : 'Walk round the counter to the till to rob it.', 'var(--amber)', 2.5);
+        hud.toast(inShop.name, inShop.robbed ? 'Already cleaned out.' : 'Walk round the counter to the till to rob it. Duck behind the counter to hide from the police.', 'var(--amber)', 3);
       }
     }
     const atTill = inShop && !inShop.robbed && Math.hypot(inShop.till.x - p.pos.x, inShop.till.z - p.pos.z) < 1.6 ? inShop : null;
     s.setAction(atTill ? 'Rob the till' : null);
-    if (atTill && s.game.input.wasPressed('interact')) {
-      atTill.robbed = true;
-      s.setAction(null);
-      this.keepers.scare(atTill, p.pos);
-      audio.sfx('alarm', { vol: 0.5 });
-      freeEarn(s.game, (30 + Math.floor(this.rng() * 31)) * (this.police ? 2 : 1), 'Till robbed!', this.police ? 'The alarm\'s going: the police know where you are. Run!' : 'Cash for the Shop.');
-      if (this.police) {
-        // The alarm brings the police: the helicopter heads straight here, officers come running
-        if (this.heli) { this.heli.lastSeen.copy(p.pos); this.heli.spot.set(p.pos.x + 12, 0, p.pos.z + 12); }
-        for (const u of this.officers?.units || []) u.waitTimer = Math.min(u.waitTimer, 0.5);
-      }
-    }
+    if (atTill && s.game.input.wasPressed('interact')) this._robTill(atTill);
+    this._shutters(dt);
+    // Behind a shop counter: out of sight
+    const behindCounter = !!inShop && Math.hypot(inShop.keeper.pos.x - p.pos.x, inShop.keeper.pos.z - p.pos.z) < 1.7;
+    if (behindCounter && !this._counterTip) { this._counterTip = true; hud.toast('Behind the counter', 'The police can\'t see you back here.', 'var(--safe)', 2); }
+    if (!behindCounter) this._counterTip = false;
 
-    // Police helicopter (optional)
-    if (this.police) {
-      if (!this.heli && t > 3) {
-        const a = this.rng() * Math.PI * 2;
-        this.heli = new Helicopter(s.scene, s.world, { startPos: new THREE.Vector3(p.pos.x + Math.cos(a) * 60, 0, p.pos.z + Math.sin(a) * 60) });
-        hud.toast('Police helicopter!', 'Stay out of the spotlight. Hide under water towers or in stairwell huts.', 'var(--red)', 4);
-      }
-      this._officers(dt);
-      if (this.heli) {
-        const params = { spotSpeed: 6.2 * diff().spot, fill: 0.5 * diff().fill, lead: 0.2 };
-        this.heli.update(dt, s.policeTarget, params);
-        const lit = this.heli.isPlayerLit(p.pos) && !s.concealed && !inShop; // (it can't see into a shop)
-        this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.6), 0, 1);
-        hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : 'Spotted', lit ? 'var(--red)' : '#8a8f9c');
-        this.outOfLight = lit ? 0 : this.outOfLight + dt;
-        if (this.outOfLight > ESCAPE_TIME && this.heli.seesPlayer === false && this._lostOnce !== Math.floor(t / ESCAPE_TIME)) {
-          this._lostOnce = Math.floor(t / ESCAPE_TIME);
-          freeEarn(s.game, 20, 'Kept out of sight!', 'The helicopter can\'t find you.');
-          this.outOfLight = 0;
-        }
-        if (this.spotted >= 1 && admin.flag('god')) this.spotted = 0; // admin god mode
-        if (this.spotted >= 1) {
-          audio.sfx('caught');
-          this.spotted = 0;
-          s.respawnToSafety('Caught by the helicopter! Back to safety.');
-          const a = this.rng() * Math.PI * 2;
-          this.heli.spot.set(p.pos.x + Math.cos(a) * 45, 0, p.pos.z + Math.sin(a) * 45);
-          this.heli.lastSeen.copy(this.heli.spot);
-        }
-      }
-    }
+    // The police: the session's police setting, plus your wanted level
+    this._police(dt, inShop, behindCounter);
 
-    // Marker: the nearest cash bag, or the car when you're down on the street
+    // Marker: a waypoint you set on the map, the nearest cash bag, or the car when you're down on the street
     const onStreet = p.pos.y < 1.5;
-    if (onStreet && nearCar) {
-      hud.setMarker(nearCar.pos.clone().setY(nearCar.pos.y + 2.2), s.camera, 'Your car', '#39a8ff', carD);
-    } else if (!onStreet) {
-      let best = null, bd = Infinity;
-      for (const b of this.bags) {
-        if (!b.group.visible) continue;
-        const d = p.pos.distanceTo(b.pos);
-        if (d < bd) { bd = d; best = b; }
-      }
-      if (best) hud.setMarker(best.pos.clone().setY(best.pos.y + 1.5), s.camera, 'Cash', 'var(--safe)', bd);
-      else hud.setMarker(null);
+    let best = null, bd = Infinity;
+    for (const b of this.bags) {
+      if (!b.group.visible) continue;
+      const d = p.pos.distanceTo(b.pos);
+      if (d < bd) { bd = d; best = b; }
     }
+    const dots = [
+      ...this.bags.filter((b) => b.group.visible).map((b) => ({ x: b.pos.x, z: b.pos.z, color: '#4dffa6' })),
+      ...this.cars.map((c) => ({ x: c.pos.x, z: c.pos.z, color: '#39a8ff', size: 1.3 })),
+      ...(this.officers?.units || []).filter((u) => !u.inactive && u.model.root.visible).map((u) => ({ x: u.pc.pos.x, z: u.pc.pos.z, color: '#ff3346' })),
+      ...(this.heli ? [{ x: this.heli.pos.x, z: this.heli.pos.z, color: '#ff3346', size: 1.8 }] : []),
+    ];
+    const way = this.map2.update(dots, best ? best.pos : null);
+    if (way) {
+      hud.setMarker(new THREE.Vector3(way.x, 2, way.z), s.camera, 'Waypoint', '#ff5ad0', Math.hypot(way.x - p.pos.x, way.z - p.pos.z));
+    } else if (onStreet && nearCar && !this.city.groundLevel) {
+      hud.setMarker(nearCar.pos.clone().setY(nearCar.pos.y + 2.2), s.camera, 'Your car', '#39a8ff', carD);
+    } else if (best) hud.setMarker(best.pos.clone().setY(best.pos.y + 1.5), s.camera, 'Cash', 'var(--safe)', bd);
+    else hud.setMarker(null);
+    const stars = this.stars;
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
+      `<span>Wanted <b style="color:${stars ? '#ffd040' : '#6a6f7c'};letter-spacing:1px">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</b></span>` +
       `<span>Car <b>${Math.round(carD)} m</b></span>`);
   }
 
+  // ---------------------------------------------------------------- crime and the police
+
+  /** Wanted level, 0-5 stars. */
+  get stars() {
+    return Math.min(5, Math.ceil(this.heat - 0.01));
+  }
+
   /**
-   * Police on foot (police on): they chase you over the rooftops and down on
-   * the street. Lose them with zip lines and wall-runs, or hide in a
-   * stairwell hut or under a water tower. Punch or tackle them to slow them.
+   * A crime (from here or onFootState): it raises your wanted level. More
+   * stars = more police on foot; three or more and the helicopter comes.
    */
-  _officers(dt) {
-    const s = this.state, p = s.player, hud = s.game.hud;
-    if (!this.officers) {
-      // They come out of the rooftop stairwells, and doorways on the streets
-      this.officers = new OfficerSquad(s.scene, s.world, rooftopCitySpawns(this.city), { count: 3, speed: 0.84 * diff().officerSpeed, streets: true });
-      this.officers.units.forEach((u, i) => { u.waitTimer = 6 + i * 3; });
-    }
-    if (!this.officersAnnounced && this.officers.units.some((u) => u.waitTimer <= 0)) {
-      this.officersAnnounced = true;
-      hud.toast('Police on foot!', 'They chase you over the roofs and down on the street. Lose them with zip lines and wall-runs, hide in a stairwell hut, or punch them.', 'var(--red)', 5);
-      audio.sfx('sting', { vol: 0.4 });
-    }
-    // (walking along with people: you're just another face in the crowd)
-    const hidden = inHideSpot(this.city, p.pos) || (p.horizontalSpeed < 4.6 && p.grounded && this.crowd.blendsIn(p.pos));
-    const lure = s.gadgets?.lure ? s.gadgets.lure.pos : null;
-    if (this.officers.update(dt, p, hidden || s.concealed, lure) === 'caught' && !admin.flag('god')) {
-      audio.sfx('caught');
-      s.respawnToSafety('Caught by the police! Back to safety.');
-      this.officers.scatter(p.pos);
+  onCrime(kind) {
+    const before = this.stars;
+    const add = { till: 1, officer: 1, assault: 0.5, pickpocket: 0.34 }[kind] ?? 0.5;
+    this.heat = Math.min(5, this.heat + add);
+    this.calm = 0;
+    if (kind === 'till' || kind === 'officer') this.officers?.alert(10);
+    if (this.stars > before) {
+      audio.sfx('sting', { vol: 0.35 });
+      this.state.game.hud.toast(`Wanted ${'★'.repeat(this.stars)}`, this.stars >= 3 ? 'The helicopter\'s coming. Lose them: get out of sight, hide in a stairwell, a shop or a crowd.' : 'The police are after you. Get out of sight and lay low to lose them.', '#ffd040', 3);
     }
   }
 
-  /** Frostvale is played in the streets: no "climb back up" help. */
-  get indoors() {
-    return !!this.city?.groundLevel;
+  _robTill(shop) {
+    const s = this.state, p = s.player;
+    shop.robbed = true;
+    shop.robbedAt = s.time;
+    s.setAction(null);
+    this.keepers.scare(shop, p.pos);
+    audio.sfx('alarm', { vol: 0.5 });
+    freeEarn(s.game, (30 + Math.floor(this.rng() * 31)) * (this.police ? 2 : 1), 'Till robbed!', 'The alarm\'s going: get out before the shutters come down!');
+    this.onCrime('till');
+    if (this.heli) { this.heli.lastSeen.copy(p.pos); this.heli.spot.set(p.pos.x + 12, 0, p.pos.z + 12); }
+  }
+
+  /**
+   * After a robbery: the shopkeeper calls the police (a few seconds later),
+   * and once you're out, the metal shutters roll down: that shop's closed.
+   */
+  _shutters(dt) {
+    const s = this.state, p = s.player.pos;
+    for (const sh of this.city.shops || []) {
+      if (!sh.robbed) continue;
+      if (!sh.called && s.time - sh.robbedAt > 4) {
+        sh.called = true;
+        this.heat = Math.min(5, this.heat + 0.5);
+        this.officers?.alert(12);
+        s.game.hud.toast('The shopkeeper called the police!', 'They know where you are for a while. Keep moving.', 'var(--red)', 2.5);
+      }
+      if (!sh.shutter && s.time - sh.robbedAt > 3 && !sh.inside(p.x, p.z) && Math.hypot(sh.door.x - p.x, sh.door.z - p.z) > 3) {
+        const f = sh.front, alongX = Math.abs(f.x1 - f.x0) > Math.abs(f.z1 - f.z0);
+        const geo = new THREE.BoxGeometry(alongX ? f.width + 0.1 : 0.08, 1, alongX ? 0.08 : f.width + 0.1);
+        geo.translate(0, -0.5, 0); // (hangs from its top edge)
+        const mesh = new THREE.Mesh(geo, shutterMaterial());
+        mesh.position.set((f.x0 + f.x1) / 2, f.top, (f.z0 + f.z1) / 2);
+        mesh.scale.y = 0.01;
+        this.city.group.add(mesh);
+        sh.shutter = { mesh, t: 0 };
+        audio.sfx('block', { vol: 0.5 });
+      }
+      if (sh.shutter && sh.shutter.t < 1) {
+        sh.shutter.t = Math.min(1, sh.shutter.t + dt / 1.6);
+        sh.shutter.mesh.scale.y = sh.shutter.t * sh.front.top;
+        if (sh.shutter.t >= 1) {
+          // Closed: a solid wall now
+          const f = sh.front;
+          this.city.world.addBox(Math.min(f.x0, f.x1) - 0.05, 0, Math.min(f.z0, f.z1) - 0.05, Math.max(f.x0, f.x1) + 0.05, f.top, Math.max(f.z0, f.z1) + 0.05, { tag: 'shutter' });
+        }
+      }
+    }
+  }
+
+  /**
+   * Police on foot (and the helicopter): with police on in the menu they're
+   * always out; otherwise only while you're wanted. They chase you over the
+   * rooftops and down on the street. Lose them: out of sight, a stairwell,
+   * behind a shop counter, in a crowd. Punch or tackle them to slow them.
+   */
+  _police(dt, inShop, behindCounter) {
+    const s = this.state, p = s.player, hud = s.game.hud, t = s.time;
+    const stars = this.stars;
+    // How many officers are out
+    const want = this.police ? Math.min(6, Math.max(3, stars + 2)) : stars ? Math.min(6, stars + 1) : 0;
+    this.officers.setActive(want);
+    if (want && !this.officersAnnounced && this.officers.units.some((u) => !u.inactive && u.waitTimer <= 0)) {
+      this.officersAnnounced = true;
+      hud.toast('Police on foot!', 'They chase you over the roofs and down on the street. Get out of their sight to lose them; one will wait at a stairwell door if you climb its ladder.', 'var(--red)', 5);
+      audio.sfx('sting', { vol: 0.4 });
+    }
+    // (walking along with people: you're just another face in the crowd)
+    const hidden = inHideSpot(this.city, p.pos) || behindCounter || (p.horizontalSpeed < 4.6 && p.grounded && this.crowd.blendsIn(p.pos));
+    const lure = s.gadgets?.lure ? s.gadgets.lure.pos : null;
+    if (want && this.officers.update(dt, p, hidden || s.concealed, lure) === 'caught' && !admin.flag('god')) this._caught('Caught by the police! Back to safety.');
+
+    // The helicopter (police on, or three stars and up)
+    const needHeli = this.police || stars >= 3;
+    if (needHeli && !this.heli && t > 3) {
+      const a = this.rng() * Math.PI * 2;
+      this.heli = new Helicopter(s.scene, s.world, { startPos: new THREE.Vector3(p.pos.x + Math.cos(a) * 60, 0, p.pos.z + Math.sin(a) * 60) });
+      hud.toast('Police helicopter!', 'Stay out of the spotlight. Hide in a stairwell, a shop, under a water tower or in a hut.', 'var(--red)', 4);
+    } else if (!needHeli && this.heli) {
+      this.heli.dispose();
+      this.heli = null;
+      this.spotted = 0;
+      hud.setMeter(0, '');
+    }
+    let lit = false;
+    if (this.heli) {
+      const params = { spotSpeed: 6.2 * diff().spot * (1 + Math.max(0, stars - 3) * 0.12), fill: 0.5 * diff().fill, lead: 0.2 };
+      this.heli.update(dt, s.policeTarget, params);
+      lit = this.heli.isPlayerLit(p.pos) && !s.concealed && !inShop && !inHideSpot(this.city, p.pos); // (it can't see into a shop or a stairwell)
+      this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.6), 0, 1);
+      hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : 'Spotted', lit ? 'var(--red)' : '#8a8f9c');
+      this.outOfLight = lit ? 0 : this.outOfLight + dt;
+      if (this.police && this.outOfLight > ESCAPE_TIME && this.heli.seesPlayer === false && this._lostOnce !== Math.floor(t / ESCAPE_TIME)) {
+        this._lostOnce = Math.floor(t / ESCAPE_TIME);
+        freeEarn(s.game, 20, 'Kept out of sight!', 'The helicopter can\'t find you.');
+        this.outOfLight = 0;
+      }
+      if (this.spotted >= 1 && admin.flag('god')) this.spotted = 0; // admin god mode
+      if (this.spotted >= 1) {
+        this._caught('Caught by the helicopter! Back to safety.');
+        const a = this.rng() * Math.PI * 2;
+        this.heli.spot.set(p.pos.x + Math.cos(a) * 45, 0, p.pos.z + Math.sin(a) * 45);
+        this.heli.lastSeen.copy(this.heli.spot);
+      }
+    }
+
+    // Out of sight for a while: the wanted level drops a star at a time
+    const seen = (want && this.officers.seesPlayer) || lit;
+    this.calm = seen ? 0 : this.calm + dt;
+    if (this.heat > 0 && this.calm > 14) {
+      this.calm = 0;
+      this.heat = Math.max(0, Math.ceil(this.heat - 0.01) - 1);
+      if (this.heat > 0) hud.toast(`Wanted ${'★'.repeat(this.stars)}`, 'They\'re losing track of you. Stay out of sight.', 'var(--safe)', 2);
+      else {
+        hud.toast('Lost them!', this.police ? 'Back to the usual patrols.' : 'The police have given up. You\'re free.', 'var(--safe)', 3);
+        audio.sfx('checkpoint', { vol: 0.5 });
+        if (!this.police) freeEarn(s.game, 15, 'Escaped!', '');
+      }
+    }
+  }
+
+  _caught(msg) {
+    const s = this.state;
+    audio.sfx('caught');
+    this.spotted = 0;
+    this.heat = 0;
+    this.calm = 0;
+    s.respawnToSafety(msg);
+    this.officers.scatter(s.player.pos);
   }
 
   /** When on the street, the "ladder" helper steps aside for the car marker. */
@@ -347,7 +452,28 @@ export class FreeRunMode {
     this.heli = null;
     this.officers?.dispose();
     this.officers = null;
+    this.map2?.dispose();
+    this.map2 = null;
     this.carBtn?.remove();
     this.carBtn = null;
   }
+}
+
+/** Corrugated metal for the shop shutters (grey with ridges). */
+let _shutterMat = null;
+function shutterMaterial() {
+  if (_shutterMat) return _shutterMat;
+  const c = document.createElement('canvas');
+  c.width = 16; c.height = 64;
+  const g = c.getContext('2d');
+  for (let y = 0; y < 64; y += 8) {
+    g.fillStyle = '#9aa0a8'; g.fillRect(0, y, 16, 5);
+    g.fillStyle = '#6a7078'; g.fillRect(0, y + 5, 16, 3);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(4, 6);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  _shutterMat = new THREE.MeshLambertMaterial({ map: tex });
+  return _shutterMat;
 }

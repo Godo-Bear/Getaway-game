@@ -10,6 +10,7 @@ import { diff } from '../../core/difficulty.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { Crowd } from '../../ai/crowd.js';
 import { DOWNTOWN_FOOT } from '../../world/maps.js';
+import { FootMap } from '../../ui/footMap.js';
 import { audio } from '../../core/audio.js';
 
 // Rooftop Run: endless helicopter survival.
@@ -36,7 +37,7 @@ const LEVELS = [
 export class RooftopRunMode {
   constructor(state) {
     this.state = state;
-    this.hudSections = ['tl', 'score', 'meter', 'controls', 'marker'];
+    this.hudSections = ['tl', 'score', 'map', 'meter', 'controls', 'marker'];
     this.helis = [];
   }
 
@@ -197,6 +198,12 @@ export class RooftopRunMode {
       }
       hud.setMarker(pk.pos.clone().setY(pk.pos.y + 1.5), s.camera, 'Cash', 'var(--safe)', d);
     }
+    // The minimap (M: the big map)
+    this.map2 ||= new FootMap(s, this.city);
+    this.map2.update([
+      ...this.helis.map((h) => ({ x: h.pos.x, z: h.pos.z, color: '#ff3346', size: 1.8 })),
+      ...(this.officers?.units || []).filter((u) => u.model.root.visible).map((u) => ({ x: u.pc.pos.x, z: u.pc.pos.z, color: '#ff3346' })),
+    ], pk.group.visible ? pk.pos : null);
 
     hud.setScore(this.score, `WANTED <span class="heat">${'★'.repeat(this.level)}${'☆'.repeat(MAX_LEVEL - this.level)}</span>`);
     hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span><span>Cash bags <b>${this.cashCollected}</b></span>` +
@@ -229,6 +236,8 @@ export class RooftopRunMode {
   }
 
   teardown() {
+    this.map2?.dispose();
+    this.map2 = null;
     this.crowd?.dispose();
     this.crowd = null;
     for (const h of this.helis) h.dispose();

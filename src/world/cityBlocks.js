@@ -254,6 +254,8 @@ export class CityDresser {
       keeper: { pos: new THREE.Vector3(kpX, 0.05, kpZ), facing: Math.atan2(nx, nz) },
       inside: (x, z) => x > cx0 && x < cx1 && z > cz0 && z < cz1,
       center: new THREE.Vector3((cx0 + cx1) / 2, 0, (cz0 + cz1) / 2),
+      // (the shop front, just outside the glass: where the shutter comes down)
+      front: (() => { const [ax, az] = P(0, -0.12), [bx, bz] = P(W, -0.12); return { x0: ax, z0: az, x1: bx, z1: bz, width: W, top: GLASS_TOP + 0.05 }; })(),
     };
     this.shops.push(shop);
     return shop;

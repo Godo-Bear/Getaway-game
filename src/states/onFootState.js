@@ -473,6 +473,7 @@ export class OnFootState extends PlayState {
         u.floored = true;
         u.model.knockDown({ upIn: 1.9 });
         hud.toast('Officer down!', 'Run: they\'ll be back up in a few seconds.', 'var(--amber)', 2.5);
+        m.onCrime?.('officer');
         return;
       }
     }
@@ -482,6 +483,7 @@ export class OnFootState extends PlayState {
         if (c.knock > 0 || !inFront(c.body.pos)) continue;
         hit();
         m.crowd.knockDown(c, fx, fz);
+        m.onCrime?.('assault');
         return;
       }
     }
@@ -555,7 +557,7 @@ export class OnFootState extends PlayState {
         }
       }
       if (m.crowd) {
-        for (const c of m.crowd.people) if (!(c.knock > 0) && ahead(c.body.pos)) { m.crowd.knockDown(c, fx, fz); audio.sfx('land', { vol: 0.8 }); }
+        for (const c of m.crowd.people) if (!(c.knock > 0) && ahead(c.body.pos)) { m.crowd.knockDown(c, fx, fz); audio.sfx('land', { vol: 0.8 }); m.onCrime?.('assault'); }
       }
       if (m.officers && m.officers !== m.guards && m.officers !== m.patrols) {
         for (const u of m.officers.units) {
@@ -565,6 +567,7 @@ export class OnFootState extends PlayState {
           u.model.knockDown({ upIn: 1.9 });
           audio.sfx('land', { vol: 1 });
           hud.toast('Slide tackle!', 'Officer down. Run!', 'var(--amber)', 2.5);
+          m.onCrime?.('officer');
         }
       }
     }
@@ -594,6 +597,7 @@ export class OnFootState extends PlayState {
     audio.sfx('cash', { vol: 0.5 });
     this.game.hud.toast(`Pickpocketed! +$${got}`, 'A wallet for the Shop. Don\'t let the police see you do it.', 'var(--safe)', 2.5);
     for (const sq of [m.patrols, m.guards].filter(Boolean)) if (sq.units.some((u) => u.seesPlayer)) sq.alarmAt(this.player.pos);
+    m.onCrime?.('pickpocket');
   }
 
   /** Modes show their action (Knock out, ...); with none, behind someone it's Pickpocket. */

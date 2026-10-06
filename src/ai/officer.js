@@ -41,6 +41,7 @@ export function inHideSpot(city, pos) {
   return (city.hideSpots || []).some((h) => Math.hypot(h.x - pos.x, h.z - pos.z) < 1.5 && Math.abs(h.y - pos.y) < 1);
 }
 const STEP = 1 / 60;
+const _from = new THREE.Vector3(), _dir = new THREE.Vector3();
 
 export class OfficerSquad {
   /**
@@ -67,11 +68,13 @@ export class OfficerSquad {
     }
     this.acc = 0;
     this.lastKnown = new THREE.Vector3();
+    this.tipT = 12; // (when they're called out, dispatch tells them where you are)
     this.searchTimer = 0;
   }
 
   /** Put every officer back at a spawn point (e.g. after the player respawns). */
   scatter(playerPos) {
+    this.tipT = 12;
     this.units.forEach((u, i) => { u.waitTimer = 2 + i * 1.5; this._spawn(u, playerPos); });
   }
 
@@ -98,10 +101,36 @@ export class OfficerSquad {
    */
   update(dt, player, hidden = false, lure = null) {
     let result = null;
+    // Who can see you? (a clear line of sight, not too far away). If anyone
+    // can, they radio it in: everyone knows where you are. If no one can,
+    // they head for where you were last seen, then search round there.
+    this._sightT = (this._sightT || 0) - dt;
+    if (this._sightT <= 0) {
+      this._sightT = 0.2;
+      for (const u of this.units) u.sees = !hidden && !(u.waitTimer > 0) && !u.inactive && !(u.stunned > 0) && this._canSee(u, player.pos);
+    }
+    const seen = this.units.some((u) => u.sees);
+    if (seen && !this.seesPlayer) this.spottedAt = performance.now();
+    this.seesPlayer = seen;
+    // (a tip-off - dispatch, an alarm - tells them where you are for a few seconds)
+    if (this.tipT > 0) this.tipT -= dt;
     if (lure) this.lastKnown.copy(lure);
-    else if (!hidden) this.lastKnown.copy(player.pos);
+    else if (seen || (this.tipT > 0 && !hidden)) { this.lastKnown.copy(player.pos); this.lostFor = 0; } else this.lostFor = (this.lostFor || 0) + dt;
     this.searchTimer -= dt;
+    // Climbing a ladder in a stairwell: the nearest officer waits at its door
+    const L = player.state === 'ladder' ? player.ladder : null;
+    const door = L ? new THREE.Vector3(L.x + L.nx * 2.2, L.y0, L.z + L.nz * 2.2) : null;
+    let guard = null;
+    if (door) {
+      let bd = Infinity;
+      for (const u of this.units) {
+        if (u.waitTimer > 0 || u.inactive) continue;
+        const d = Math.hypot(u.pc.pos.x - door.x, u.pc.pos.z - door.z);
+        if (d < bd) { bd = d; guard = u; }
+      }
+    }
     for (const u of this.units) {
+      if (u.inactive) continue;
       if (u.waitTimer > 0) {
         u.waitTimer -= dt;
         if (u.waitTimer <= 0) { this._spawn(u, player.pos); u.model.root.visible = true; }
@@ -123,7 +152,9 @@ export class OfficerSquad {
       let t = dt;
       while (t > 1e-4) {
         const h = Math.min(STEP, t);
-        this._think(u, lure || (hidden ? this._searchPoint(u) : player.pos), h);
+        // (just lost you: run to where you were seen; after that, search round there)
+        const target = lure || (u === guard ? door : seen || this.tipT > 0 ? player.pos : this.lostFor < 4 ? this.lastKnown : this._searchPoint(u));
+        this._think(u, target, h);
         u.pc.update(h, u.ctl);
         u.pc.events.length = 0;
         u.ctl.jumpPressed = false;
@@ -141,6 +172,35 @@ export class OfficerSquad {
       if ((p.y < 2 && !this.streets) || p.y < -3 || Math.hypot(dx, dz) > 90 || u.offLevel > 5) { u.waitTimer = 3; u.offLevel = 0; u.model.root.visible = false; }
     }
     return result;
+  }
+
+  /** An alarm or a 999 call: they know where you are for a while. */
+  alert(seconds = 10) {
+    this.tipT = Math.max(this.tipT, seconds);
+  }
+
+  /** A clear line from the officer's eyes to you, within 45 m? */
+  _canSee(u, pos) {
+    const e = u.pc.pos;
+    const dx = pos.x - e.x, dy = (pos.y + 1.2) - (e.y + 1.6), dz = pos.z - e.z;
+    const d = Math.hypot(dx, dy, dz);
+    if (d > 45) return false;
+    if (d < 2) return true;
+    _from.set(e.x, e.y + 1.6, e.z);
+    _dir.set(dx / d, dy / d, dz / d);
+    return this.world.raycast(_from, _dir, d - 0.4) >= d - 0.4;
+  }
+
+  /**
+   * How many officers are out (the rest wait, out of sight). More come out as
+   * the wanted level goes up.
+   */
+  setActive(n) {
+    this.units.forEach((u, i) => {
+      const on = i < n;
+      if (on && u.inactive) { u.inactive = false; u.waitTimer = 2 + i * 1.5; this.tipT = Math.max(this.tipT, 10); }
+      else if (!on && !u.inactive) { u.inactive = true; u.model.root.visible = false; u.sees = false; }
+    });
   }
 
   /** While you're hidden: run to where they last saw you, then poke around nearby. */

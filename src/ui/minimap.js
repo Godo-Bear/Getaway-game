@@ -27,7 +27,7 @@ export class Minimap {
     g.fillRect(0, 0, off.width, off.height);
     for (const s of city.minimapShapes) {
       if (s.type === 'bridge' || s.type === 'garage') continue;
-      g.fillStyle = s.type === 'park' ? '#1f4a2a' : '#12151d';
+      g.fillStyle = { park: '#1f4a2a', shop: '#4a3418', ladder: '#ffd040' }[s.type] || '#12151d';
       g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
     }
     for (const s of city.minimapShapes) {
@@ -46,7 +46,7 @@ export class Minimap {
       g.textBaseline = 'middle';
       g.fillText('P', (s.x0 + s.x1) / 2 - min, (s.z0 + s.z1) / 2 - min);
     }
-    for (const a of city.alleys) {
+    for (const a of city.alleys || []) {
       g.fillStyle = '#2c3038';
       g.fillRect(a.x0 - min, a.z0 - min, a.x1 - a.x0, a.z1 - a.z0);
     }
