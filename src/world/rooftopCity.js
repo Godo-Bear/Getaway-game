@@ -26,8 +26,9 @@ const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4
  *        blocks not listed are apartments. Leave it out for a random mix (Free Run, Rooftop Run).
  * @param {number} [o.parks] - share of park blocks in a random mix
  * @param {number} [o.shopBlocks] - share of shop blocks in a random mix
+ * @param {boolean} [o.lowRise] - an old town: lower apartments, no towers
  */
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32 } = {}) {
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false } = {}) {
   const kit = new RooftopKit({ seed });
   if (alpine) kit.noLadders = true;
   const rng = kit.rng;
@@ -68,7 +69,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
         // Small shops round the edge, a block of flats in the middle (climb its
         // fire escape from the shop roofs)
         const inner = dress.shopBlock(x0, z0, x0 + BLOCK, z0 + BLOCK);
-        const h = alpine ? Math.round(rng.range(8, 10.5) * 2) / 2 : Math.round(rng.range(16, 22) * 2) / 2;
+        const h = alpine ? Math.round(rng.range(8, 10.5) * 2) / 2 : lowRise ? Math.round(rng.range(10, 13) * 2) / 2 : Math.round(rng.range(16, 22) * 2) / 2;
         const b = alpine ? kit.building(inner.x0, inner.z0, inner.x1, inner.z1, h, { lips: false, tint: rng.pick(ALPINE_TINTS) })
           : kit.building(inner.x0, inner.z0, inner.x1, inner.z1, h);
         b.noLadder = true;
@@ -88,9 +89,9 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
             kit.building(lx0, lz0, lx1, lz1, Math.round(rng.range(7, 10.5) * 2) / 2, { lips: false, tint: rng.pick(ALPINE_TINTS) });
             continue;
           }
-          const tower = rng() < 0.09;
+          const tower = rng() < 0.09 && !lowRise;
           // Normal roofs stay within a 4.5 m band so routes are always climbable.
-          const h = tower ? rng.range(28, 36) : Math.round(rng.range(15, 19.5) * 2) / 2;
+          const h = tower ? rng.range(28, 36) : lowRise ? Math.round(rng.range(9.5, 13) * 2) / 2 : Math.round(rng.range(15, 19.5) * 2) / 2;
           const b = kit.building(lx0, lz0, lx1, lz1, h, { tower, lips: !tower });
           if (!tower) addRoofProps(kit, b);
           if (rng() < 0.12) kit.sign(b, rng.int(0, 3));

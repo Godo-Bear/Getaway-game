@@ -193,13 +193,22 @@ export function buildChapter8Town(opts = {}) {
   };
 }
 
+/** Frostvale's look (snowy roofs, chimneys, snow, forest, mountains) on any alpine rooftop city. */
+export function dressAlpineTown(city, blocks) {
+  buildAlpineTown(city, city.group, city.world, blocks);
+}
+
 // ----------------------------------------------------------------------
 //  A mountain town, not the city with snow on it: pitched snowy roofs and
 //  chimneys on every chalet, snow on the ground, drifts along the kerbs,
 //  a pine forest round the edge of town, mountains all round the valley,
 //  and the Glacier Bank's cable car climbing the big peak.
 // ----------------------------------------------------------------------
-function buildAlpineTown(city, g, w) {
+function buildAlpineTown(city, g, w, blocks = 4) {
+  // (any size of town: Free Run's Frostvale is bigger than the story's)
+  const BLOCKS = blocks;
+  const C = (i) => (i - (BLOCKS - 1) / 2) * PITCH;
+  const ST = (i) => C(i) + PITCH / 2;
   const SNOW = 0xd2dae6; // (a soft blue-grey white: pure white snow is blinding in daylight)
   const snowMat = new THREE.MeshLambertMaterial({ color: SNOW });
   const woodMat = new THREE.MeshLambertMaterial({ color: 0x4a3222 });

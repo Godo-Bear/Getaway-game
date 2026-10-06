@@ -10,7 +10,8 @@ import { audio } from '../../core/audio.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { Crowd, Shopkeepers } from '../../ai/crowd.js';
-import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
+import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
+import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 
 // Free Run, on foot: roam the rooftops. One half of a Free Run session
 // (the other half is FreeDriveMode, in the car).
@@ -35,20 +36,31 @@ export class FreeRunMode {
     this.state = state;
     this.fromCar = !!params.fromCar; // (just got out of the car: start next to it)
     this.police = freeSession(state.game).police;
+    this.map = freeMap(state.game);          // (which city: picked in the Free Run menu)
+    this.weather = this.map.snow ? 'snow' : undefined;
     this.hudSections = this.police ? ['tl', 'meter', 'controls', 'marker'] : ['tl', 'controls', 'marker'];
     this.heli = null;
   }
 
   build() {
-    const city = generateRooftopCity({ seed: 1234, blocks: 7 });
+    const city = generateRooftopCity(this.map.foot);
     this.city = city;
+    if (this.map.foot.alpine) {
+      // Frostvale: snowy pitched roofs, chimneys, the forest and the mountains.
+      // The chalets' roofs are steep, so it's played down in the streets.
+      dressAlpineTown(city, this.map.foot.blocks);
+      city.groundLevel = true;
+      const mid = city.walks.slice().sort((a, b) => Math.hypot(...a.a) - Math.hypot(...b.a))[0];
+      city.spawn = new THREE.Vector3(mid.a[0], 0.05, mid.a[1]);
+    }
     this.rng = makeRng(99);
     this._buildBags();
     this._buildCars();
     // People on every pavement and park path near you, and staff in the shops
     const n = { low: 8, medium: 14, high: 20 }[this.state.game.settings.graphics] ?? 14;
-    this.crowd = new Crowd(city.group, city.world, [], { pool: { lanes: city.walks, count: n }, seed: 21 });
-    this.keepers = new Shopkeepers(city.group, city.shops, { count: 3 });
+    const cold = !!this.map.snow; // (winter coats in Frostvale)
+    this.crowd = new Crowd(city.group, city.world, [], { pool: { lanes: city.walks, count: n }, seed: 21, cold });
+    this.keepers = new Shopkeepers(city.group, city.shops, { count: 3, cold });
     return city;
   }
 
@@ -72,6 +84,17 @@ export class FreeRunMode {
 
   _placeBag(b) {
     const p = this.state.player?.pos || this.city.spawn;
+    if (this.city.groundLevel) {
+      // (Frostvale: on the pavements and in the parks)
+      for (let i = 0; i < 20; i++) {
+        const w = this.city.walks[Math.floor(this.rng() * this.city.walks.length)], t = this.rng();
+        const x = w.a[0] + (w.b[0] - w.a[0]) * t, z = w.a[1] + (w.b[1] - w.a[1]) * t, d = Math.hypot(x - p.x, z - p.z);
+        if (d < 25 || d > 110 || this.bags.some((o) => o !== b && o.group.visible && Math.hypot(o.pos.x - x, o.pos.z - z) < 20)) continue;
+        b.pos.set(x, 0.05, z); b.group.position.copy(b.pos); b.group.visible = true; return;
+      }
+      b.group.visible = false;
+      return;
+    }
     const candidates = this.city.buildings.filter((bd) => {
       if (bd.tower) return false;
       const d = Math.hypot((bd.minX + bd.maxX) / 2 - p.x, (bd.minZ + bd.maxZ) / 2 - p.z);
@@ -128,8 +151,8 @@ export class FreeRunMode {
     this.heli?.dispose();
     this.heli = null;
     for (const b of this.bags) this._placeBag(b);
-    hud.setPhase(`Free Run${this.police ? ' · police on' : ''}`);
-    hud.setObjective('Explore the rooftops');
+    hud.setPhase(`Free Run · ${this.map.name}${this.police ? ' · police on' : ''}`);
+    hud.setObjective(this.city.groundLevel ? `Explore ${this.map.name}` : 'Explore the rooftops');
     this._carButton();
     if (this.fromCar && this.cars.length) {
       // Out of the car: on the street beside it, facing the way it's parked
@@ -304,6 +327,11 @@ export class FreeRunMode {
       s.respawnToSafety('Caught by the police! Back to safety.');
       this.officers.scatter(p.pos);
     }
+  }
+
+  /** Frostvale is played in the streets: no "climb back up" help. */
+  get indoors() {
+    return !!this.city?.groundLevel;
   }
 
   /** When on the street, the "ladder" helper steps aside for the car marker. */

@@ -4,14 +4,47 @@
 
 import { earn } from '../../gadgets/gadgets.js';
 import { audio } from '../../core/audio.js';
+import { save } from '../../core/save.js';
+
+/**
+ * The maps you can roam (each has a city on foot and one to drive). More
+ * open up as the story goes on (unlock = the chapter you need to reach).
+ */
+export const FREE_MAPS = {
+  downtown: {
+    name: 'Downtown', where: 'Harbor City', unlock: 1, icon: '🏙️',
+    sub: 'Tall apartments, shop blocks and parks. Where it all started.',
+    foot: { seed: 1234, blocks: 7 }, car: { seed: 777, blocks: 8 },
+  },
+  oldtown: {
+    name: 'Old Town', where: 'Harbor City', unlock: 4, icon: '🌳',
+    sub: 'Lower, greener streets: more parks, more little shops, easy roofs.',
+    foot: { seed: 4321, blocks: 7, parks: 0.3, shopBlocks: 0.4, lowRise: true }, car: { seed: 4242, blocks: 8, parkShare: 0.26 },
+  },
+  frostvale: {
+    name: 'Frostvale', where: 'the mountains', unlock: 8, icon: '🏔️', snow: true,
+    sub: 'The snowy ski town: chalet shops, snowy parks and pine trees.',
+    foot: { seed: 8181, blocks: 6, alpine: true, parks: 0.18, shopBlocks: 0.38 }, car: { seed: 1313, blocks: 8, alpine: true },
+  },
+};
+
+export function mapUnlocked(id) {
+  return (save.data.progress.chapterUnlocked || 1) >= (FREE_MAPS[id]?.unlock ?? 99);
+}
 
 export function freeSession(game) {
-  return (game.freeRoam ||= { police: false, cash: 0 });
+  return (game.freeRoam ||= { police: false, cash: 0, map: 'downtown' });
+}
+
+/** The map this Free Run session is on. */
+export function freeMap(game) {
+  const id = freeSession(game).map;
+  return { id, ...(FREE_MAPS[id] || FREE_MAPS.downtown) };
 }
 
 /** Start a Free Run session (from the title screen). */
-export function startFreeRoam(game, { police = false, inCar = false } = {}) {
-  game.freeRoam = { police, cash: 0 };
+export function startFreeRoam(game, { police = false, inCar = false, map = 'downtown' } = {}) {
+  game.freeRoam = { police, cash: 0, map: mapUnlocked(map) ? map : 'downtown' };
   game.sm.change(inCar ? 'driving' : 'onFoot', { mode: 'free' });
 }
 

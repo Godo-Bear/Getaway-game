@@ -132,8 +132,10 @@ function start(renderer) {
   const story = /^chapter(\d+)$/.exec(mode || '');
   if (story) startPart(game, mode, Number(params.get('part') || 0), { ghost: params.has('ghost'), fresh: true });
   else if (mode === 'rooftop') game.sm.change('onFoot', { mode: 'survival' });
-  else if (mode === 'free') game.sm.change('onFoot', { mode: 'free' });
-  else if (mode === 'freecar') game.sm.change('driving', { mode: 'free' });
+  else if (mode === 'free' || mode === 'freecar') { // [&map=oldtown|frostvale]
+    if (params.get('map')) game.freeRoam = { police: false, cash: 0, map: params.get('map') };
+    game.sm.change(mode === 'free' ? 'onFoot' : 'driving', { mode: 'free' });
+  }
   else if (mode === 'jobs') game.sm.change('driving', { mode: 'jobs' });
   else if (mode === 'speedrun') startSpeedrun(game, 'chapter1');
   else if (mode === 'chase') game.sm.change('driving', { mode: 'survival' });

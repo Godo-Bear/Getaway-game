@@ -63,8 +63,9 @@ const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 
  * @param {Object<string,string>} opts.forceKinds - e.g. { '4,4': 'park', '7,0': 'safehouse' }
  *        to force what goes on a block (story levels need fixed landmarks)
  * @param {boolean} [opts.alpine] - a snowy mountain town (see above)
+ * @param {number} [opts.parkShare] - share of the blocks that are parks
  */
-export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false } = {}) {
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, parkShare = 0.14 } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
@@ -147,7 +148,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   for (let i = 0; i < blocks; i++) {
     for (let j = 0; j < blocks; j++) {
       const r = rng();
-      blockKinds.push(r < 0.14 ? 'park' : r < 0.34 ? 'alley' : r < 0.56 ? 'garage' : 'buildings');
+      blockKinds.push(r < parkShare ? 'park' : r < 0.2 + parkShare ? 'alley' : r < 0.42 + parkShare ? 'garage' : 'buildings');
     }
   }
   // Guarantee plenty of garages to hide in (about one block in six or more)

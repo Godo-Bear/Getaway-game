@@ -1,6 +1,6 @@
 import { formatTime } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
-import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
+import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
 
 // Free Run, in the car: cruise the city. The other half of a Free Run
 // session (FreeRunMode is the rooftops).
@@ -20,10 +20,12 @@ export class FreeDriveMode {
     this.police = freeSession(state.game).police;
     this.hudSections = this.police ? ['tl', 'map', 'speedo', 'meter', 'controls', 'marker'] : ['tl', 'map', 'speedo', 'controls', 'marker'];
     this.heat = this.police ? 2 : 1;
+    this.map = freeMap(state.game);          // (which city: picked in the Free Run menu)
+    this.weather = this.map.snow ? 'snow' : undefined;
   }
 
   cityOptions() {
-    return { seed: 777, blocks: 8 };
+    return this.map.car;
   }
 
   get pursuitPaused() {
@@ -41,7 +43,7 @@ export class FreeDriveMode {
     this.driftT = 0;
     this._placeDrop();
     const hud = s.game.hud;
-    hud.setPhase(`Free Run · the streets${this.police ? ' · police on' : ''}`);
+    hud.setPhase(`Free Run · ${this.map.name} streets${this.police ? ' · police on' : ''}`);
     hud.setObjective('Cruise the city');
     hud.toast('Free Run: the streets', 'Drive through cash drops (green beam), drift and near-miss for more. Press T (or "Get out and walk") to go on foot.', 'var(--amber)', 6);
     this._walkButton();

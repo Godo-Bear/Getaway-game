@@ -15,6 +15,7 @@ import { cloud } from '../core/cloud.js';
 import { admin } from '../core/admin.js';
 import { showAdminPanel } from './adminPanel.js';
 import { diff, DIFFICULTY_LIST, setDifficulty } from '../core/difficulty.js';
+import { FREE_MAPS, mapUnlocked } from '../states/modes/freeRoam.js';
 import { neonLogoSvg } from './neonLogo.js';
 
 const overlay = document.getElementById('overlay');
@@ -222,28 +223,45 @@ export function showTitle(actions) {
   setTimeout(() => card.querySelector('.story-btn')?.focus({ preventScroll: true }), 30);
 }
 
-/** Free Run: pick where to start, and whether the police come too. */
+/** Free Run: pick the map, where to start, and whether the police come too. */
 function showFreeRunMenu(actions, back) {
   let police = false;
+  let map = mapUnlocked(save.data.settings.freeMap) ? save.data.settings.freeMap : 'downtown';
   const jobsOpen = (save.data.progress.chapterUnlocked || 1) >= 8; // (once the crew reaches Frostvale)
   const render = () => {
+    const maps = Object.entries(FREE_MAPS).map(([id, m]) => {
+      const open = mapUnlocked(id);
+      return `<button class="map-pick${map === id ? ' on' : ''}${open ? '' : ' locked'}" data-map="${id}" ${open ? '' : 'disabled'}>
+        <span class="map-icon">${open ? m.icon : '🔒'}</span><b>${m.name}</b><small>${open ? m.where : `Reach Chapter ${m.unlock}`}</small></button>`;
+    }).join('');
     showCard(`
       <p class="sub kicker">Free Run</p>
-      <h2>Rooftops and streets</h2>
-      <p class="sub">Roam the rooftops on foot, then walk up to your car on the street and drive the city. Park in a garage to head back up. Grab cash bags and cash drops for the Shop.</p>
+      <h2>Pick a map</h2>
+      <div class="map-picks">${maps}</div>
+      <p class="sub">${FREE_MAPS[map].sub} Walk the streets, climb the roofs, walk into the shops, then jump in your car and drive the city. More maps open up as the story goes on.</p>
       <div class="tabs" style="margin:6px 0 4px">
         <button class="tab${police ? '' : ' on'}" data-pol="0">No police</button>
         <button class="tab${police ? ' on' : ''}" data-pol="1">With police (double cash)</button>
       </div>`,
     [
-      { label: 'Start on the rooftops', primary: true, onClick: () => actions.freeRun({ police, inCar: false }) },
-      { label: 'Start in the car', onClick: () => actions.freeRun({ police, inCar: true }) },
+      { label: FREE_MAPS[map].foot.alpine ? 'Start in the streets' : 'Start on the rooftops', primary: true, onClick: () => actions.freeRun({ police, inCar: false, map }) },
+      { label: 'Start in the car', onClick: () => actions.freeRun({ police, inCar: true, map }) },
       jobsOpen ? { label: 'Frostvale side jobs', sub: 'Races, smash and grabs, deliveries: cash for gadgets and cars', onClick: () => actions.sideJobs() }
         : { label: 'Frostvale side jobs 🔒', sub: 'Opens when the crew reaches Frostvale (Chapter 8)', onClick: () => {} },
       { label: 'Back', onClick: back },
     ]);
     for (const el of card.querySelectorAll('[data-pol]')) {
       el.addEventListener('click', (e) => { e.stopPropagation(); police = el.dataset.pol === '1'; render(); });
+    }
+    for (const el of card.querySelectorAll('[data-map]')) {
+      el.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (!mapUnlocked(el.dataset.map)) return;
+        map = el.dataset.map;
+        save.data.settings.freeMap = map;
+        save.write();
+        render();
+      });
     }
   };
   render();
