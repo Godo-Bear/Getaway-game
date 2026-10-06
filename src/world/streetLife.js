@@ -5,6 +5,7 @@ import { makeCarMesh, CIVILIAN_COLORS } from '../vehicles/carModel.js';
 import { PlayerModel } from '../player/playerModel.js';
 import { randomPerson } from '../player/people.js';
 import { audio } from '../core/audio.js';
+import { buildTrees } from './cityBlocks.js';
 
 // Life on the streets of the driving city (built on the pavement edges that
 // generateStreetCity records):
@@ -13,6 +14,7 @@ import { audio } from '../core/audio.js';
 //    (across the pavement, or flat against the wall); cut it too fine and
 //    they dive out of the way and pick themselves up. Honk and they look.
 //  - Cars parked at the kerb, half up on the pavement. Shove them about.
+//  - Trees along the kerbs (their trunks are solid).
 //  - Street furniture: fire hydrants (knock one over and it sprays water),
 //    bins, newspaper boxes and benches that go flying when you hit them,
 //    and bus shelters with lit-up adverts.
@@ -118,6 +120,7 @@ export class StreetLife {
     this.parkSpots = [];
     this.walks = [];   // pavement stretches people walk along
     const props = [];  // [kind, x, z, rotY]
+    const trees = [];  // street trees [x, y, z, scale]
     const shelters = [];
     for (const k of city.kerbs) {
       const [ax, az] = k.a, [bx2, bz] = k.b;
@@ -158,7 +161,12 @@ export class StreetLife {
         if (!alpine && !onEl && r < 0.55 && !nearLamp(cx, cz, 3.4)) {
           const [px, pz] = at(t, PARK_IN);
           this.parkSpots.push({ x: px, z: pz, heading: Math.atan2(ux, uz) + (rng() < 0.5 ? 0 : Math.PI), car: null });
-        } else if (r < 0.85 && !nearLamp(cx, cz, 1.4)) {
+        } else if (r < 0.72 && !nearLamp(cx, cz, 3)) {
+          // A street tree in a little square of earth (bump into the trunk)
+          const [tx, tz] = at(t, alpine ? 1.5 : 0.95);
+          trees.push([tx, 0.15, tz, 0.8 + rng() * 0.25]);
+          city.world.addBox(tx - 0.22, 0, tz - 0.22, tx + 0.22, 3, tz + 0.22, { tag: 'tree' });
+        } else if (r < 0.9 && !nearLamp(cx, cz, 1.4)) {
           // Kerb side: a hydrant or a newspaper box. Wall side: a bin or a bench
           const kerbSide = rng() < 0.5;
           const kind = kerbSide ? (rng() < 0.6 ? 'hydrant' : 'newsbox') : (rng() < 0.55 ? 'bin' : 'bench');
@@ -166,6 +174,17 @@ export class StreetLife {
           const face = Math.atan2(ix, iz) + (kerbSide ? Math.PI : 0); // (benches face the road, newsboxes the pavement)
           props.push([kind, px, pz, kind === 'bench' ? Math.atan2(-ix, -iz) + Math.PI : face]);
         }
+      }
+    }
+
+    if (trees.length) {
+      this.group.add(buildTrees(trees, alpine));
+      // (the earth round the trunk)
+      if (!alpine) {
+        const pit = new THREE.PlaneGeometry(1.3, 1.3); pit.rotateX(-Math.PI / 2);
+        const pits = new THREE.InstancedMesh(pit, new THREE.MeshLambertMaterial({ color: 0x3a2a1c }), trees.length);
+        trees.forEach(([x, y, z], i) => pits.setMatrixAt(i, _m.makeTranslation(x, y + 0.01, z)));
+        this.group.add(pits);
       }
     }
 

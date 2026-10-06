@@ -25,7 +25,9 @@ const ST = (i) => C(i) + PITCH / 2;                // street centre (after block
 const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter5Recruit() {
-  const city = generateRooftopCity({ seed: 5150, blocks: BLOCKS, shopAvoid: [[C(2) - 2, C(2) + 21, 7]] }); // (Cafe Luna dresses itself)
+  // A park across from Cafe Luna and another to the east, rows of little
+  // shops on three blocks (the blocks the story uses stay as they were)
+  const city = generateRooftopCity({ seed: 5150, blocks: BLOCKS, kinds: { '2,3': 'park', '4,2': 'park', '1,1': 'shops', '3,3': 'shops', '0,2': 'shops', '1,3': 'shops' } });
   const w = city.world;
   const g = city.group;
   const lambert = (color) => new THREE.MeshLambertMaterial({ color });

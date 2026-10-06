@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Shopfronts, addShopsToBuildings } from './shopfronts.js';
 import { makeRng } from '../core/utils.js';
+import { CityDresser, SHOP_H } from './cityBlocks.js';
 import { RooftopKit, LIP } from './rooftopKit.js';
 
 // Procedural rooftop city for Free Run and Rooftop Run.
@@ -19,7 +20,14 @@ const PITCH = BLOCK + STREET;
 // pitched snowy roofs on top, see chapter8Town.js).
 const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4, 0x7a5236];
 
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shopAvoid = [] } = {}) {
+/**
+ * @param {object} o
+ * @param {Object<string,string>} [o.kinds] - what goes on each block ('bi,bj' -> 'apartments' | 'shops' | 'park');
+ *        blocks not listed are apartments. Leave it out for a random mix (Free Run, Rooftop Run).
+ * @param {number} [o.parks] - share of park blocks in a random mix
+ * @param {number} [o.shopBlocks] - share of shop blocks in a random mix
+ */
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32 } = {}) {
   const kit = new RooftopKit({ seed });
   if (alpine) kit.noLadders = true;
   const rng = kit.rng;
@@ -29,12 +37,49 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
 
   kit.street(-extent - 200, -extent - 200, extent + 200, extent + 200);
 
+  // What goes on each block: apartments, a ring of small shops, or a park.
+  // (Their own random numbers: the apartment blocks come out as before.)
+  const dress = new CityDresser(kit, { alpine, rng: makeRng(seed * 17 + 1) });
+  const kindRng = makeRng(seed * 7 + 3);
+  const mid = Math.floor(blocks / 2);
+  const kindOf = {};
+  for (let bi = 0; bi < blocks; bi++) {
+    for (let bj = 0; bj < blocks; bj++) {
+      const r = kindRng();
+      kindOf[`${bi},${bj}`] = kinds ? (kinds[`${bi},${bj}`] || 'apartments')
+        : bi === mid && bj === mid ? 'apartments' // (you start on a roof in the middle)
+          : r < parks ? 'park' : r < parks + shopBlocks ? 'shops' : 'apartments';
+    }
+  }
+
   // --- Blocks and buildings
   for (let bi = 0; bi < blocks; bi++) {
     for (let bj = 0; bj < blocks; bj++) {
       const cx = blockCenter(bi), cz = blockCenter(bj);
       const x0 = cx - BLOCK / 2, z0 = cz - BLOCK / 2;
       kit.sidewalk(x0 - 2.5, z0 - 2.5, x0 + BLOCK + 2.5, z0 + BLOCK + 2.5);
+      const kind = kindOf[`${bi},${bj}`];
+      dress.streetTrees(x0, z0, x0 + BLOCK, z0 + BLOCK);
+      for (let t = 4; t < BLOCK; t += 14) {
+        kit.lamps.push([x0 + t, z0 - 2], [x0 + t, z0 + BLOCK + 2], [x0 - 2, z0 + t], [x0 + BLOCK + 2, z0 + t]);
+      }
+      if (kind === 'park') { dress.park(x0, z0, x0 + BLOCK, z0 + BLOCK); continue; }
+      if (kind === 'shops') {
+        // Small shops round the edge, a block of flats in the middle (climb its
+        // fire escape from the shop roofs)
+        const inner = dress.shopBlock(x0, z0, x0 + BLOCK, z0 + BLOCK);
+        const h = alpine ? Math.round(rng.range(8, 10.5) * 2) / 2 : Math.round(rng.range(16, 22) * 2) / 2;
+        const b = alpine ? kit.building(inner.x0, inner.z0, inner.x1, inner.z1, h, { lips: false, tint: rng.pick(ALPINE_TINTS) })
+          : kit.building(inner.x0, inner.z0, inner.x1, inner.z1, h);
+        b.noLadder = true;
+        if (!alpine) {
+          addRoofProps(kit, b);
+          if (!dress.fireEscape(b, 0, -1, SHOP_H)) dress.fireEscape(b, 0, 1, SHOP_H);
+          dress.fireEscape(b, 1, 0, SHOP_H);
+        }
+        continue;
+      }
+      const first = kit.buildings.length;
       const xs = splitSpan(rng, x0, BLOCK, rng.int(2, 3));
       const zs = splitSpan(rng, z0, BLOCK, rng.int(2, 3));
       for (const [lx0, lx1] of xs) {
@@ -51,14 +96,20 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
           if (rng() < 0.12) kit.sign(b, rng.int(0, 3));
         }
       }
-      for (let t = 4; t < BLOCK; t += 14) {
-        kit.lamps.push([x0 + t, z0 - 2], [x0 + t, z0 + BLOCK + 2], [x0 - 2, z0 + t], [x0 + BLOCK + 2, z0 + t]);
+      // Fire escapes up some of the walls that face the street, and a few roof gardens
+      for (const b of kit.buildings.slice(first)) {
+        if (alpine || b.tower) continue;
+        if (dress.rng() < 0.4) {
+          const faces = [[0, -1, b.minZ <= z0 + 0.01], [0, 1, b.maxZ >= z0 + BLOCK - 0.01], [-1, 0, b.minX <= x0 + 0.01], [1, 0, b.maxX >= x0 + BLOCK - 0.01]].filter((f) => f[2]);
+          if (faces.length) { const [fx, fz] = faces[Math.floor(dress.rng() * faces.length)]; dress.fireEscape(b, fx, fz, 0); }
+        }
+        if (dress.rng() < 0.2) dress.roofGarden(b);
       }
     }
   }
 
   // --- Bridges across the streets
-  const findBuilding = (x, z) => kit.buildings.find((b) =>
+  const findBuilding = (x, z) => kit.buildings.find((b) => !b.shop &&
     x > b.minX + 0.8 && x < b.maxX - 0.8 && z > b.minZ + 0.8 && z < b.maxZ - 0.8);
 
   for (let bi = 0; bi < (alpine ? 0 : blocks); bi++) {
@@ -105,21 +156,27 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
 
   const group = kit.finish();
 
-  // Shop fronts (rooms behind the glass) along the streets, at ground level.
-  // Only faces on a block's edge (not the alleys), and not over a ladder or
-  // a place the level dresses itself (shopAvoid: [x, z, radius]).
-  const shops = new Shopfronts({ alpine });
-  const nearestBlock = (v) => Math.round((v + half) / PITCH) * PITCH - half;
-  const isOpen = (x, z) => Math.abs(x - nearestBlock(x)) > BLOCK / 2 || Math.abs(z - nearestBlock(z)) > BLOCK / 2;
-  const avoid = (x, z, r) => kit.ladders.some((l) => Math.abs(l.x - x) < r && Math.abs(l.z - z) < r)
-    || shopAvoid.some(([ax, az, ar]) => Math.hypot(ax - x, az - z) < ar + r);
-  addShopsToBuildings(shops, kit.buildings.filter((b) => b.h < 60).map((b) => ({ x0: b.minX, x1: b.maxX, z0: b.minZ, z1: b.maxZ })), isOpen,
-    { chance: alpine ? 0.6 : 0.7, avoid }, makeRng(seed * 31 + 7)); // (own random numbers: the rest of the city stays as it was)
-  group.add(shops.build());
+  // The shops, parks, trees and signs
+  group.add(dress.build());
+
+  // Frostvale: shop fronts (rooms behind the glass) on the street side of
+  // the chalets too, at ground level. Only faces on a block's edge (not the
+  // alleys), and not over a ladder or a place the level dresses itself
+  // (shopAvoid: [x, z, radius]).
+  if (alpine) {
+    const shops = new Shopfronts({ alpine });
+    const nearestBlock = (v) => Math.round((v + half) / PITCH) * PITCH - half;
+    const isOpen = (x, z) => Math.abs(x - nearestBlock(x)) > BLOCK / 2 || Math.abs(z - nearestBlock(z)) > BLOCK / 2;
+    const avoid = (x, z, r) => kit.ladders.some((l) => Math.abs(l.x - x) < r && Math.abs(l.z - z) < r)
+      || shopAvoid.some(([ax, az, ar]) => Math.hypot(ax - x, az - z) < ar + r);
+    addShopsToBuildings(shops, kit.buildings.filter((b) => !b.shop && b.h < 60).map((b) => ({ x0: b.minX, x1: b.maxX, z0: b.minZ, z1: b.maxZ })), isOpen,
+      { chance: 0.6, avoid }, makeRng(seed * 31 + 7)); // (own random numbers: the rest of the city stays as it was)
+    group.add(shops.build());
+  }
 
   // Spawn on a normal building near the middle.
   const spawnB = kit.buildings
-    .filter((b) => !b.tower)
+    .filter((b) => !b.tower && !b.shop)
     .sort((p, q) => Math.hypot((p.minX + p.maxX) / 2, (p.minZ + p.maxZ) / 2) -
                     Math.hypot((q.minX + q.maxX) / 2, (q.minZ + q.maxZ) / 2))[0];
   const spawn = findClearRoofSpot(kit.world, spawnB, rng) ||
@@ -127,7 +184,8 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shop
 
   // Street centre lines (for parking the Free Run car at street level)
   const blockCenters = Array.from({ length: blocks }, (_, i) => blockCenter(i));
-  return { group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH };
+  return { group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
+    shops: dress.shops, parks: dress.parks, walks: dress.walks, blockKinds: kindOf };
 }
 
 function splitSpan(rng, start, length, parts) {

@@ -27,7 +27,9 @@ const ST = (i) => C(i) + PITCH / 2;                // street centre (after block
 const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter8Town(opts = {}) {
-  const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS, alpine: true, shopAvoid: [[C(3), C(3) + 21, 4], [C(0), C(0) - 21, 5]] }); // (the cabin's door, the church)
+  // A snowy park and rows of little chalet shops on the blocks the story
+  // doesn't use (shopAvoid: the cabin's door and the church)
+  const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS, alpine: true, kinds: { '3,0': 'park', '0,2': 'park', '2,0': 'shops', '3,1': 'shops' }, shopAvoid: [[C(3), C(3) + 21, 4], [C(0), C(0) - 21, 5]] });
   const w = city.world;
   const g = city.group;
   const lambert = (color) => new THREE.MeshLambertMaterial({ color });

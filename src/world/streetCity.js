@@ -54,6 +54,7 @@ const LANDMARKS = {
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];
 const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4, 0x7a5236, 0xb8a080];
 const SNOW = 0xe8eef5;
+const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 0xb88a5a, 0x4a5a7a];
 
 /**
  * @param {object} opts
@@ -89,6 +90,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const minimapShapes = []; // for drawing the minimap: { type, x0, z0, x1, z1 }
   const kerbs = [];     // pavement edges (see addKerbs)
   const drng = makeRng(seed * 13 + 5); // (decoration: its own random numbers, so the layout never changes)
+  const shopRng = makeRng(seed * 5 + 11); // (which blocks get a row of shops, and what they look like)
+  const shops = new Shopfronts({ alpine });
   const tanks = [];     // water tanks on the roofs [x, y, z, scale]
   const beacons = [];   // red warning lights on the towers
 
@@ -211,7 +214,9 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
           batch.addBox({ x: mx - w / 2, y: 0.01, z: z0 }, { x: mx + w / 2, y: 0.02, z: z1 }, { side: null, top: 'asphalt', color: 0x777777, topScale: [6, 6] });
         }
       } else {
-        fillBuildings(ix0, iz0, ix1, iz1);
+        // Some blocks: a row of small shops round the edge, the tall buildings in the middle
+        if (!alpine && shopRng() < 0.4) shopRows(ix0, iz0, ix1, iz1);
+        else fillBuildings(ix0, iz0, ix1, iz1);
         addKerbs(x0, z0, x1, z1, {});
       }
     }
@@ -230,6 +235,34 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       { a: [x0, z0], b: [x0, z1], n: [-1, 0], keepClear: clear.west || [] },
       { a: [x1, z0], b: [x1, z1], n: [1, 0], keepClear: clear.east || [] },
     );
+  }
+
+  /**
+   * Harbor City: little one-storey shops (rooms behind the glass, awnings,
+   * a lit sign band) round the edge of a block, with the big buildings in
+   * the middle behind them.
+   */
+  function shopRows(x0, z0, x1, z1) {
+    const D = 10, H = 5.2;
+    const rows = [
+      [x0, x1, z0, [0, -1]], [x0, x1, z1, [0, 1]], [z0 + D, z1 - D, x0, [-1, 0]], [z0 + D, z1 - D, x1, [1, 0]],
+    ];
+    for (const [a0, a1, f, [nx, nz]] of rows) {
+      const count = Math.max(1, Math.round((a1 - a0) / (8 + shopRng() * 3)));
+      for (let k = 0; k < count; k++) {
+        const s0 = a0 + ((a1 - a0) * k) / count, s1 = a0 + ((a1 - a0) * (k + 1)) / count;
+        const r = nz ? (nz < 0 ? [s0, f, s1, f + D] : [s0, f - D, s1, f]) : (nx < 0 ? [f, s0, f + D, s1] : [f - D, s0, f, s1]);
+        const h = H + shopRng() * 0.8;
+        world.addBox(r[0], 0, r[1], r[2], h, r[3], { tag: 'building' });
+        batch.addBox({ x: r[0], y: 0, z: r[1] }, { x: r[2], y: h, z: r[3] }, { side: 'plain', top: 'roof', color: SHOP_TINTS[Math.floor(shopRng() * SHOP_TINTS.length)], topScale: [6, 6] });
+        // a parapet along the front
+        const fx = nx ? f : (s0 + s1) / 2, fz = nz ? f : (s0 + s1) / 2;
+        batch.addBlock(fx, h, fz, nx ? 0.3 : s1 - s0, 0.6, nz ? 0.3 : s1 - s0, { side: 'concrete', top: 'concrete', color: 0xb8b2a6 });
+        shops.add({ x: fx, z: fz, nx, nz, width: s1 - s0 - 1.2, seed: shopRng(), awning: shopRng() < 0.7 });
+        minimapShapes.push({ type: 'building', x0: r[0], z0: r[1], x1: r[2], z1: r[3] });
+      }
+    }
+    fillBuildings(x0 + D + 1.5, z0 + D + 1.5, x1 - D - 1.5, z1 - D - 1.5);
   }
 
   function fillBuildings(x0, z0, x1, z1) {
@@ -490,11 +523,12 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   for (const [x, z] of lamps) lampSpots.push([x, z], [z, -x]);
 
   // --- Shop fronts with rooms behind the glass, on the street faces ----------
-  const shops = new Shopfronts({ alpine });
   const _q = [];
   const isOpen = (x, z) => !world.query(x - 0.1, 0.5, z - 0.1, x + 0.1, 1.5, z + 0.1, _q).length
     && !garages.some((g) => x > g.x0 - 1 && x < g.x1 + 1 && z > g.z0 - 1 && z < g.z1 + 1);
-  addShopsToBuildings(shops, buildingsList, isOpen, { chance: alpine ? 0.55 : 0.65 }, makeRng(seed * 31 + 7)); // (own random numbers)
+  // (Frostvale's chalets are small: they get shop fronts at street level. In
+  // Harbor City the shops are their own little buildings: see shopRows.)
+  if (alpine) addShopsToBuildings(shops, buildingsList, isOpen, { chance: 0.55 }, makeRng(seed * 31 + 7)); // (own random numbers)
   group.add(shops.build());
   // Frostvale: wooden balconies over the street
   if (alpine) {

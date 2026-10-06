@@ -15,6 +15,8 @@ import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './f
 // (the other half is FreeDriveMode, in the car).
 //
 //  - Cash bags on the roofs (green beams) earn cash for the Shop
+//  - Walk into the little shops at street level and rob the tills
+//    (police on: the alarm brings them running)
 //  - Your car is parked down on the street (blue beams): walk up to it to
 //    drive the city. Park in a garage there to come back up here.
 //  - Police (optional, pause menu): one helicopter. Caught = back to safety
@@ -35,7 +37,7 @@ export class FreeRunMode {
   }
 
   build() {
-    const city = generateRooftopCity({ seed: 1234, blocks: 6 });
+    const city = generateRooftopCity({ seed: 1234, blocks: 7 });
     this.city = city;
     this.rng = makeRng(99);
     this._buildBags();
@@ -193,6 +195,29 @@ export class FreeRunMode {
       return;
     }
 
+    // Shops: walk in through the door; rob the till (once a shop)
+    const inShop = p.pos.y < 2 ? this.city.shops?.find((sh) => sh.inside(p.pos.x, p.pos.z)) : null;
+    if (inShop !== this.inShop) {
+      this.inShop = inShop;
+      if (inShop && !inShop.visited) {
+        inShop.visited = true;
+        hud.toast(inShop.name, inShop.robbed ? 'Already cleaned out.' : 'Walk round the counter to the till to rob it.', 'var(--amber)', 2.5);
+      }
+    }
+    const atTill = inShop && !inShop.robbed && Math.hypot(inShop.till.x - p.pos.x, inShop.till.z - p.pos.z) < 1.6 ? inShop : null;
+    s.setAction(atTill ? 'Rob the till' : null);
+    if (atTill && s.game.input.wasPressed('interact')) {
+      atTill.robbed = true;
+      s.setAction(null);
+      audio.sfx('alarm', { vol: 0.5 });
+      freeEarn(s.game, (30 + Math.floor(this.rng() * 31)) * (this.police ? 2 : 1), 'Till robbed!', this.police ? 'The alarm\'s going: the police know where you are. Run!' : 'Cash for the Shop.');
+      if (this.police) {
+        // The alarm brings the police: the helicopter heads straight here, officers come running
+        if (this.heli) { this.heli.lastSeen.copy(p.pos); this.heli.spot.set(p.pos.x + 12, 0, p.pos.z + 12); }
+        for (const u of this.officers?.units || []) u.waitTimer = Math.min(u.waitTimer, 0.5);
+      }
+    }
+
     // Police helicopter (optional)
     if (this.police) {
       if (!this.heli && t > 3) {
@@ -204,7 +229,7 @@ export class FreeRunMode {
       if (this.heli) {
         const params = { spotSpeed: 6.2 * diff().spot, fill: 0.5 * diff().fill, lead: 0.2 };
         this.heli.update(dt, s.policeTarget, params);
-        const lit = this.heli.isPlayerLit(p.pos) && !s.concealed;
+        const lit = this.heli.isPlayerLit(p.pos) && !s.concealed && !inShop; // (it can't see into a shop)
         this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.6), 0, 1);
         hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : 'Spotted', lit ? 'var(--red)' : '#8a8f9c');
         this.outOfLight = lit ? 0 : this.outOfLight + dt;

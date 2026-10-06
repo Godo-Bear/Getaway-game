@@ -42,7 +42,7 @@ export class RooftopRunMode {
     // A new city layout every run.
     this.seed = (Math.random() * 1e9) | 0;
     this.rng = makeRng(this.seed ^ 0x5bd1);
-    const city = generateRooftopCity({ seed: this.seed, blocks: 6 });
+    const city = generateRooftopCity({ seed: this.seed, blocks: 7 });
     this.city = city;
     this._buildPickup();
     return city;
