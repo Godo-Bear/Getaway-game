@@ -15,10 +15,14 @@ const DROP_CASH = 40;
 const PARK_SPEED = 5; // m/s: slow down inside a garage and you park straight away
 
 export class FreeDriveMode {
-  constructor(state) {
+  constructor(state, params = {}) {
     this.state = state;
     this.police = freeSession(state.game).police;
-    this.hudSections = this.police ? ['tl', 'map', 'speedo', 'meter', 'controls', 'marker'] : ['tl', 'map', 'speedo', 'controls', 'marker'];
+    // A car you stole on foot: the owner called it in, so the police are
+    // looking for it until you lose them (even with police off)
+    this.stolen = params.stolen || null;
+    this.hot = !!this.stolen;
+    this.hudSections = this.police || this.hot ? ['tl', 'map', 'speedo', 'meter', 'controls', 'marker'] : ['tl', 'map', 'speedo', 'controls', 'marker'];
     this.heat = this.police ? 2 : 1;
     this.map = freeMap(state.game);          // (which city: picked in the Free Run menu)
     applyFreeSky(this, state.game, this.map); // (the time and weather you picked; the clock keeps going)
@@ -29,11 +33,11 @@ export class FreeDriveMode {
   }
 
   get pursuitPaused() {
-    return !this.police;
+    return !this.police && !this.hot;
   }
 
   copCount() {
-    return this.police ? 2 : 0;
+    return this.police || this.hot ? 2 : 0;
   }
 
   start() {
@@ -45,7 +49,8 @@ export class FreeDriveMode {
     const hud = s.game.hud;
     hud.setPhase(`Free Run · ${this.map.name} streets${this.police ? ' · police on' : ''}`);
     hud.setObjective('Cruise the city');
-    hud.toast('Free Run: the streets', 'Drive through cash drops (green beam), drift and near-miss for more. Press T (or "Get out and walk") to go on foot.', 'var(--amber)', 6);
+    if (this.stolen) hud.toast('Stolen car!', 'The owner called it in: the police are looking for this car. Lose them, or ditch it (T).', 'var(--red)', 5);
+    else hud.toast('Free Run: the streets', 'Drive through cash drops (green beam), drift and near-miss for more. Press T (or "Get out and walk") to go on foot.', 'var(--amber)', 6);
     this._walkButton();
   }
 
@@ -87,6 +92,7 @@ export class FreeDriveMode {
 
   onEvade() {
     audio.sfx('checkpoint');
+    if (this.hot) { this.hot = false; freeEarn(this.state.game, 80, 'Got away with it!', 'Nobody\'s looking for this car now.'); return; }
     freeEarn(this.state.game, 60, 'Cops lost!', 'They\'re searching the area.');
   }
 
@@ -99,6 +105,7 @@ export class FreeDriveMode {
     s.police.clear();
     s.police.searching = false;
     s.police.everSeen = false;
+    this.hot = false;
     s.game.hud.toast('Busted!', 'They let you off with a warning... this time. Back on the road.', 'var(--red)', 3);
   }
 
@@ -143,6 +150,7 @@ export class FreeDriveMode {
     if (!s.inGarage) this._garageTip = false;
 
     hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
-      (this.police && s.police.searching ? '<span><b>SEARCHING</b></span>' : ''));
+      (this.hot ? '<span><b style="color:var(--red)">STOLEN CAR</b></span>' : '') +
+      ((this.police || this.hot) && s.police.searching ? '<span><b>SEARCHING</b></span>' : ''));
   }
 }

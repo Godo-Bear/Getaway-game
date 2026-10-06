@@ -301,7 +301,7 @@ export class OnFootState extends PlayState {
     const m = this.mode;
     this.game.touch?.setCoin(!!(m.guards || m.patrols || m.mailGuard) && !m.inputLocked, this.coins.ready);
 
-    this.model.update(frozen ? 0 : dt, p);
+    this.model.update(frozen ? 0 : dt, this.mode.poseFor?.(p) ?? p); // (a mode can change the pose, e.g. riding a bike)
     this._updatePuffs(frozen ? 0 : dt);
     // On snow, every footstep crunches (one step per half stride)
     if (audio.surface === 'snow') {

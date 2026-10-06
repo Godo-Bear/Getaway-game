@@ -13,7 +13,9 @@ import { Crowd, Shopkeepers } from '../../ai/crowd.js';
 import { FootMap } from '../../ui/footMap.js';
 import { CrewTags } from '../../world/crewTags.js';
 import { addStat, maxStat } from '../../core/stats.js';
+import { save } from '../../core/save.js';
 import { FreeJobs, Challenges, openCounter } from './freeActivities.js';
+import { ParkedCars, BikeDocks, CrewFollower, Safehouse, CREW } from './freeGetAround.js';
 import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons, applyFreeSky, busyness, isRushHour } from './freeRoam.js';
 import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 
@@ -27,6 +29,9 @@ import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 //    (police on: the alarm brings them running)
 //  - Your car is parked down on the street (blue beams): walk up to it to
 //    drive the city. Park in a garage there to come back up here.
+//  - Getting around (freeGetAround.js): steal parked cars, ride bikes and
+//    e-scooters from the docks, bring a crew member along, and the safehouse
+//    (lay low and save, garage, wardrobe, gadgets, start here)
 //  - Police (optional, pause menu): one helicopter. Caught = back to safety
 //    and a few dollars lighter; it never ends the run.
 
@@ -75,6 +80,10 @@ export class FreeRunMode {
     this.jobs = new FreeJobs(this);
     this.challenges = new Challenges(this);
     this.buffs = { speed: 0 };
+    // Getting around: parked cars to steal, bike docks, the safehouse
+    this.parked = new ParkedCars(this);
+    this.docks = new BikeDocks(this);
+    this.safehouse = new Safehouse(this);
     this.heat = 0;
     this.calm = 0;
     return city;
@@ -173,6 +182,7 @@ export class FreeRunMode {
     hud.setPhase(`Free Run · ${this.map.name}${this.police ? ' · police on' : ''}`);
     hud.setObjective(this.city.groundLevel ? `Explore ${this.map.name}` : 'Explore the rooftops');
     this._carButton();
+    this.setCrew(freeSession(s.game).crew || null, { quiet: true });
     if (this.fromCar && this.cars.length) {
       // Out of the car: on the street beside it, facing the way it's parked
       this.fromCar = false;
@@ -181,6 +191,12 @@ export class FreeRunMode {
       s.placePlayer(new THREE.Vector3(c.pos.x + Math.cos(h) * 2.4, c.pos.y, c.pos.z - Math.sin(h) * 2.4), h - Math.PI);
       hud.toast('On foot', 'Climb the yellow ladders to the rooftops and grab the cash bags. Press T (or "Get in a car") to drive again.', 'var(--amber)', 5);
       return;
+    }
+    if (save.data.freeStart?.[this.map.id]) {
+      // (Start here: at the safehouse door)
+      const sp = this.safehouse.startPos;
+      s.placePlayer(sp, Math.atan2(this.safehouse.out.x, this.safehouse.out.z));
+      this.follower?.pc.teleport(sp.x - 1.5, sp.y + 0.05, sp.z - 1.5, 0);
     }
     hud.toast('Free Run', 'Grab the cash bags (green beams). Want to drive? Press "Get in a car" (T): no need to find it.', 'var(--amber)', 6);
   }
@@ -199,7 +215,26 @@ export class FreeRunMode {
   }
 
   pauseButtons() {
-    return freeRoamPauseButtons(this.state, 'foot');
+    const crew = freeSession(this.state.game).crew || null;
+    const next = { null: 'mags', mags: 'theo', theo: 'ricky', ricky: null }[crew];
+    return [...freeRoamPauseButtons(this.state, 'foot'),
+      { label: `Crew: ${crew ? CREW[crew] : 'nobody'}`, sub: next ? `Bring ${CREW[next]} along instead` : 'Go alone', onClick: () => { this.setCrew(next); this.state.resume(); } }];
+  }
+
+  /** Bring a crew member along (or nobody): they follow you everywhere. */
+  setCrew(who, { quiet = false } = {}) {
+    freeSession(this.state.game).crew = who;
+    this.follower?.dispose();
+    this.follower = who ? new CrewFollower(this, who) : null;
+    if (who && !quiet) this.state.game.hud.toast(`${CREW[who]} is with you`, 'Your crew follows you everywhere and knocks down police who get too close.', 'var(--cyan)', 3);
+  }
+
+  /** Riding a bike: your legs stay still (the bike does the work). */
+  poseFor(p) {
+    if (!this.docks?.ride || p.state !== 'ground') return p;
+    const pose = Object.create(p);
+    Object.defineProperty(pose, 'horizontalSpeed', { value: 0 });
+    return pose;
   }
 
   audioMix() {
@@ -273,15 +308,32 @@ export class FreeRunMode {
       }
     }
     const atTill = inShop && !inShop.robbed && Math.hypot(inShop.till.x - p.pos.x, inShop.till.z - p.pos.z) < 1.6 ? inShop : null;
-    const contact = this.jobs.nearContact(p);
-    s.setAction(atTill ? 'Shop counter' : contact ? 'Take a job' : null);
+    const contact = atTill ? null : this.jobs.nearContact(p);
+    const dock = atTill || contact ? null : this.docks.nearDock(p);
+    const riding = !!this.docks.ride;
+    const steal = atTill || contact || dock || riding ? null : this.parked.update(dt, p);
+    if (atTill || contact || dock || riding) this.parked.update(dt, { pos: { x: p.pos.x, y: 99, z: p.pos.z } }); // (keep the cars near you)
+    const home = !atTill && !contact && !dock && !steal && this.safehouse.near(p);
+    s.setAction(atTill ? 'Shop counter' : contact ? 'Take a job' : riding ? 'Get off' : dock ? (dock.scooter ? 'Ride an e-scooter' : 'Ride a bike')
+      : steal ? 'Steal car' : home ? 'Safehouse' : null);
     if (s.game.input.wasPressed('interact')) {
       if (atTill) { openCounter(this, atTill); return; } // (buy something, or rob it)
       if (contact) this.jobs.start(contact);
+      else if (riding || dock) this.docks.toggle(dock);
+      else if (steal) {
+        // Break in and drive off: the owner calls it in
+        this.onCrime('theft');
+        addStat(s.game, 'carsStolen');
+        audio.sfx('glass', { vol: 0.5 });
+        switchFreeRoam(s, 'car', { stolen: this.parked.steal(steal) });
+        return;
+      } else if (home) { this.safehouse.open(); return; }
     }
-    // What you bought: running faster for a while
+    this.docks.update(dt, p);
+    this.follower?.update(dt);
+    // What you bought (running faster for a while), or riding
     if (this.buffs.speed > 0) this.buffs.speed -= dt;
-    p.speedScale = this.buffs.speed > 0 ? 1.15 : 1;
+    p.speedScale = Math.max(this.buffs.speed > 0 ? 1.15 : 1, this.docks.speed);
     // Jobs and challenges (they point the marker while they're on)
     const job = this.jobs.update(dt);
     const race = this.challenges.update(dt);
@@ -309,6 +361,9 @@ export class FreeRunMode {
       ...(this.heli ? [{ x: this.heli.pos.x, z: this.heli.pos.z, color: '#ff3346', size: 1.8 }] : []),
     ];
     for (const c of this.jobs.contacts) if (!this.jobs.job) dots.push({ x: c.pos.x, z: c.pos.z, color: '#ffb020', size: 1.3 });
+    for (const d of this.docks.docks) dots.push({ x: d.pos.x, z: d.pos.z, color: d.scooter ? '#7dff8a' : '#39a8ff', size: 0.8 });
+    dots.push({ x: this.safehouse.door.x, z: this.safehouse.door.z, color: '#4dffa6', size: 1.6 });
+    if (this.follower) dots.push({ x: this.follower.pc.pos.x, z: this.follower.pc.pos.z, color: '#39e6ff', size: 1 });
     for (const c of this.challenges.courses) if (!this.challenges.run) dots.push({ x: c.pts[0].x, z: c.pts[0].z, color: '#39e6ff', size: 1.2 });
     if (this.tagScan) for (const tg of this.tags.tags) if (!tg.found) dots.push({ x: tg.pos.x, z: tg.pos.z, color: '#ffd040', size: 0.8 });
     const goal = job?.pos || race?.pos || null;
@@ -342,7 +397,7 @@ export class FreeRunMode {
    */
   onCrime(kind) {
     const before = this.stars;
-    const add = { till: 1, officer: 1, assault: 0.5, pickpocket: 0.34 }[kind] ?? 0.5;
+    const add = { till: 1, officer: 1, assault: 0.5, pickpocket: 0.34, theft: 0.5 }[kind] ?? 0.5;
     this.heat = Math.min(5, this.heat + add);
     this.calm = 0;
     if (kind === 'till' || kind === 'officer') this.officers?.alert(10);
@@ -527,6 +582,10 @@ export class FreeRunMode {
     this.tags?.dispose();
     this.jobs?.dispose();
     this.challenges?.dispose();
+    this.parked?.dispose();
+    this.docks?.dispose();
+    this.follower?.dispose();
+    this.follower = null;
     if (this.state.player) this.state.player.speedScale = 1;
     this.carBtn?.remove();
     this.carBtn = null;

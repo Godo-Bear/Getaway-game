@@ -97,7 +97,7 @@ export class DrivingState extends PlayState {
     // Player car + a real headlight (the only moving real light)
     this.playerMesh = this._makePlayerMesh();
     this.scene.add(this.playerMesh);
-    this.player = new Car(this.mode.vehicle === 'snowmobile' ? CAR_SPECS.snowmobile : playerCarSpecs(CAR_SPECS.player), this.playerMesh); // (your car's own handling)
+    this.player = new Car(this.mode.stolen ? stolenSpecs() : this.mode.vehicle === 'snowmobile' ? CAR_SPECS.snowmobile : playerCarSpecs(CAR_SPECS.player), this.playerMesh); // (your car's own handling)
     this.player.active = true;
     this.player.isPlayer = true;
     const head = new THREE.SpotLight(0xfff0d0, 120, 60, 0.55, 0.6, 1.2);
@@ -386,6 +386,7 @@ export class DrivingState extends PlayState {
 
   /** Your car (or, in Frostvale, a snowmobile with you riding it). */
   _makePlayerMesh() {
+    if (this.mode.stolen) return makeCarMesh({ kind: this.mode.stolen.kind, color: this.mode.stolen.color }); // (Free Run: a car you stole)
     const color = playerCarColour(), style = playerCarStyle();
     return this.mode.vehicle === 'snowmobile'
       ? makeSnowmobileMesh({ color, style, look: currentLook(this.game.settings) })
@@ -404,7 +405,7 @@ export class DrivingState extends PlayState {
     this.scene.add(mesh);
     this.playerMesh = mesh;
     this.player.mesh = mesh;
-    if (this.mode.vehicle !== 'snowmobile') this.player.spec = playerCarSpecs(CAR_SPECS.player); // (a different car drives differently)
+    if (this.mode.vehicle !== 'snowmobile' && !this.mode.stolen) this.player.spec = playerCarSpecs(CAR_SPECS.player); // (a different car drives differently)
   }
 
   /** Crashes: a bang (and a message for big ones), but no damage: the car has no health. */
@@ -456,7 +457,7 @@ export class DrivingState extends PlayState {
     this.mode.syncMeshes?.();
     this.city.trafficLights.update(frozen ? 0 : dt);
     this.city.train.update(frozen ? 0 : dt);
-    this.playerMesh.userData.flames.visible = p.boosting;
+    if (this.playerMesh.userData.flames) this.playerMesh.userData.flames.visible = p.boosting;
     updateUnderglow(this.playerMesh, this.time, p.airborne);
     this.playerMesh.userData.tailMat.color.setHex(p.controls.throttle < 0 ? 0xff2030 : 0x881018);
     this.beacon.ring.rotation.z += dt;
@@ -762,4 +763,9 @@ export class DrivingState extends PlayState {
     this.scene = null;
     this.game.hud.hideAll();
   }
+}
+
+/** A stolen car: an ordinary car, a bit slower than yours. */
+function stolenSpecs() {
+  return { ...CAR_SPECS.player, maxSpeed: CAR_SPECS.player.maxSpeed * 0.85, accel: CAR_SPECS.player.accel * 0.85 };
 }

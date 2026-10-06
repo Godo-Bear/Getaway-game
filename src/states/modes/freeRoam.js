@@ -82,8 +82,9 @@ export function startFreeRoam(game, { police = false, inCar = false, map = 'down
 /**
  * Swap between walking and the car ('foot' | 'car'), with a quick fade.
  * Getting out of the car puts you on the street next to your parked car.
+ * extra: more for the new mode (e.g. { stolen } for a car you stole).
  */
-export function switchFreeRoam(state, to) {
+export function switchFreeRoam(state, to, extra = {}) {
   const game = state.game;
   if (state._switching) return;
   state._switching = true;
@@ -92,7 +93,7 @@ export function switchFreeRoam(state, to) {
   audio.sfx(to === 'car' ? 'door' : 'whoosh', { vol: 0.7 });
   setTimeout(() => {
     state._switching = false; // (the same state object is used again next time: let it switch again)
-    game.sm.change(to === 'car' ? 'driving' : 'onFoot', { mode: 'free', arrived: true, fromCar: to === 'foot' });
+    game.sm.change(to === 'car' ? 'driving' : 'onFoot', { mode: 'free', arrived: true, fromCar: to === 'foot', ...extra });
     setTimeout(() => game.hud.setFade(false), 150);
   }, 220);
 }

@@ -22,6 +22,8 @@ export const ACHIEVEMENTS = [
   { id: 'jobs20', name: 'The Fixer', desc: 'Finish 20 Free Run jobs', stat: 'missions', goal: 20, pay: 1000 },
   { id: 'runs3', name: 'Free Runner', desc: 'Finish 3 parkour challenges', stat: 'challenges', goal: 3, pay: 300 },
   { id: 'record', name: 'Record Breaker', desc: 'Beat your own best time on a challenge', stat: 'records', goal: 1, pay: 250 },
+  { id: 'steal5', name: 'Joyrider', desc: 'Steal 5 parked cars', stat: 'carsStolen', goal: 5, pay: 250 },
+  { id: 'bike2', name: 'Pedal Power', desc: 'Ride 2 km on bikes and scooters', stat: 'bikeM', goal: 2000, pay: 200 },
   { id: 'shop5', name: 'Big Spender', desc: 'Buy 5 things in the shops', stat: 'buys', goal: 5, pay: 150 },
 ];
 
@@ -37,6 +39,8 @@ export const STAT_NAMES = {
   missions: ['Jobs done', String],
   challenges: ['Challenges finished', String],
   buys: ['Things bought', String],
+  carsStolen: ['Cars stolen', String],
+  bikeM: ['On bikes', (v) => `${(v / 1000).toFixed(1)} km`],
 };
 
 const stats = () => (save.data.stats ||= {});
