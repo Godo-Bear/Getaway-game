@@ -25,7 +25,7 @@ const ST = (i) => C(i) + PITCH / 2;                // street centre (after block
 const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter5Recruit() {
-  const city = generateRooftopCity({ seed: 5150, blocks: BLOCKS });
+  const city = generateRooftopCity({ seed: 5150, blocks: BLOCKS, shopAvoid: [[C(2) - 2, C(2) + 21, 7]] }); // (Cafe Luna dresses itself)
   const w = city.world;
   const g = city.group;
   const lambert = (color) => new THREE.MeshLambertMaterial({ color });

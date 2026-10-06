@@ -26,6 +26,7 @@ import { CasinoHeistMode } from './modes/casinoHeistMode.js';
 import { CustomLevelMode } from './modes/customLevelMode.js';
 import { TrainMode } from './modes/trainMode.js';
 import { PrisonMode } from './modes/prisonMode.js';
+import { setShopDaylight } from '../world/shopfronts.js';
 import { GlacierMode } from './modes/glacierMode.js';
 
 // On-foot game state: everything the on-foot modes have in common.
@@ -655,6 +656,7 @@ export class OnFootState extends PlayState {
     if (!this.puffs) return;
     this.puffs.update(dt);
     this.puffs.setDaylight(this.lighting.daylight);
+    setShopDaylight(this.lighting.daylight);
     if (!dt) return;
     const cam = this.camera.position;
     if (this.cold) {

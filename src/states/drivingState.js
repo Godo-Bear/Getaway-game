@@ -31,6 +31,7 @@ import { FreeDriveMode } from './modes/freeDriveMode.js';
 import { SideJobsMode } from './modes/sideJobsMode.js';
 import { ChaseHelicopter } from '../ai/chaseHelicopter.js';
 import { StreetLife } from '../world/streetLife.js';
+import { setShopDaylight } from '../world/shopfronts.js';
 
 // Driving game state: everything the driving modes share.
 //   - the street city, the player's car, police, traffic, smoke particles
@@ -456,6 +457,7 @@ export class DrivingState extends PlayState {
     if (!frozen) this.weather.update(dt, this.camera.position);
     this.particles.update(frozen ? 0 : dt);
     this.particles.setDaylight(this.lighting.daylight);
+    setShopDaylight(this.lighting.daylight);
     if (this.chimneySmoke) { this.chimneySmoke.update(frozen ? 0 : dt); this.chimneySmoke.setDaylight(this.lighting.daylight); }
 
     // HUD: speedometer, minimap, beacon marker

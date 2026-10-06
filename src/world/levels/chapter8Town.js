@@ -27,7 +27,7 @@ const ST = (i) => C(i) + PITCH / 2;                // street centre (after block
 const PAV = 22.3;                                   // pavement line from a block centre
 
 export function buildChapter8Town(opts = {}) {
-  const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS, alpine: true });
+  const city = generateRooftopCity({ seed: 8080, blocks: BLOCKS, alpine: true, shopAvoid: [[C(3), C(3) + 21, 4], [C(0), C(0) - 21, 5]] }); // (the cabin's door, the church)
   const w = city.world;
   const g = city.group;
   const lambert = (color) => new THREE.MeshLambertMaterial({ color });

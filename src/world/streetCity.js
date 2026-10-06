@@ -6,6 +6,7 @@ import { getMaterials, getGlowTexture, makeTextTexture, FACADE_UV } from './mate
 import { RoadGraph } from '../ai/roadGraph.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeShaftMaterial, lampShaftGeometry } from './atmosphere.js';
+import { Shopfronts, addShopsToBuildings } from './shopfronts.js';
 
 // Street-level city for the driving modes.
 //
@@ -87,6 +88,9 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const chimneys = [];  // alpine: chimney tops [x, y, z] (they smoke)
   const minimapShapes = []; // for drawing the minimap: { type, x0, z0, x1, z1 }
   const kerbs = [];     // pavement edges (see addKerbs)
+  const drng = makeRng(seed * 13 + 5); // (decoration: its own random numbers, so the layout never changes)
+  const tanks = [];     // water tanks on the roofs [x, y, z, scale]
+  const beacons = [];   // red warning lights on the towers
 
   const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
 
@@ -249,16 +253,49 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
             chimneys.push([cx, h + chH, cz]);
           }
         }
-        // Glowing shop front along the bottom (warm windows in the mountains)
-        if (rng() < (alpine ? 0.4 : 0.5)) {
-          const glow = alpine ? rng.pick([0xffa040, 0xffc870, 0xff9050]) : rng.pick([0xffa040, 0xff4fa0, 0x40d0ff, 0x60ff90, 0xffe070]);
-          batch.addBox({ x: bx0 - 0.05, y: 0.4, z: bz0 - 0.05 }, { x: bx1 + 0.05, y: 2.8, z: bz1 + 0.05 },
-            { side: 'glow', top: null, color: new THREE.Color(glow).multiplyScalar(0.35).getHex() });
-        }
+        // (The old glowing shop band drew two random numbers here: keep drawing
+        // them so every city is laid out exactly as before. Shops come later.)
+        if (rng() < (alpine ? 0.4 : 0.5)) rng.pick(alpine ? [0, 0, 0] : [0, 0, 0, 0, 0]);
+        if (!alpine) dressBuilding(bx0, bz0, bx1, bz1, h);
         buildingsList.push({ x0: bx0, x1: bx1, z0: bz0, z1: bz1, h });
         minimapShapes.push({ type: 'building', x0: bx0, z0: bz0, x1: bx1, z1: bz1 });
       }
     }
+  }
+
+  /**
+   * Harbor City: make a plain box look like a building. A cornice round the
+   * top, a ledge over the shop floor, and things on the roof: water tanks,
+   * air-con units, and on the towers a stepped crown with an aerial and a
+   * red warning light.
+   */
+  function dressBuilding(x0, z0, x1, z1, h) {
+    const trim = { side: 'concrete', top: 'concrete', color: 0xb8b2a6, uvScale: [2, 1], topScale: [2, 2] };
+    const ring = (y0, y1, o, i, look) => {
+      batch.addBox({ x: x0 - o, y: y0, z: z0 - o }, { x: x1 + o, y: y1, z: z0 + i }, look);
+      batch.addBox({ x: x0 - o, y: y0, z: z1 - i }, { x: x1 + o, y: y1, z: z1 + o }, look);
+      batch.addBox({ x: x0 - o, y: y0, z: z0 + i }, { x: x0 + i, y: y1, z: z1 - i }, look);
+      batch.addBox({ x: x1 - i, y: y0, z: z0 + i }, { x: x1 + o, y: y1, z: z1 - i }, look);
+    };
+    ring(h - 0.5, h + 0.35, 0.3, 0.45, trim);   // cornice and parapet
+    if (h > 10) ring(4.05, 4.3, 0.18, 0.1, trim); // ledge over the shops
+    if (h > 26 && drng() < 0.6) ring(h * 0.62, h * 0.62 + 0.3, 0.15, 0.1, trim); // a band higher up
+    const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    if (h > 40) {
+      // A stepped crown, an aerial and its warning light
+      batch.addBlock(cx, h, cz, w * 0.62, 5, d * 0.62, { side: 'wall', top: 'roof', color: 0x8a8f9c, uvScale: FACADE_UV, topScale: [3, 3] });
+      batch.addBlock(cx, h + 5, cz, w * 0.3, 3, d * 0.3, { side: 'concrete', top: 'concrete', color: 0x9a968e });
+      batch.addBlock(cx, h + 8, cz, 0.25, 9, 0.25, { side: 'plain', top: 'plain', color: 0x3a3c40 });
+      beacons.push([cx, h + 17.2, cz]);
+      return;
+    }
+    // Roof clutter (kept away from the edges)
+    if (w > 9 && d > 9 && drng() < 0.45) tanks.push([drng.range(x0 + 3, x1 - 3), h, drng.range(z0 + 3, z1 - 3), drng.range(0.8, 1.15)]);
+    for (let k = drng.int(0, 3); k > 0; k--) {
+      batch.addBlock(drng.range(x0 + 2, x1 - 2), h, drng.range(z0 + 2, z1 - 2), drng.range(1.2, 2.2), drng.range(0.8, 1.3), drng.range(1, 1.6),
+        { side: 'metal', top: 'metal', color: 0x9aa0a8, uvScale: [1, 1] });
+    }
+    if (drng() < 0.4) batch.addBlock(drng.range(x0 + 2, x1 - 2), h, drng.range(z0 + 2, z1 - 2), 2.4, 2.4, 2.4, { side: 'concrete', top: 'concrete', color: 0x8a8680 }); // stair hut
   }
 
   /**
@@ -451,6 +488,58 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   // The lamps on the Z roads are the same set turned 90 degrees (buildLamps).
   const lampSpots = [];
   for (const [x, z] of lamps) lampSpots.push([x, z], [z, -x]);
+
+  // --- Shop fronts with rooms behind the glass, on the street faces ----------
+  const shops = new Shopfronts({ alpine });
+  const _q = [];
+  const isOpen = (x, z) => !world.query(x - 0.1, 0.5, z - 0.1, x + 0.1, 1.5, z + 0.1, _q).length
+    && !garages.some((g) => x > g.x0 - 1 && x < g.x1 + 1 && z > g.z0 - 1 && z < g.z1 + 1);
+  addShopsToBuildings(shops, buildingsList, isOpen, { chance: alpine ? 0.55 : 0.65 }, makeRng(seed * 31 + 7)); // (own random numbers)
+  group.add(shops.build());
+  // Frostvale: wooden balconies over the street
+  if (alpine) {
+    const wood = { side: 'plain', top: 'plain', color: 0x5a3e28 }, snowTop = { side: 'plain', top: 'plain', color: SNOW };
+    for (const b of buildingsList) {
+      if (b.h < 7.5) continue;
+      for (const [nx, nz] of [[0, -1], [0, 1], [-1, 0], [1, 0]]) {
+        if (drng() > 0.35) continue;
+        const alongX = nz !== 0, len = alongX ? b.x1 - b.x0 : b.z1 - b.z0;
+        if (len < 8) continue;
+        const fx = nx < 0 ? b.x0 : nx > 0 ? b.x1 : (b.x0 + b.x1) / 2, fz = nz < 0 ? b.z0 : nz > 0 ? b.z1 : (b.z0 + b.z1) / 2;
+        if (!isOpen(fx + nx * 1.2, fz + nz * 1.2)) continue;
+        const half = len * 0.3, y = 4.4, dep = 1.1;
+        const span = (o0, o1, y0, y1, look) => alongX
+          ? batch2.addBox({ x: fx - half, y: y0, z: Math.min(fz + nz * o0, fz + nz * o1) }, { x: fx + half, y: y1, z: Math.max(fz + nz * o0, fz + nz * o1) }, look)
+          : batch2.addBox({ x: Math.min(fx + nx * o0, fx + nx * o1), y: y0, z: fz - half }, { x: Math.max(fx + nx * o0, fx + nx * o1), y: y1, z: fz + half }, look);
+        span(0, dep, y, y + 0.18, wood);              // the floor
+        span(dep - 0.08, dep, y + 0.18, y + 1.05, wood); // the railing (solid boards)
+        span(dep - 0.12, dep + 0.04, y + 1.05, y + 1.18, snowTop); // snow on the rail
+      }
+    }
+  }
+  // Water tanks on the roofs (instanced) and red lights on the towers
+  if (tanks.length) {
+    const body = new THREE.CylinderGeometry(1.3, 1.3, 2.6, 12); body.translate(0, 2.9, 0);
+    const cap = new THREE.ConeGeometry(1.42, 0.9, 12); cap.translate(0, 4.65, 0);
+    const legs = mergeGeometries([[-0.8, -0.8], [0.8, -0.8], [-0.8, 0.8], [0.8, 0.8]].map(([x, z]) => new THREE.BoxGeometry(0.16, 1.6, 0.16).translate(x, 0.8, z)), false);
+    const meshes = [
+      new THREE.InstancedMesh(body, new THREE.MeshLambertMaterial({ color: 0x7a5a3e }), tanks.length),
+      new THREE.InstancedMesh(cap, new THREE.MeshLambertMaterial({ color: 0x3a3c40 }), tanks.length),
+      new THREE.InstancedMesh(legs, new THREE.MeshLambertMaterial({ color: 0x2a2c30 }), tanks.length),
+    ];
+    const m = new THREE.Matrix4();
+    tanks.forEach(([x, y, z, sc], i) => { m.makeScale(sc, sc, sc).setPosition(x, y, z); for (const im of meshes) im.setMatrixAt(i, m); });
+    for (const im of meshes) { im.castShadow = true; group.add(im); }
+  }
+  if (beacons.length) {
+    const red = new THREE.SpriteMaterial({ map: getGlowTexture(), color: 0xff2020, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false });
+    for (const [x, y, z] of beacons) {
+      const sp = new THREE.Sprite(red);
+      sp.position.set(x, y, z);
+      sp.scale.setScalar(3);
+      group.add(sp);
+    }
+  }
 
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));

@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { Shopfronts, addShopsToBuildings } from './shopfronts.js';
+import { makeRng } from '../core/utils.js';
 import { RooftopKit, LIP } from './rooftopKit.js';
 
 // Procedural rooftop city for Free Run and Rooftop Run.
@@ -17,7 +19,7 @@ const PITCH = BLOCK + STREET;
 // pitched snowy roofs on top, see chapter8Town.js).
 const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4, 0x7a5236];
 
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false } = {}) {
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, shopAvoid = [] } = {}) {
   const kit = new RooftopKit({ seed });
   if (alpine) kit.noLadders = true;
   const rng = kit.rng;
@@ -102,6 +104,18 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false } = {
   }
 
   const group = kit.finish();
+
+  // Shop fronts (rooms behind the glass) along the streets, at ground level.
+  // Only faces on a block's edge (not the alleys), and not over a ladder or
+  // a place the level dresses itself (shopAvoid: [x, z, radius]).
+  const shops = new Shopfronts({ alpine });
+  const nearestBlock = (v) => Math.round((v + half) / PITCH) * PITCH - half;
+  const isOpen = (x, z) => Math.abs(x - nearestBlock(x)) > BLOCK / 2 || Math.abs(z - nearestBlock(z)) > BLOCK / 2;
+  const avoid = (x, z, r) => kit.ladders.some((l) => Math.abs(l.x - x) < r && Math.abs(l.z - z) < r)
+    || shopAvoid.some(([ax, az, ar]) => Math.hypot(ax - x, az - z) < ar + r);
+  addShopsToBuildings(shops, kit.buildings.filter((b) => b.h < 60).map((b) => ({ x0: b.minX, x1: b.maxX, z0: b.minZ, z1: b.maxZ })), isOpen,
+    { chance: alpine ? 0.6 : 0.7, avoid }, makeRng(seed * 31 + 7)); // (own random numbers: the rest of the city stays as it was)
+  group.add(shops.build());
 
   // Spawn on a normal building near the middle.
   const spawnB = kit.buildings
