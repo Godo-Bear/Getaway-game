@@ -13,6 +13,10 @@ import { makeRng } from '../core/utils.js';
 // They react to you: sprint right past and they flinch and step out of
 // your way; a coin landing nearby makes them look; punched or tackled,
 // they fall over and get back up.
+//
+// pool: a number of people spread over EVERY pavement and park path in the
+// city, who keep being moved (out of sight) to wherever you are, so the
+// streets round you are always busy without hundreds of people to animate.
 
 const BLEND_RADIUS = 2.4;
 
@@ -23,22 +27,55 @@ export class Crowd {
    * @param {{a:number[], b:number[]}[]} lanes - pavement stretches [x, z] -> [x, z]
    * @param {{perLane?:number, seed?:number, cold?:boolean}} opts - cold: dressed for snow
    */
-  constructor(parent, world, lanes, { perLane = 2, seed = 3, cold = false } = {}) {
+  constructor(parent, world, lanes, { perLane = 2, seed = 3, cold = false, pool = null } = {}) {
     const rng = makeRng(seed);
     this.parent = parent;
+    this.world = world;
+    this.rng = rng;
     this.people = [];
-    for (const lane of lanes) {
-      for (let i = 0; i < perLane; i++) {
-        const model = new PlayerModel(randomPerson(rng, { cold }), { bag: rng() < 0.12 });
-        parent.add(model.root);
-        const t = rng();
-        const pos = new THREE.Vector3(lane.a[0] + (lane.b[0] - lane.a[0]) * t, 0, lane.a[1] + (lane.b[1] - lane.a[1]) * t);
-        const g = world.groundHeight(pos.x, pos.z, 1.2);
-        pos.y = Number.isFinite(g) ? g : 0;
-        const body = { pos, vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
-        this.people.push({ lane, t, dir: rng() < 0.5 ? 1 : -1, speed: 1.1 + rng() * 0.6, pause: 0, model, body, dodge: 0, flinchCool: 0 });
+    const add = (lane, t, pooled) => {
+      const model = new PlayerModel(randomPerson(rng, { cold }), { bag: rng() < 0.12 });
+      parent.add(model.root);
+      const body = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
+      const p = { lane, t, dir: rng() < 0.5 ? 1 : -1, speed: 1.1 + rng() * 0.6, pause: 0, model, body, dodge: 0, flinchCool: 0, pooled };
+      this._ground(p);
+      this.people.push(p);
+    };
+    for (const lane of lanes) for (let i = 0; i < perLane; i++) add(lane, rng(), false);
+    // A pool of people round the whole city (pool.lanes: every pavement and
+    // park path): they're moved, out of sight, to wherever you are.
+    this.pool = pool?.lanes?.length ? pool : null;
+    if (this.pool) {
+      for (let i = 0; i < pool.count; i++) {
+        add(this.pool.lanes[Math.floor(rng() * this.pool.lanes.length)], rng(), true);
+        this.people[this.people.length - 1].home = null; // (placed near you on the first update)
       }
     }
+  }
+
+  _ground(p) {
+    const { a, b } = p.lane;
+    p.body.pos.set(a[0] + (b[0] - a[0]) * p.t, 0, a[1] + (b[1] - a[1]) * p.t);
+    const g = this.world.groundHeight(p.body.pos.x, p.body.pos.z, 1.2);
+    p.body.pos.y = Number.isFinite(g) ? g : 0;
+  }
+
+  /** Move a pooled person to a pavement near `pos` (not right in front of you). */
+  _relocate(p, pos, facing, minD = 18, maxD = 60) {
+    const lanes = this.pool.lanes, fx = Math.sin(facing), fz = Math.cos(facing);
+    for (let tries = 0; tries < 30; tries++) {
+      const lane = lanes[Math.floor(this.rng() * lanes.length)];
+      const t = this.rng();
+      const x = lane.a[0] + (lane.b[0] - lane.a[0]) * t, z = lane.a[1] + (lane.b[1] - lane.a[1]) * t;
+      const dx = x - pos.x, dz = z - pos.z, d = Math.hypot(dx, dz);
+      if (d < minD || d > maxD) continue;
+      if (d < 40 && (dx * fx + dz * fz) / d > 0.35 && tries < 25) continue; // (not popping up where you're looking)
+      Object.assign(p, { lane, t, dir: this.rng() < 0.5 ? 1 : -1, pause: 0, dodge: 0, dodgeTo: 0, knock: 0, robbed: false, noticeIn: 0 });
+      this._ground(p);
+      if (p.model.isDown) p.model.standUp?.();
+      return true;
+    }
+    return false;
   }
 
   /** Pickpocketed: a moment later they stop, turn round and look behind them. */
@@ -71,6 +108,18 @@ export class Crowd {
   /** @param {object} [player] - the PlayerController (they flinch when you sprint past) */
   update(dt, player = null) {
     for (const p of this.people) {
+      // Pooled people far away from you come and walk somewhere near you instead
+      if (p.pooled && player) {
+        const d = Math.hypot(p.body.pos.x - player.pos.x, p.body.pos.z - player.pos.z);
+        if (!p.home || d > 75) {
+          p.home = true;
+          this._relocate(p, player.pos, player.facing ?? 0, p.homeOnce ? 30 : 6, 60);
+          p.homeOnce = true;
+        }
+        const far = d > 70;
+        p.model.root.visible = !far;
+        if (far) continue;
+      }
       const { a, b } = p.lane;
       const lx = b[0] - a[0], lz = b[1] - a[1], len = Math.hypot(lx, lz) || 1;
       if (p.knock > 0) {
@@ -133,5 +182,71 @@ export class Crowd {
   dispose() {
     for (const p of this.people) this.parent.remove(p.model.root);
     this.people = [];
+  }
+}
+
+/**
+ * Shopkeepers: someone behind the counter of the shops near you (a few
+ * people, moved to whichever shops you're closest to). Rob the till and
+ * they flinch away from you.
+ */
+export class Shopkeepers {
+  /**
+   * @param {THREE.Object3D} parent
+   * @param {{keeper: {pos: THREE.Vector3, facing: number}}[]} shops
+   */
+  constructor(parent, shops, { count = 3, seed = 9, cold = false } = {}) {
+    const rng = makeRng(seed);
+    this.shops = shops;
+    this.parent = parent;
+    this.staff = [];
+    for (let i = 0; i < Math.min(count, shops.length); i++) {
+      const model = new PlayerModel(randomPerson(rng, { cold }), { bag: false });
+      model.root.visible = false;
+      parent.add(model.root);
+      const body = { pos: new THREE.Vector3(), vel: new THREE.Vector3(), facing: 0, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null };
+      this.staff.push({ model, body, shop: null });
+    }
+    this._t = 0;
+  }
+
+  /** The till was robbed: whoever's behind that counter flinches. */
+  scare(shop, from) {
+    const k = this.staff.find((s) => s.shop === shop);
+    if (k) k.model.flinch(from.x, from.z);
+  }
+
+  update(dt, player) {
+    // Every half second: man the nearest shops
+    if ((this._t -= dt) <= 0) {
+      this._t = 0.5;
+      const near = this.shops
+        .map((sh) => ({ sh, d: Math.hypot(sh.keeper.pos.x - player.pos.x, sh.keeper.pos.z - player.pos.z) }))
+        .filter((o) => o.d < 45).sort((a, b) => a.d - b.d).slice(0, this.staff.length).map((o) => o.sh);
+      for (const k of this.staff) if (k.shop && !near.includes(k.shop)) k.shop = null;
+      for (const sh of near) {
+        if (this.staff.some((k) => k.shop === sh)) continue;
+        const k = this.staff.find((x) => !x.shop);
+        if (!k) break;
+        k.shop = sh;
+        k.body.pos.copy(sh.keeper.pos);
+        k.body.facing = sh.keeper.facing;
+      }
+    }
+    for (const k of this.staff) {
+      k.model.root.visible = !!k.shop;
+      if (!k.shop) continue;
+      // Watch you while you're in the shop
+      const sh = k.shop;
+      if (sh.inside(player.pos.x, player.pos.z) && !(k.lookT > 0)) { k.model.glance(player.pos.x, player.pos.z, 1.2); k.lookT = 1.4; }
+      if (k.lookT > 0) k.lookT -= dt;
+      k.body.horizontalSpeed = 0;
+      k.model.update(dt, k.body);
+    }
+  }
+
+  dispose() {
+    for (const k of this.staff) this.parent.remove(k.model.root);
+    this.staff = [];
   }
 }

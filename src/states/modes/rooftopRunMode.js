@@ -8,6 +8,7 @@ import { earn } from '../../gadgets/gadgets.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
+import { Crowd } from '../../ai/crowd.js';
 import { audio } from '../../core/audio.js';
 
 // Rooftop Run: endless helicopter survival.
@@ -45,6 +46,8 @@ export class RooftopRunMode {
     const city = generateRooftopCity({ seed: this.seed, blocks: 7 });
     this.city = city;
     this._buildPickup();
+    // People down in the streets and the parks (life below the rooftops)
+    this.crowd = new Crowd(city.group, city.world, [], { pool: { lanes: city.walks, count: { low: 6, medium: 10, high: 14 }[this.state.game.settings.graphics] ?? 10 }, seed: 31 });
     return city;
   }
 
@@ -133,6 +136,7 @@ export class RooftopRunMode {
     const s = this.state;
     const p = s.player;
     const hud = s.game.hud;
+    this.crowd?.update(dt, p);
 
     const d = diff();
     const newLevel = Math.min(MAX_LEVEL, 1 + Math.floor(s.time / (LEVEL_TIME * d.levelTime)));
@@ -223,6 +227,8 @@ export class RooftopRunMode {
   }
 
   teardown() {
+    this.crowd?.dispose();
+    this.crowd = null;
     for (const h of this.helis) h.dispose();
     this.helis = [];
     this.officers?.dispose();

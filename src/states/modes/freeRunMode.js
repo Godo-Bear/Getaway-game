@@ -9,12 +9,15 @@ import { formatTime, makeRng, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
+import { Crowd, Shopkeepers } from '../../ai/crowd.js';
 import { freeSession, switchFreeRoam, freeEarn, freeRoamPauseButtons } from './freeRoam.js';
 
 // Free Run, on foot: roam the rooftops. One half of a Free Run session
 // (the other half is FreeDriveMode, in the car).
 //
 //  - Cash bags on the roofs (green beams) earn cash for the Shop
+//  - People walk the pavements and the parks (walk with them and the
+//    police on foot lose you in the crowd)
 //  - Walk into the little shops at street level and rob the tills
 //    (police on: the alarm brings them running)
 //  - Your car is parked down on the street (blue beams): walk up to it to
@@ -42,6 +45,10 @@ export class FreeRunMode {
     this.rng = makeRng(99);
     this._buildBags();
     this._buildCars();
+    // People on every pavement and park path near you, and staff in the shops
+    const n = { low: 8, medium: 14, high: 20 }[this.state.game.settings.graphics] ?? 14;
+    this.crowd = new Crowd(city.group, city.world, [], { pool: { lanes: city.walks, count: n }, seed: 21 });
+    this.keepers = new Shopkeepers(city.group, city.shops, { count: 3 });
     return city;
   }
 
@@ -195,6 +202,9 @@ export class FreeRunMode {
       return;
     }
 
+    this.crowd.update(dt, p);
+    this.keepers.update(dt, p);
+
     // Shops: walk in through the door; rob the till (once a shop)
     const inShop = p.pos.y < 2 ? this.city.shops?.find((sh) => sh.inside(p.pos.x, p.pos.z)) : null;
     if (inShop !== this.inShop) {
@@ -209,6 +219,7 @@ export class FreeRunMode {
     if (atTill && s.game.input.wasPressed('interact')) {
       atTill.robbed = true;
       s.setAction(null);
+      this.keepers.scare(atTill, p.pos);
       audio.sfx('alarm', { vol: 0.5 });
       freeEarn(s.game, (30 + Math.floor(this.rng() * 31)) * (this.police ? 2 : 1), 'Till robbed!', this.police ? 'The alarm\'s going: the police know where you are. Run!' : 'Cash for the Shop.');
       if (this.police) {
@@ -285,7 +296,8 @@ export class FreeRunMode {
       hud.toast('Police on foot!', 'They chase you over the roofs and down on the street. Lose them with zip lines and wall-runs, hide in a stairwell hut, or punch them.', 'var(--red)', 5);
       audio.sfx('sting', { vol: 0.4 });
     }
-    const hidden = inHideSpot(this.city, p.pos);
+    // (walking along with people: you're just another face in the crowd)
+    const hidden = inHideSpot(this.city, p.pos) || (p.horizontalSpeed < 4.6 && p.grounded && this.crowd.blendsIn(p.pos));
     const lure = s.gadgets?.lure ? s.gadgets.lure.pos : null;
     if (this.officers.update(dt, p, hidden || s.concealed, lure) === 'caught' && !admin.flag('god')) {
       audio.sfx('caught');
@@ -300,6 +312,9 @@ export class FreeRunMode {
   }
 
   teardown() {
+    this.crowd?.dispose();
+    this.keepers?.dispose();
+    this.crowd = this.keepers = null;
     this.heli?.dispose();
     this.heli = null;
     this.officers?.dispose();

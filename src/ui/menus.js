@@ -101,7 +101,7 @@ export function controlsHtml() {
       <kbd>Jump by a wall</kbd><span>Wall-run along a tall wall; press Space again to jump off it</span>
       <kbd>Jump at a cable</kbd><span>Grab a zip line and ride it down; Space lets go</span>
       <kbd>V</kbd><span>Switch between first-person and third-person view</span>
-      <kbd>Walk into a ladder</kbd><span>Every building has a yellow ladder: hold W to climb back up from the street</span>
+      <kbd>Walk into a ladder</kbd><span>Yellow ladders (on the apartments and the corner shops) and fire escapes take you back up from the street: hold W</span>
       <kbd>Hiding spots</kbd><span>Stand in a stairwell hut or under a water tower (green floor) to hide from the helicopter and officers</span>
       <kbd>Space in mid-air</kbd><span>With the Glider Wing gadget: press again and hold to glide</span>
       <kbd>R</kbd><span>Go back to the last safe spot</span>

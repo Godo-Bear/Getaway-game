@@ -6,7 +6,7 @@ import { Helicopter } from '../../ai/helicopter.js';
 import { OfficerSquad } from '../../ai/officer.js';
 import { FugitiveRunner } from '../../ai/fugitive.js';
 import { GuardSquad, huntMessages } from '../../ai/guards.js';
-import { Crowd } from '../../ai/crowd.js';
+import { Crowd, Shopkeepers } from '../../ai/crowd.js';
 import { PlayerModel } from '../../player/playerModel.js';
 import { crewLook, POLICE_LOOK, HUNTER_LOOK, SENTINEL_LOOK } from '../../player/people.js';
 import { MiniGame } from '../../ui/miniGame.js';
@@ -94,7 +94,13 @@ export class ChapterFootMode {
     this._buildLoot();
     if (this.part.avalanche) this._buildAvalanche();
     if (this.part.fireworks) this._buildFireworks();
-    this.crowd = level.crowdLanes ? new Crowd(level.group, level.world, level.crowdLanes, { perLane: 3, seed: 11, cold: this.weather === 'snow' }) : null;
+    // The crowd: people on the story's own pavements, plus (in the city
+    // levels) more people round every pavement and park near you, and staff
+    // behind the shop counters
+    const cold = this.weather === 'snow';
+    const pool = level.walks?.length ? { lanes: level.walks, count: { low: 6, medium: 10, high: 14 }[this.state.game.settings.graphics] ?? 10 } : null;
+    this.crowd = level.crowdLanes || pool ? new Crowd(level.group, level.world, level.crowdLanes || [], { perLane: 3, seed: 11, cold, pool }) : null;
+    this.keepers = level.shops?.length ? new Shopkeepers(level.group, level.shops, { count: 2, cold }) : null;
     return level;
   }
 
@@ -582,6 +588,7 @@ export class ChapterFootMode {
 
     // --- Police on the beat (and the crowd you can hide in)
     this.crowd?.update(dt, this.state.player);
+    this.keepers?.update(dt, this.state.player);
     this.blending = false;
     if (this.patrols) this._updatePatrols(dt);
 
@@ -853,6 +860,8 @@ export class ChapterFootMode {
     this.fugitive?.dispose();
     this.patrols?.dispose();
     this.crowd?.dispose();
+    this.keepers?.dispose();
+    this.keepers = null;
     this.heli = this.officers = this.fugitive = this.patrols = this.crowd = null;
   }
 }

@@ -351,7 +351,7 @@ export class OnFootState extends PlayState {
     }
     if (!this._streetTipShown && p.state !== 'ladder') {
       this._streetTipShown = true;
-      this.game.hud.toast('Down on the street', 'Every building has a yellow ladder. Walk into it and hold forward to climb back up (or press R).', 'var(--cyan)', 5);
+      this.game.hud.toast('Down on the street', 'Find a yellow ladder or a fire escape (apartments and corner shops) and hold forward to climb back up (or press R).', 'var(--cyan)', 5);
     }
     if (p.state === 'ladder' || this.mode.streetMarker) return;
     let best = null, bd = Infinity;
