@@ -3,7 +3,7 @@
 // One tab per category: Utility, Movement, Damage, Getaways, Mole.
 
 import { showCard } from './menus.js';
-import { GADGETS, CATEGORIES, cash, owns, equipped, buy, equip } from '../gadgets/gadgets.js';
+import { GADGETS, CATEGORIES, cash, owns, equipped, buy, equip, areaLocked } from '../gadgets/gadgets.js';
 import { audio } from '../core/audio.js';
 import { admin } from '../core/admin.js';
 
@@ -23,6 +23,7 @@ export function showShop(onBack) {
     const cat = cats.find((c) => c.id === tab);
     const tabs = cats.map((c) => {
       const n = GADGETS.filter((g) => g.cat === c.id).length;
+      if (c.area) return `<button class="tab${c.id === tab ? ' on' : ''}" data-tab="${c.id}">${areaLocked(GADGETS.find((g) => g.cat === c.id)) ? '🔒 ' : '📍 '}${c.name}<small>${GADGETS.filter((g) => g.cat === c.id && owns(g.id)).length}/${n}</small></button>`;
       const have = GADGETS.filter((g) => g.cat === c.id && owns(g.id)).length;
       return `<button class="tab${c.id === tab ? ' on' : ''}" data-tab="${c.id}">${c.name}<small>${have}/${n}</small></button>`;
     }).join('');
@@ -30,7 +31,8 @@ export function showShop(onBack) {
       const have = owns(g.id);
       const isOn = equipped(g.kind)?.id === g.id;
       const afford = cash() >= g.price;
-      const action = !have
+      const locked = areaLocked(g);
+      const action = locked ? `<span class="owned">🔒 Get to ${cat.area.place} in the story</span>` : !have
         ? `<button class="chip buy" data-buy="${g.id}" ${afford ? '' : 'disabled'}>${g.price ? `Buy · $${g.price.toLocaleString('en-US')}` : 'Take it (free)'}</button>`
         : g.kind === 'passive' ? '<span class="owned">Owned ✓</span>'
           : isOn ? '<span class="owned">Equipped ✓</span>'

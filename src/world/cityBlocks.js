@@ -1,3 +1,4 @@
+import { buildPalms } from './palms.js';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeTextTexture } from './materials.js';
@@ -42,10 +43,11 @@ export class CityDresser {
    * @param {import('./rooftopKit.js').RooftopKit} kit
    * @param {{alpine?: boolean, rng: () => number}} opts
    */
-  constructor(kit, { alpine = false, rng, treeAvoid = [] }) {
+  constructor(kit, { alpine = false, coastal = false, rng, treeAvoid = [] }) {
     this.kit = kit;
     this.treeAvoid = treeAvoid;
     this.alpine = alpine;
+    this.coastal = coastal; // (Porto Sereno: palm trees)
     this.rng = rng;
     this.trees = [];     // [x, y, z, scale]
     this.glass = [];     // quads [x0,y0,z0, x1,y1,z1] (vertical, axis aligned)
@@ -430,7 +432,7 @@ export class CityDresser {
   /** Meshes for the trees, glass and signs (a handful of draw calls). */
   build() {
     const g = new THREE.Group();
-    if (this.trees.length) g.add(buildTrees(this.trees, this.alpine));
+    if (this.trees.length) g.add(buildTrees(this.trees, this.alpine, this.coastal));
     if (this.glass.length) {
       const pos = [];
       for (const [x0, y0, z0, x1, y1, z1] of this.glass) {
@@ -464,7 +466,8 @@ function subtractRect([x0, z0, x1, z1], [hx0, hz0, hx1, hz1]) {
 }
 
 /** Instanced trees: round leafy ones in the city, snowy pines in the mountains. */
-export function buildTrees(trees, alpine) {
+export function buildTrees(trees, alpine, coastal = false) {
+  if (coastal) return buildPalms(trees);
   const g = new THREE.Group();
   const m = new THREE.Matrix4();
   if (alpine) {

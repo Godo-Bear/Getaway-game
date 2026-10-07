@@ -58,6 +58,12 @@ export const SUSPECTS = {
     color: '#ff9ad5',
     bio: 'Ex-ski patrol in Frostvale. Knows every slope, cable and crevasse on the mountain, and flies a wingsuit for fun. Theo\'s cousin.',
   },
+  paz: {
+    name: 'Paz',
+    role: 'The fixer',
+    color: '#ffd070',
+    bio: 'Knows everyone in Porto Sereno: the harbour master, the fish sellers, the customs men who look the other way. Joins the crew when it lands there.',
+  },
   // ---- Frostvale (Chapters 9-12): not crew, just people in the story
   lindqvist: {
     name: 'Mr. Lindqvist',

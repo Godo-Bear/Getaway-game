@@ -8,7 +8,7 @@ import { FugitiveRunner } from '../../ai/fugitive.js';
 import { GuardSquad, huntMessages } from '../../ai/guards.js';
 import { Crowd, Shopkeepers } from '../../ai/crowd.js';
 import { PlayerModel } from '../../player/playerModel.js';
-import { crewLook, POLICE_LOOK, HUNTER_LOOK, SENTINEL_LOOK } from '../../player/people.js';
+import { crewLook, POLICE_LOOK, HUNTER_LOOK, SENTINEL_LOOK, CUSTOMS_LOOK } from '../../player/people.js';
 import { MiniGame } from '../../ui/miniGame.js';
 import { CHAPTERS } from '../../story/chapters.js';
 import { SUSPECTS } from '../../story/crew.js';
@@ -51,6 +51,11 @@ import { audio } from '../../core/audio.js';
 //               the patrols are dazzled for a moment (they can't see you)
 //   avalanche - { startZ, speed, height }: a wall of snow coming down the
 //               town (+z); if it reaches you below its top, you're caught
+//   carry     - { ids, label }: heavy bags at the level's carrySpots to carry,
+//               one at a time, to its dropPos (Porto Sereno). Carrying one
+//               you're slower and can't climb; caught, it goes back.
+//               goal.requireCarry: all of them delivered first.
+//   patrols: 'customs' - Porto Sereno customs officers in white shirts
 //
 // GHOST MODE (G, the pause menu or the ghost button on touch screens):
 // the helicopter and officers vanish so you can roam freely. A marker points
@@ -93,6 +98,7 @@ export class ChapterFootMode {
     this._buildPeople();
     this._buildRecon();
     this._buildLoot();
+    this._buildCarry();
     if (this.part.avalanche) this._buildAvalanche();
     if (this.part.fireworks) this._buildFireworks();
     // The crowd: people on the story's own pavements, plus (in the city
@@ -151,6 +157,91 @@ export class ChapterFootMode {
       g.add(bag, tie, sign, ring, beam);
       this.level.group.add(g);
       this.loot.push({ id, pos, group: g, bag, taken: false });
+    }
+  }
+
+  /** Heavy bags to carry (one at a time) to the drop-off: a suitcase with an amber beam. */
+  _buildCarry() {
+    this.carry = [];
+    this.carrying = null;
+    const C = this.part.carry;
+    if (!C) return;
+    const caseGeo = new THREE.BoxGeometry(0.75, 0.55, 0.32);
+    const mats = [0x3a2a1c, 0x1a2a3a, 0x4a1a1a].map((c) => new THREE.MeshLambertMaterial({ color: c }));
+    C.ids.forEach((id, i) => {
+      const pos = this.level.carrySpots?.[id];
+      if (!pos) return;
+      const g = new THREE.Group();
+      g.position.copy(pos);
+      const bag = new THREE.Mesh(caseGeo, mats[i % mats.length]);
+      bag.position.y = 0.3;
+      const handle = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.06), new THREE.MeshLambertMaterial({ color: 0x111111 }));
+      handle.position.y = 0.6;
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.8, 1.05, 28), makeGlowMaterial(0xffb020, 0.8));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.05;
+      const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 26, 8, 1, true), makeGlowMaterial(0xffb020, 0.2));
+      beam.position.y = 13;
+      g.add(bag, handle, ring, beam);
+      this.level.group.add(g);
+      this.carry.push({ id, home: pos.clone(), group: g, bag, ring, beam, handle, done: false });
+    });
+    // (the drop-off: a green ring)
+    if (this.level.dropPos) {
+      const ring = new THREE.Mesh(new THREE.RingGeometry(2.2, 2.6, 36), makeGlowMaterial(0x4dffa6, 0.7));
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.copy(this.level.dropPos).setY(0.06);
+      this.level.group.add(ring);
+      this.dropRing = ring;
+    }
+  }
+
+  /** Put a carried bag back where it came from (you were caught). */
+  _dropCarried() {
+    const c = this.carrying;
+    if (!c) return;
+    this.state.model.root.remove(c.carryMesh);
+    c.group.visible = true;
+    this.carrying = null;
+    this._setCarrySlow(false);
+  }
+
+  _setCarrySlow(on) {
+    const p = this.state.player;
+    p.noClimb = on;
+    if (!on) p.speedScale = 1;
+  }
+
+  _updateCarry(dt) {
+    const s = this.state, p = s.player, hud = s.game.hud;
+    if (!this.carry.length || this.ghost) return;
+    if (this.carrying) p.speedScale *= 0.72; // (every frame: the game resets it each frame)
+    for (const c of this.carry) if (!c.done && c.group.visible) c.ring.rotation.z += dt;
+    if (!this.carrying) {
+      const c = this.carry.find((x) => !x.done && x.group.visible && Math.hypot(x.home.x - p.pos.x, x.home.z - p.pos.z) < 1.6 && Math.abs(x.home.y - p.pos.y) < 2);
+      if (c) {
+        this.carrying = c;
+        c.group.visible = false;
+        c.carryMesh = new THREE.Mesh(c.bag.geometry, c.bag.material);
+        c.carryMesh.position.set(0.42, 0.62, 0.05);
+        s.model.root.add(c.carryMesh);
+        this._setCarrySlow(true);
+        audio.sfx('click', { vol: 0.7 });
+        hud.toast(`Got a ${this.part.carry.label || 'bag'}`, 'It\'s heavy: you\'re slower and you can\'t climb with it. Get it to the van (green ring) without being seen.', 'var(--amber)', 4);
+      }
+      return;
+    }
+    const d = this.level.dropPos;
+    if (Math.hypot(d.x - p.pos.x, d.z - p.pos.z) < 3.4) {
+      const c = this.carrying;
+      c.done = true;
+      s.model.root.remove(c.carryMesh);
+      this.carrying = null;
+      this._setCarrySlow(false);
+      audio.sfx('clue', { vol: 0.8 });
+      const left = this.carry.filter((x) => !x.done).length;
+      if (this.level.dropCheckpoint != null && this.cp < this.level.dropCheckpoint) this.cp = this.level.dropCheckpoint;
+      hud.toast(left ? 'In the van!' : 'All the gear is in!', left ? `${left} more to go (the amber beams).` : 'Now get in the van yourself.', 'var(--safe)', 3);
     }
   }
 
@@ -371,6 +462,8 @@ export class ChapterFootMode {
     for (const n of this.npcs) { n.talked = false; n.beam.visible = !!n.def; }
     for (const r of this.recon) { r.taken = false; r.group.visible = true; }
     for (const l of this.loot) { l.taken = false; l.group.visible = true; }
+    this._dropCarried();
+    for (const c of this.carry || []) { c.done = false; c.group.visible = true; }
     if (this.aval) this.aval.z = this.part.avalanche.startZ;
     if (this.bursts) { this.fwTimer = this.part.fireworks.first ?? 8; this.blindT = 0; }
 
@@ -408,7 +501,7 @@ export class ChapterFootMode {
     this.patrols = null;
     if (part.patrols && this.level.patrolRoutes) {
       this.patrols = new GuardSquad(s.scene, s.world, this.level.patrolRoutes.map((route) => ({ route })),
-        { sight: diff().guardSight, look: part.patrols === 'hunters' ? HUNTER_LOOK : part.patrols === 'sentinel' ? SENTINEL_LOOK : POLICE_LOOK, range: 11, alertRange: 15 });
+        { sight: diff().guardSight, look: part.patrols === 'hunters' ? HUNTER_LOOK : part.patrols === 'sentinel' ? SENTINEL_LOOK : part.patrols === 'customs' ? CUSTOMS_LOOK : POLICE_LOOK, range: 11, alertRange: 15 });
     }
   }
 
@@ -488,6 +581,7 @@ export class ChapterFootMode {
     if (admin.flag('god')) { this.spotted = 0; return; } // admin god mode
     if (!accident && noteCaught(this.state)) return; // (the third time: off to jail)
     this._closeMini();
+    this._dropCarried();
     this.caughtHere++;
     this.run.caught++;
     audio.sfx('caught');
@@ -624,6 +718,7 @@ export class ChapterFootMode {
         hud.toast(`Cash bag! +$${value.toLocaleString('en-US')}`, left ? `${left} more to find (the gold beams).` : 'That\'s every bag. Get out of here!', 'var(--safe)', 3);
       }
     }
+    this._updateCarry(dt);
     if (this.bursts) this._updateFireworks(dt);
     if (this.aval) { this._updateAvalanche(dt); if (this.done) return; }
 
@@ -646,6 +741,7 @@ export class ChapterFootMode {
     hud.setStats(`<span>Time <b>${formatTime(t)}</b></span>` +
       (total ? `<span>Clues <b>${found}/${total}</b></span>` : '') +
       (this.loot.length ? `<span>Cash bags <b>${this.loot.filter((l) => l.taken).length}/${this.loot.length}</b></span>` : '') +
+      (this.carry.length ? `<span>Bags in the van <b>${this.carry.filter((c) => c.done).length}/${this.carry.length}</b></span>` + (this.carrying ? '<span><b style="color:#ffb020">CARRYING</b></span>' : '') : '') +
       (this.bursts && this.blindT > 0 ? '<span><b style="color:#ffc040">FIREWORKS!</b></span>' : '') +
       (this.ghost ? '<span><b style="color:var(--cyan)">GHOST MODE</b></span>' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>`) +
       (this.hidden ? '<span><b style="color:var(--safe)">HIDDEN</b></span>' : '') +
@@ -656,7 +752,10 @@ export class ChapterFootMode {
       const g = this.level.goalPos;
       if (Math.hypot(p.pos.x - g.x, p.pos.z - g.z) < CAR_RADIUS && Math.abs(p.pos.y - g.y) < 2.5) {
         if (this.ghost) this._ghostNotice('Turn ghost mode off to finish this part.');
-        else if (part.goal.requireLoot && this.loot.some((l) => !l.taken)) {
+        else if (part.goal.requireCarry && this.carry.some((c) => !c.done)) {
+          this.warnTimer -= dt;
+          if (this.warnTimer <= 0) { this.warnTimer = 4; hud.toast('Not yet!', `Get all the bags in first (${this.carry.filter((c) => !c.done).length} left: the amber beams).`, 'var(--amber)'); }
+        } else if (part.goal.requireLoot && this.loot.some((l) => !l.taken)) {
           this.warnTimer -= dt;
           if (this.warnTimer <= 0) { this.warnTimer = 4; hud.toast('Not yet!', `Grab every cash bag first (${this.loot.filter((l) => !l.taken).length} left: the gold beams).`, 'var(--amber)'); }
         } else if (part.goal.requireRecon && this.recon.some((r) => !r.taken)) {
@@ -697,7 +796,7 @@ export class ChapterFootMode {
     }
     const d = diff();
     this.spotted = clamp(this.spotted + (seen ? (dt / 0.9) * d.fill : -dt * 0.5), 0, 1);
-    const searching = huntMessages(this.patrols, hud, this.part.patrols === 'hunters' ? 'bounty hunters' : this.part.patrols === 'sentinel' ? 'Sentinel guards' : 'police');
+    const searching = huntMessages(this.patrols, hud, this.part.patrols === 'hunters' ? 'bounty hunters' : this.part.patrols === 'sentinel' ? 'Sentinel guards' : this.part.patrols === 'customs' ? 'customs officers' : 'police');
     hud.setMeter(this.spotted, seen ? 'SEEN! Get out of sight' : searching || 'Keep a low profile', seen ? 'var(--red)' : searching ? '#ff7a1a' : '#8a8f9c');
     if (this.spotted >= 1) { this._caught('A police officer recognised you. Back to the last checkpoint.'); return; }
     // Sneak takedown: behind an officer, press E (X on a gamepad, the button on a phone)
@@ -722,6 +821,18 @@ export class ChapterFootMode {
         if (d < bd) { bd = d; best = c; }
       }
       if (best) { hud.setMarker(best.pos.clone().setY(best.pos.y + 1.5), s.camera, 'Missing clue', 'var(--amber)', bd); return; }
+    }
+    // Carrying a bag: to the drop-off. Otherwise the nearest bag still to carry.
+    if (!this.ghost && this.carrying) {
+      const d = this.level.dropPos;
+      hud.setMarker(new THREE.Vector3(d.x, 2.6, d.z), s.camera, this.level.dropLabel || 'The van', 'var(--safe)', Math.hypot(d.x - p.x, d.z - p.z));
+      return;
+    }
+    if (!this.ghost && this.carry.some((c) => !c.done)) {
+      let best = null, bd = Infinity;
+      for (const c of this.carry) { if (c.done) continue; const d = p.distanceTo(c.home); if (d < bd) { bd = d; best = c; } }
+      hud.setMarker(best.home.clone().setY(best.home.y + 1.8), s.camera, this.part.carry.label ? `${this.part.carry.label[0].toUpperCase()}${this.part.carry.label.slice(1)}` : 'Bag', 'var(--amber)', bd);
+      return;
     }
     const req = this.part.requiredClue;
     if (req && !this.run.clues.has(req)) {
@@ -857,6 +968,7 @@ export class ChapterFootMode {
 
   teardown() {
     this._closeMini();
+    if (this.state.player) { this.state.player.noClimb = false; this.state.player.speedScale = 1; }
     this.heli?.dispose();
     this.officers?.dispose();
     this.fugitive?.dispose();

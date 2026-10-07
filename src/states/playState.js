@@ -47,7 +47,7 @@ export class PlayState {
     this._updateClickPrompt();
     // Music for where the crew is (story: the chapter's city; otherwise snow = Frostvale), and snowy footsteps
     const n = this.mode?.chapter?.number;
-    audio.setPlace(n ? ['harbor', 'frostvale', 'abroad'][PLACES.indexOf(placeOf(n))] : this.lighting?.snow ? 'frostvale' : 'harbor');
+    audio.setPlace(n ? (['harbor', 'frostvale', 'abroad', 'abroad'][PLACES.indexOf(placeOf(n))] || 'abroad') : this.lighting?.snow ? 'frostvale' : 'harbor');
     audio.surface = this.lighting?.snow ? 'snow' : null;
   }
 

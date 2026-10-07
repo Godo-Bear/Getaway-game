@@ -4,7 +4,7 @@
 
 import { earn } from '../../gadgets/gadgets.js';
 import { audio } from '../../core/audio.js';
-import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR } from '../../world/maps.js';
+import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR, PORTO_FOOT, PORTO_CAR } from '../../world/maps.js';
 import { save } from '../../core/save.js';
 
 /**
@@ -26,6 +26,11 @@ export const FREE_MAPS = {
     name: 'Frostvale', where: 'the mountains', unlock: 8, icon: '🏔️', snow: true,
     sub: 'The snowy ski town: chalet shops, snowy parks and pine trees.',
     foot: FROSTVALE_FOOT, car: FROSTVALE_CAR, // (the story's Frostvale)
+  },
+  porto: {
+    name: 'Porto Sereno', where: 'abroad', unlock: 13, icon: '🌴', sunny: true,
+    sub: 'A sunny harbour town: whitewashed streets, palm trees, trams and the sea.',
+    foot: PORTO_FOOT, car: PORTO_CAR, // (the story's Porto Sereno)
   },
 };
 

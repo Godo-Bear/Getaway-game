@@ -332,7 +332,7 @@ export class DrivingState extends PlayState {
       if (other.isPolice && impact > 6) {
         this.mode.onPoliceRam?.();
         // Ram Plating (gadget): a hard hit spins the cruiser out.
-        const u = owns('ram') && this.police.units.find((x) => x.car === other);
+        const u = (owns('ram') || owns('plough')) && this.police.units.find((x) => x.car === other);
         if (u && !(u.stunned > 0) && impact > 8) {
           u.stunned = 3;
           u.emp = false;
@@ -460,6 +460,7 @@ export class DrivingState extends PlayState {
     this.city.trafficLights.update(frozen ? 0 : dt);
     this.city.train.update(frozen ? 0 : dt);
     this.city.subway?.update(frozen ? 0 : dt);
+    this.city.trams?.update(frozen ? 0 : dt);
     if (this.playerMesh.userData.flames) this.playerMesh.userData.flames.visible = p.boosting;
     updateUnderglow(this.playerMesh, this.time, p.airborne);
     this.playerMesh.userData.tailMat.color.setHex(p.controls.throttle < 0 ? 0xff2030 : 0x881018);
@@ -553,7 +554,8 @@ export class DrivingState extends PlayState {
   _subway(dt) {
     const sub = this.city.subway, p = this.player;
     if (!sub) return;
-    const hit = sub.hit(p.pos);
+    const tram = this.city.trams?.hit(p.pos);
+    const hit = sub.hit(p.pos) || tram;
     if (hit) {
       if (hit.axis === 'x') { p.pos.z += hit.push; p.vel.z = p.vel.z * 0.3 + hit.side * 7; p.vel.x = p.vel.x * 0.4 + hit.speed * 0.8; }
       else { p.pos.x += hit.push; p.vel.x = p.vel.x * 0.3 + hit.side * 7; p.vel.z = p.vel.z * 0.4 + hit.speed * 0.8; }
@@ -562,7 +564,8 @@ export class DrivingState extends PlayState {
         this._trainHitT = 2;
         this._damage(0.12, 22);
         audio.sfx('crash1', { vol: 0.9 });
-        this.game.hud.toast('Hit by a subway train!', 'Keep off the track (the yellow line marks it).', 'var(--red)', 2);
+        if (tram) this.game.hud.toast('Hit by a tram!', 'They don\'t stop for anyone: watch the tracks.', 'var(--red)', 2);
+        else this.game.hud.toast('Hit by a subway train!', 'Keep off the track (the yellow line marks it).', 'var(--red)', 2);
       }
     }
     if (this._trainHitT > 0) this._trainHitT -= dt;

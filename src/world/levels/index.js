@@ -5,6 +5,7 @@ import { buildChapter3Headquarters } from './chapter3Headquarters.js';
 import { buildChapter4Railyard } from './chapter4Railyard.js';
 import { buildChapter5Recruit } from './chapter5Recruit.js';
 import { buildChapter8Town } from './chapter8Town.js';
+import { buildChapter13Port } from './chapter13Port.js';
 
 export const LEVELS = {
   ch1Rooftops: buildChapter1Rooftops,
@@ -13,4 +14,5 @@ export const LEVELS = {
   ch4Railyard: buildChapter4Railyard,
   ch5Recruit: buildChapter5Recruit,
   ch8Town: buildChapter8Town,
+  ch13Port: buildChapter13Port,
 };

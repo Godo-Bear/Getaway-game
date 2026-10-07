@@ -46,7 +46,7 @@ export class FootGadgets {
     if (this.box && pc.horizontalSpeed < 3.6) return true;          // Cardboard Box: still, or creeping
     if (this.cham > 0 && pc.horizontalSpeed < 5.2) return true;     // Chameleon Suit: walking
     const s = this.smoke;
-    return !!s && s.t < T(SMOKE_TIME) && (admin.flag('infiniteRange') || this.state.player.pos.distanceTo(s.pos) < SMOKE_RADIUS);
+    return !!s && s.t < s.time && (admin.flag('infiniteRange') || this.state.player.pos.distanceTo(s.pos) < s.r);
   }
 
   /** The decoy, shaped like the player object the police AI expects. */
@@ -61,29 +61,36 @@ export class FootGadgets {
     const id = this.slot.gadget.id;
     const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash()
       : id === 'cloak' ? this._cloak() : id === 'mirage' ? this._cloak(T(MIRAGE_TIME), 'Mirage Cloak!')
-      : id === 'box' ? this._box() : id === 'chameleon' ? this._chameleon() : id === 'blink' ? this._blink() : this._grapple();
+      : id === 'box' ? this._box() : id === 'chameleon' ? this._chameleon() : id === 'blink' ? this._blink()
+      // (the local gadgets: each place's own)
+      : id === 'foghorn' ? this._smoke({ r: 9, time: T(10), color: 0xc8d4e0, title: 'Harbour fog!', text: 'A thick sea fog rolls out round you: nobody can see in for 10 seconds.' })
+      : id === 'snowball' ? this._stun({ radius: 22, cone: 0.6, time: 4, heli: false, title: 'Snowballs!', color: 0xe8f4ff, verb: 'knocked dizzy' })
+      : id === 'gulls' ? this._stun({ radius: 18, time: 6, heli: false, title: 'Seagulls!', color: 0xf2ece0, verb: 'mobbed by gulls', birds: true })
+      : id === 'siesta' ? this._siesta()
+      : id === 'holo' ? this._decoy({ time: T(14), title: 'Hologram billboard!', color: 0xff4fd8 })
+      : this._grapple();
     if (ok) this.slot.used();
   }
 
   // ---------------------------------------------------------------- Smoke
-  _smoke() {
+  _smoke({ r = SMOKE_RADIUS, time = T(SMOKE_TIME), color = 0x9aa2ae, title = 'Smoke bomb!', text = 'Stay inside the cloud: the police can\'t see you for 6 seconds.' } = {}) {
     this._clearSmoke();
     const p = this.state.player.pos;
     const group = new THREE.Group();
     const tex = getGlowTexture();
     const puffs = [];
     for (let i = 0; i < 18; i++) {
-      const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color: 0x9aa2ae, transparent: true, opacity: 0, depthWrite: false }));
-      const a = Math.random() * Math.PI * 2, r = Math.random() * 2.2;
-      m.position.set(Math.cos(a) * r, 0.4 + Math.random() * 1.6, Math.sin(a) * r);
+      const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, color, transparent: true, opacity: 0, depthWrite: false }));
+      const a = Math.random() * Math.PI * 2, rr = Math.random() * 2.2 * (r / SMOKE_RADIUS);
+      m.position.set(Math.cos(a) * rr, 0.4 + Math.random() * 1.6, Math.sin(a) * rr);
       puffs.push({ m, vx: Math.cos(a) * (1 + Math.random()), vz: Math.sin(a) * (1 + Math.random()), vy: 0.3 + Math.random() * 0.6, s: 2 + Math.random() * 2 });
       group.add(m);
     }
     group.position.copy(p);
     this.state.scene.add(group);
-    this.smoke = { group, puffs, t: 0, pos: p.clone() };
+    this.smoke = { group, puffs, t: 0, pos: p.clone(), r, time };
     audio.sfx('whoosh', { vol: 1 });
-    this.state.game.hud.toast('Smoke bomb!', 'Stay inside the cloud: the police can\'t see you for 6 seconds.', '#b8c0cc', 3);
+    this.state.game.hud.toast(title, text, '#' + color.toString(16).padStart(6, '0'), 3);
     return true;
   }
 
@@ -95,7 +102,7 @@ export class FootGadgets {
   }
 
   // ---------------------------------------------------------------- Decoy
-  _decoy() {
+  _decoy({ time = T(DECOY_TIME), title = 'Holo-decoy!', color = 0x39e6ff } = {}) {
     this._clearDecoy();
     const pc = this.state.player;
     const model = new PlayerModel({ hoodie: 0x39e6ff, trousers: 0x1a8aa8, mask: 0x39e6ff, skin: 0x8af4ff, gloves: 0x39e6ff, shoes: 0x1a8aa8, hair: 0x1a8aa8, hat: 0x1a8aa8 },
@@ -123,9 +130,10 @@ export class FootGadgets {
       mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null,
       isLure: true, // the helicopter always spots it
     };
-    this.decoy = { model, t: 0, body, ring };
+    this.decoy = { model, t: 0, body, ring, time };
+    if (color !== 0x39e6ff) model.root.traverse((o) => { if (o.isMesh) { o.material.color?.setHex(color); o.material.emissive?.setHex(color); } });
     audio.sfx('checkpoint', { vol: 0.6 });
-    this.state.game.hud.toast('Holo-decoy!', 'Your hologram runs off and the police chase it for 8 seconds. Go the other way!', '#39e6ff', 3);
+    this.state.game.hud.toast(title, `Your hologram runs off and the police chase it for ${Math.round(time)} seconds. Go the other way!`, '#' + color.toString(16).padStart(6, '0'), 3);
     return true;
   }
 
@@ -310,6 +318,70 @@ export class FootGadgets {
     return true;
   }
 
+  // ---------------------------------------------------------------- Snowballs / Seagulls
+  /** Stun the officers and guards round you (or in a cone in front: cone = cos of the half-angle). */
+  _stun({ radius, cone = null, time, heli = false, title, color, verb, birds = false }) {
+    const s = this.state, mode = s.mode, p = s.player.pos;
+    const look = s.camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize();
+    const units = new Set([...(mode.officers?.units || []), ...(mode.patrols?.units || []), ...(mode.guards?.units || []), ...(mode.mailGuard?.units || [])]);
+    let hit = 0;
+    for (const u of units) {
+      if (u.waitTimer > 0 || u.down || u.inactive) continue;
+      _v.copy(u.pc.pos).sub(p).setY(0);
+      const d = _v.length();
+      if (d > radius && !admin.flag('infiniteRange')) continue;
+      if (cone != null && d > 1 && _v.normalize().dot(look) < cone) continue;
+      u.stunned = T(time); u.model?.hit?.(0.4); u.investigate = null; hit++;
+      if (birds) this._birds(u.pc.pos);
+    }
+    if (heli) for (const h of [mode.heli, ...(mode.helis || [])]) if (h) h.blinded = T(time);
+    // A burst of white flecks (snow, or feathers)
+    for (let i = 0; i < 26; i++) {
+      const a = cone != null ? Math.atan2(look.x, look.z) + (Math.random() - 0.5) * 1.2 : Math.random() * Math.PI * 2;
+      s.particles?.emit?.(p.x, p.y + 1.3, p.z, { vx: Math.sin(a) * (6 + Math.random() * 8), vy: 1 + Math.random() * 3, vz: Math.cos(a) * (6 + Math.random() * 8), size: 0.3, grow: 0.2, life: 0.9, alpha: 1, color: [1, 1, 1] });
+    }
+    audio.sfx(birds ? 'whoosh' : 'punch', { vol: 0.7 });
+    s.game.hud.toast(title, hit ? `${hit} ${hit > 1 ? 'of them' : 'of them'} ${verb} for ${T(time)} seconds. Go!` : 'Nobody was close enough.', '#' + color.toString(16).padStart(6, '0'), 3);
+    return true;
+  }
+
+  /** A few seagulls flapping round someone's head for a while. */
+  _birds(pos) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshLambertMaterial({ color: 0xf8f8f4, side: THREE.DoubleSide });
+    for (let i = 0; i < 4; i++) {
+      const b = new THREE.Group();
+      for (const sd of [-1, 1]) { const w = new THREE.Mesh(new THREE.PlaneGeometry(0.5, 0.18), mat); w.position.x = sd * 0.25; b.add(w); }
+      b.userData.ph = Math.random() * 6;
+      g.add(b);
+    }
+    g.position.copy(pos);
+    this.state.scene.add(g);
+    (this.flocks ||= []).push({ g, t: 0, follow: pos });
+  }
+
+  // ---------------------------------------------------------------- Siesta Dart
+  _siesta() {
+    const s = this.state, mode = s.mode, p = s.player.pos;
+    const look = s.camera.getWorldDirection(new THREE.Vector3()).setY(0).normalize();
+    let best = null, bd = 25, sq = null;
+    for (const squad of [mode.patrols, mode.guards, mode.officers, mode.mailGuard].filter(Boolean)) {
+      for (const u of squad.units) {
+        if (u.waitTimer > 0 || u.down || u.inactive) continue;
+        _v.copy(u.pc.pos).sub(p).setY(0);
+        const d = _v.length();
+        if (d < bd && (d < 2 || _v.normalize().dot(look) > 0.5)) { bd = d; best = u; sq = squad; }
+      }
+    }
+    if (!best) { s.game.hud.toast('No target', 'Point the camera at an officer or guard (up to 25 m away) first.', 'var(--muted)', 2); return false; }
+    if (sq.takedown) sq.takedown(best, { forward: false });
+    else { best.stunned = T(20); best.floored = true; best.model?.knockDown?.({ upIn: T(20) - 1 }); }
+    if (!sq.takedown) best.stunned = T(20);
+    audio.sfx('whoosh', { vol: 0.5 });
+    s.game.hud.toast('Siesta!', 'Zzz... they\'re out for a nice long nap.', '#ffd070', 2.5);
+    return true;
+  }
+
   // ---------------------------------------------------------------- Grapple
   _grapple() {
     const s = this.state, pc = s.player;
@@ -363,13 +435,28 @@ export class FootGadgets {
     if (this.cloak > 0) fx.push({ name: this.cloakName || 'Invisible', left: this.cloak, total: this.cloakTotal || this.cloak });
     if (this.cham > 0) fx.push({ name: 'Chameleon suit', left: this.cham, total: this.chamTotal || this.cham });
     if (this.box) fx.push({ name: 'Cardboard box', left: T(BOX_TIME) - this.box.t, total: T(BOX_TIME) });
-    if (this.smoke) fx.push({ name: 'Smoke', left: T(SMOKE_TIME) - this.smoke.t, total: T(SMOKE_TIME) });
-    if (this.decoy) fx.push({ name: 'Decoy', left: T(DECOY_TIME) - this.decoy.t, total: T(DECOY_TIME) });
+    if (this.smoke) fx.push({ name: 'Smoke', left: this.smoke.time - this.smoke.t, total: this.smoke.time });
+    if (this.decoy) fx.push({ name: 'Decoy', left: this.decoy.time - this.decoy.t, total: this.decoy.time });
     if (this.dazed > 0) fx.push({ name: 'Police dazed', left: this.dazed, total: this.dazedTotal });
     return fx;
   }
 
   update(dt) {
+    // (seagulls circling the people you threw bread at)
+    if (this.flocks) {
+      for (const f of this.flocks) {
+        f.t += dt;
+        f.g.position.copy(f.follow).setY(f.follow.y + 2.1);
+        f.g.children.forEach((b, i) => {
+          const a = f.t * 3 + (i / 4) * Math.PI * 2;
+          b.position.set(Math.cos(a) * 0.9, Math.sin(f.t * 5 + i) * 0.2, Math.sin(a) * 0.9);
+          b.rotation.y = -a;
+          b.children[0].rotation.z = Math.sin(f.t * 18 + b.userData.ph) * 0.6; b.children[1].rotation.z = -b.children[0].rotation.z;
+        });
+        if (f.t > T(6)) this.state.scene.remove(f.g);
+      }
+      this.flocks = this.flocks.filter((f) => f.t <= T(6));
+    }
     this.slot.update(dt);
     this._blinkAim(dt);
     if (this.dazed > 0) this.dazed -= dt;
@@ -405,7 +492,7 @@ export class FootGadgets {
     const s = this.smoke;
     if (s) {
       s.t += dt;
-      const fadeIn = Math.min(1, s.t * 3), fadeOut = Math.max(0, 1 - Math.max(0, s.t - T(SMOKE_TIME) + 1.5) / 1.5);
+      const fadeIn = Math.min(1, s.t * 3), fadeOut = Math.max(0, 1 - Math.max(0, s.t - s.time + 1.5) / 1.5);
       for (const p of s.puffs) {
         p.m.position.x += p.vx * dt * Math.max(0, 1 - s.t / 2);
         p.m.position.z += p.vz * dt * Math.max(0, 1 - s.t / 2);
@@ -417,10 +504,10 @@ export class FootGadgets {
       const m = this.state.mode;
       for (const sq of [m.guards, m.patrols, m.mailGuard]) {
         for (const u of sq?.units || []) {
-          if (!u.down && u.pc.pos.distanceTo(s.pos) < SMOKE_RADIUS + 0.5) { u.stunned = Math.max(u.stunned || 0, 0.6); u.investigate = null; }
+          if (!u.down && u.pc.pos.distanceTo(s.pos) < s.r + 0.5) { u.stunned = Math.max(u.stunned || 0, 0.6); u.investigate = null; }
         }
       }
-      if (s.t > T(SMOKE_TIME)) this._clearSmoke();
+      if (s.t > s.time) this._clearSmoke();
     }
     const d = this.decoy;
     if (d) {
@@ -428,10 +515,10 @@ export class FootGadgets {
       this._runDecoy(d, dt);
       d.model.update(dt, d.body);
       // Hologram flicker, stronger as it runs out
-      const flick = Math.random() < (d.t > T(DECOY_TIME) - 2 ? 0.25 : 0.05) ? 0.15 : 0.6;
+      const flick = Math.random() < (d.t > d.time - 2 ? 0.25 : 0.05) ? 0.15 : 0.6;
       d.model.root.traverse((o) => { if (o.isMesh && o.material.transparent) o.material.opacity = flick; });
       d.ring.rotation.z += dt * 3;
-      if (d.t > T(DECOY_TIME)) this._clearDecoy();
+      if (d.t > d.time) this._clearDecoy();
     }
     if (this.cable) {
       if (this.state.player.state !== 'grapple') this._clearCable();

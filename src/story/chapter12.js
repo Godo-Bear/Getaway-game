@@ -23,7 +23,7 @@ export const CHAPTER12 = {
   crew: ['mags', 'theo', 'ricky', 'juno'],
   clues: {},
   verdicts: {},
-  nextChapter: null,
+  nextChapter: 'chapter13',
   rating: { gold: 480, silver: 780 },
 
   parts: [

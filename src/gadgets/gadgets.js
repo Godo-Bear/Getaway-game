@@ -26,6 +26,12 @@ export const CATEGORIES = [
   { id: 'damage', name: 'Damage', blurb: 'Knock the police out of the chase.' },
   { id: 'getaway', name: 'Getaways', blurb: 'Upgrades for the getaway car.' },
   { id: 'mole', name: 'Mole', blurb: 'Find the clues and catch the traitor.' },
+  // Local gadgets: each place the crew lives has its own, sold by the people
+  // there. They unlock when the story reaches that place (area.unlock = chapter).
+  { id: 'harbor', name: 'Harbor City', blurb: 'From the docks and the back streets of Harbor City.', area: { place: 'Harbor City', unlock: 1 } },
+  { id: 'frost', name: 'Frostvale', blurb: 'Mountain gear from the ski town. Unlocks when the crew reaches Frostvale (Chapter 8).', area: { place: 'Frostvale', unlock: 8 } },
+  { id: 'porto', name: 'Porto Sereno', blurb: 'Tricks from the harbour town. Unlocks when the crew lands in Porto Sereno (Chapter 13).', area: { place: 'Porto Sereno', unlock: 13 } },
+  { id: 'neon', name: 'Neon Kōji', blurb: 'High-tech gear from the neon city. Unlocks when the crew gets to Neon Kōji (Chapter 16).', area: { place: 'Neon Kōji', unlock: 16 } },
   { id: 'admin', name: 'Admin', blurb: 'Admin-only specials. Free, and only in the Shop for admins (or players an admin shared them with).', adminOnly: true },
 ];
 
@@ -92,6 +98,34 @@ export const GADGETS = [
     desc: 'The Case Board marks which clues are red herrings (planted to fool you).' },
   { id: 'detector', cat: 'mole', kind: 'passive', name: 'Lie Detector', price: 1000, color: '#ffd27a', icon: '⚖',
     desc: 'At every deduction it clears one innocent suspect, so there are fewer to choose from.' },
+  // ---- Harbor City
+  { id: 'foghorn', cat: 'harbor', kind: 'foot', name: 'Harbour Fog', price: 900, cooldown: 50, color: '#c8d4e0', icon: '≈',
+    desc: 'A canister of sea fog: a big, thick cloud (9 m across) rolls out round you for 10 seconds. Inside it nobody can see you.' },
+  { id: 'tow', cat: 'harbor', kind: 'car', name: 'Tow Hook', price: 1000, cooldown: 30, color: '#d8a028', icon: '⚓',
+    desc: 'Fires a hook at the nearest police car behind you and yanks its wheel: it spins out and stalls for 5 seconds.' },
+  { id: 'velvet', cat: 'harbor', kind: 'passive', name: 'Velvet Gloves', price: 800, color: '#c77dff', icon: '✋',
+    desc: 'The lightest fingers in Harbor City: pickpocketing pays double and never adds to your wanted level.' },
+  // ---- Frostvale
+  { id: 'snowball', cat: 'frost', kind: 'foot', name: 'Snowball Launcher', price: 1100, cooldown: 30, color: '#e8f4ff', icon: '❅',
+    desc: 'A blast of packed snowballs in front of you: every officer or guard in a 22 m cone is knocked dizzy for 4 seconds.' },
+  { id: 'plough', cat: 'frost', kind: 'passive', name: 'Snow-Plough Bumper', price: 1400, color: '#ff9f1a', icon: '⛟',
+    desc: 'A steel plough on the front of your car: ram a police car and it spins out (like Ram Plating).' },
+  { id: 'skates', cat: 'frost', kind: 'passive', name: 'Ice Skates', price: 900, color: '#9fd4ff', icon: '⛸',
+    desc: 'Blades that fold out of your shoes: you run 12% faster on foot, everywhere.' },
+  // ---- Porto Sereno
+  { id: 'gulls', cat: 'porto', kind: 'foot', name: 'Bag of Bread', price: 1000, cooldown: 40, color: '#f2ece0', icon: '🐦',
+    desc: 'Throw the bread: a flock of seagulls mobs every officer and guard within 18 m. For 6 seconds they\'re too busy flapping to see you.' },
+  { id: 'net', cat: 'porto', kind: 'car', name: 'Fishing Net', price: 1100, cooldown: 35, color: '#3a9a8a', icon: '#',
+    desc: 'Drops a weighted fishing net behind the car: police cars that drive into it get tangled and crawl along for 10 seconds.' },
+  { id: 'siesta', cat: 'porto', kind: 'foot', name: 'Siesta Dart', price: 1500, cooldown: 35, color: '#ffd070', icon: '➹',
+    desc: 'A sleepy dart for the nearest officer or guard in front of you (up to 25 m): they curl up for a 20-second siesta.' },
+  // ---- Neon Kōji
+  { id: 'holo', cat: 'neon', kind: 'foot', name: 'Hologram Billboard', price: 1300, cooldown: 45, color: '#ff4fd8', icon: '▣',
+    desc: 'A brighter, longer holo-decoy: your hologram runs off and the police chase it for 14 seconds.' },
+  { id: 'drone', cat: 'neon', kind: 'passive', name: 'Spotter Drone', price: 1800, color: '#39e6ff', icon: '⌬',
+    desc: 'A little drone watches the guards for you and warns you early: guards and patrols spot you from 20% less far.' },
+  { id: 'surge', cat: 'neon', kind: 'car', name: 'Power Surge', price: 2000, cooldown: 60, color: '#8a5cff', icon: 'ϟ',
+    desc: 'Overloads the city grid round you: every police car within 80 m stalls for 4 seconds and nearby roadblocks short out.' },
   // ---- Admin only (see src/core/admin.js)
   { id: 'rocket', cat: 'admin', kind: 'passive', adminOnly: true, name: 'Rocket Boots', price: 0, color: '#ff4dd2', icon: '🚀',
     desc: 'Jump again in mid-air as many times as you like: climb anything, cross any gap.' },
@@ -107,6 +141,12 @@ export const gadget = (id) => GADGETS.find((g) => g.id === id);
 
 /** Admin-only gadgets only work in admin mode (or if an admin shared them). */
 const usable = (g) => g && (!g.adminOnly || admin.adminGadgets);
+
+/** A local gadget whose place the story hasn't reached yet: still locked. */
+export function areaLocked(g) {
+  const a = CATEGORIES.find((c) => c.id === g?.cat)?.area;
+  return !!a && (save.data.progress?.chapterUnlocked || 1) < a.unlock && !admin.on;
+}
 
 const shop = () => save.data.shop;
 
@@ -128,7 +168,7 @@ export function equipped(kind) {
 /** Buy a gadget (and equip it straight away if its slot is free). Returns false if you can't afford it. */
 export function buy(id) {
   const g = gadget(id);
-  if (!usable(g) || owns(id) || shop().cash < g.price) return false;
+  if (!usable(g) || owns(id) || areaLocked(g) || shop().cash < g.price) return false;
   shop().cash -= g.price;
   shop().owned.push(id);
   if (g.kind !== 'passive' && !shop().equipped[g.kind]) shop().equipped[g.kind] = id;

@@ -8,6 +8,8 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { makeShaftMaterial, lampShaftGeometry } from './atmosphere.js';
 import { Shopfronts, addShopsToBuildings } from './shopfronts.js';
 import { planSubway, rampHole, buildSubway } from './subway.js';
+import { buildPalms, COASTAL_TINTS } from './palms.js';
+import { Trams } from './trams.js';
 
 // Street-level city for the driving modes.
 //
@@ -52,6 +54,9 @@ const LANDMARKS = {
   sentinel: { height: 12, tint: 0x2a2e36, door: 0xff3040, sign: 'SENTINEL', signColor: '#ff4050' },
   church: { height: 16, tint: 0xe0d6c4, door: 0x7dff8a, sign: 'ST. ANNA', signColor: '#9fd4ff' },
   airstrip: { height: 7, tint: 0x6a7480, door: 0x39e6ff, sign: 'LAKE AIRSTRIP', signColor: '#39e6ff' },
+  // Porto Sereno (Chapters 13-15)
+  portair: { height: 9, tint: 0xf2ece0, door: 0x39b8ff, sign: 'AEROPORTO SERENO', signColor: '#39b8ff' },
+  fishmarket: { height: 8, tint: 0xd8a868, door: 0x1f9a58, sign: 'MERCADO DO PEIXE', signColor: '#ffd070' },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)
@@ -69,7 +74,7 @@ const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 
  * @param {boolean} [opts.alpine] - a snowy mountain town (see above)
  * @param {number} [opts.parkShare] - share of the blocks that are parks
  */
-export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, parkShare = 0.14 } = {}) {
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, parkShare = 0.14 } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
@@ -136,7 +141,9 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     const need = outerMax + wallT + 6 + Math.max(w, d) / 2;
     const m = Math.max(Math.abs(x), Math.abs(z));
     if (m < need) { x *= need / m; z *= need / m; }
-    batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), 0], topScale: [6, 6] });
+    const col = rng.pick(WALL_TINTS), uo = rng();
+    if (coastal && z > outerMax) continue; // (Porto Sereno: the sea's that way)
+    batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: coastal ? COASTAL_TINTS[Math.floor(uo * 8)] : col, uvScale: FACADE_UV, uvOffset: [uo, 0], topScale: [6, 6] });
   }
 
   // Alpine: a pine forest outside the wall and mountains all round (visual only)
@@ -322,11 +329,12 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       for (let r = 0; r < rows; r++) {
         const bx0 = x0 + ((x1 - x0) * c) / cols, bx1 = x0 + ((x1 - x0) * (c + 1)) / cols;
         const bz0 = z0 + ((z1 - z0) * r) / rows, bz1 = z0 + ((z1 - z0) * (r + 1)) / rows;
-        const h = alpine ? rng.range(6, 10.5) : rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
+        const h0 = alpine ? rng.range(6, 10.5) : rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
+        const h = coastal ? Math.max(8, h0 * 0.42) : h0; // (Porto Sereno: low and sunny)
         world.addBox(bx0, 0, bz0, bx1, h, bz1, { tag: 'building' });
-        const tint = rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
+        const tint = coastal ? rng.pick(COASTAL_TINTS) : rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
         // (towers: about half are glass; their own random numbers, so the layout never changes)
-        const glass = !alpine && h > 38 && drng() < 0.55;
+        const glass = !alpine && !coastal && h > 38 && drng() < 0.55;
         batch.addBox({ x: bx0, y: 0, z: bz0 }, { x: bx1, y: h, z: bz1 },
           { side: 'wall', top: 'roof', color: glass ? drng.pick(GLASS_TINTS) : tint, uvScale: FACADE_UV, uvOffset, topScale: [6, 6] });
         if (alpine) {
@@ -342,6 +350,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         // them so every city is laid out exactly as before. Shops come later.)
         if (rng() < (alpine ? 0.4 : 0.5)) rng.pick(alpine ? [0, 0, 0] : [0, 0, 0, 0, 0]);
         if (!alpine) dressBuilding(bx0, bz0, bx1, bz1, h, glass);
+        if (coastal && h < 16 && drng() < 0.7) roofs.push([bx0, bz0, bx1, bz1, h + 0.35]); // (terracotta tiles)
         buildingsList.push({ x0: bx0, x1: bx1, z0: bz0, z1: bz1, h });
         minimapShapes.push({ type: 'building', x0: bx0, z0: bz0, x1: bx1, z1: bz1 });
       }
@@ -695,7 +704,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));
   group.add(buildRampMeshes(ramps));
-  group.add(buildTrees(trees, alpine));
+  group.add(buildTrees(trees, alpine, coastal));
+  if (coastal) {
+    group.add(buildRoofs(roofs, true));
+    group.add(buildSea(outer, outerMax));
+  }
   if (alpine) {
     group.add(buildTrees(forest, true));
     group.add(buildRoofs(roofs));
@@ -759,6 +772,13 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   }
 
 
+  // Porto Sereno: trams up and down two avenues
+  const trams = coastal ? new Trams([
+    { axis: 'x', c: roadC(1), a0: roadC(0), a1: roadC(n - 1) },
+    { axis: 'z', c: roadC(n - 2), a0: roadC(0), a1: roadC(n - 1) },
+  ]) : null;
+  if (trams) group.add(trams.group);
+
   const train = alpine ? { group: new THREE.Group(), update() {} } : new ElevatedTrain(outer, outerMax, elZ + 2.8, EL_Y + 1.35);
   group.add(train.group);
 
@@ -777,7 +797,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     subway,
     train,
     chimneys,
-    kerbs, lampSpots, alpine, elZ, sidewalk: SIDEWALK,
+    kerbs, lampSpots, alpine, coastal, elZ, sidewalk: SIDEWALK,
+    trams,
   };
 }
 
@@ -817,7 +838,8 @@ function buildRampMeshes(ramps) {
   return g;
 }
 
-function buildTrees(trees, alpine = false) {
+function buildTrees(trees, alpine = false, coastal = false) {
+  if (coastal) return buildPalms(trees.map(([x, z, s]) => [x, 0, z, s]));
   const g = new THREE.Group();
   if (!trees.length) return g;
   if (alpine) {
@@ -1005,9 +1027,10 @@ class ElevatedTrain {
 }
 
 /** Alpine: pitched roofs with snow on them (the gable ends are wood). */
-function buildRoofs(roofs) {
+function buildRoofs(roofs, coastal = false) {
   const pos = [], col = [];
-  const snow = new THREE.Color(0xf2f6fa), wood = new THREE.Color(0x5a3e28), eave = new THREE.Color(0x3a2a1c);
+  // (Frostvale: snow on top, wooden gables. Porto Sereno: terracotta tiles, whitewashed gables.)
+  const snow = new THREE.Color(coastal ? 0xb8562e : 0xf2f6fa), wood = new THREE.Color(coastal ? 0xf0e8d8 : 0x5a3e28), eave = new THREE.Color(coastal ? 0x6a3a22 : 0x3a2a1c);
   const tri = (a, b, c, color) => { pos.push(...a, ...b, ...c); for (let i = 0; i < 3; i++) col.push(color.r, color.g, color.b); };
   const quad = (a, b, c, d, color) => { tri(a, b, c, color); tri(a, c, d, color); };
   for (const [bx0, bz0, bx1, bz1, h] of roofs) {
@@ -1076,4 +1099,17 @@ function cutRects(r, holes) {
     if (r.z1 > z) out.push({ x0: a, x1: b, z0: z, z1: r.z1 });
   }
   return out;
+}
+
+/** Porto Sereno: a beach and the sea along the south side of the city (visual). */
+function buildSea(outer, outerMax) {
+  const g = new THREE.Group();
+  const sand = new THREE.Mesh(new THREE.PlaneGeometry(outerMax - outer + 900, 40), new THREE.MeshLambertMaterial({ color: 0xe8d4a0 }));
+  sand.rotation.x = -Math.PI / 2;
+  sand.position.set((outer + outerMax) / 2, 0.02, outerMax + 22);
+  const sea = new THREE.Mesh(new THREE.PlaneGeometry(outerMax - outer + 1200, 900), new THREE.MeshPhongMaterial({ color: 0x1a7a9a, shininess: 90, specular: 0x88ccee }));
+  sea.rotation.x = -Math.PI / 2;
+  sea.position.set((outer + outerMax) / 2, 0.05, outerMax + 42 + 450);
+  g.add(sand, sea);
+  return g;
 }

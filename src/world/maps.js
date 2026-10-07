@@ -62,3 +62,8 @@ export const FROSTVALE_FOOT = {
 /** The streets you drive (story chases add their landmarks on top). */
 export const DOWNTOWN_CAR = { seed: 777, blocks: 8 };
 export const FROSTVALE_CAR = { seed: 1313, blocks: 8, alpine: true };
+
+// Porto Sereno (Chapters 13-15): a sunny harbour town abroad. Low pastel and
+// whitewashed buildings, terracotta roofs, palm trees, trams, the sea to the south.
+export const PORTO_FOOT = { seed: 1717, blocks: 6, coastal: true, parks: 0.2, shopBlocks: 0.42 };
+export const PORTO_CAR = { seed: 1919, blocks: 8, coastal: true, parkShare: 0.16 };

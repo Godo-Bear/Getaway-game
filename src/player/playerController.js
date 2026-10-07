@@ -478,7 +478,7 @@ export class PlayerController {
   }
 
   _tryParkour(dir, wishLen, ctl) {
-    if (this.state === 'roll') return false;
+    if (this.state === 'roll' || this.noClimb) return false; // (noClimb: e.g. carrying a heavy bag)
     const moving = wishLen > 0.5;
     const inAir = !this.grounded;
 
@@ -756,7 +756,7 @@ export class PlayerController {
 
   /** Walking into the bottom of a ladder grabs it. */
   _tryLadder(wish, wishLen) {
-    if (!this.ladders.length || this.ladderCooldown > 0 || wishLen < 0.3) return false;
+    if (this.noClimb || !this.ladders.length || this.ladderCooldown > 0 || wishLen < 0.3) return false;
     const p = this.pos;
     for (const L of this.ladders) {
       if (p.y < L.y0 - 0.5 || p.y > L.y0 + T.ladderReach) continue;

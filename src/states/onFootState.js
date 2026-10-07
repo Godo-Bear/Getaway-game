@@ -180,7 +180,7 @@ export class OnFootState extends PlayState {
     const input = this.game.input;
     const c = this.ctl;
     // Admin: super speed and Rocket Boots (can change mid-game from the pause menu)
-    this.player.speedScale = admin.flag('superSpeed') ? 1.6 : 1;
+    this.player.speedScale = (admin.flag('superSpeed') ? 1.6 : 1) * (owns('skates') ? 1.12 : 1); // (Ice Skates)
     this.player.jumpScale = (owns('springs') ? 1.2 : 1) * (admin.flag('moonJump') ? 1.9 : 1);
     if (admin.flag('alwaysGlide')) this.player.canGlide = true;
     this.model.head.scale.setScalar(admin.flag('bigHead') ? 2.1 : 1);
@@ -609,11 +609,14 @@ export class OnFootState extends PlayState {
     const m = this.mode;
     m.crowd.robbed(c);
     this.model.reach();
-    const got = earn(this.game, 10 + Math.round(Math.random() * 12) * 5, '', { quiet: true });
+    const velvet = owns('velvet'); // (Velvet Gloves: double, and no crime)
+    const got = earn(this.game, (10 + Math.round(Math.random() * 12) * 5) * (velvet ? 2 : 1), '', { quiet: true });
     audio.sfx('cash', { vol: 0.5 });
     this.game.hud.toast(`Pickpocketed! +$${got}`, 'A wallet for the Shop. Don\'t let the police see you do it.', 'var(--safe)', 2.5);
-    for (const sq of [m.patrols, m.guards].filter(Boolean)) if (sq.units.some((u) => u.seesPlayer)) sq.alarmAt(this.player.pos);
-    m.onCrime?.('pickpocket');
+    if (!velvet) {
+      for (const sq of [m.patrols, m.guards].filter(Boolean)) if (sq.units.some((u) => u.seesPlayer)) sq.alarmAt(this.player.pos);
+      m.onCrime?.('pickpocket');
+    }
     addStat(this.game, 'pickpockets');
   }
 

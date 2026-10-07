@@ -178,7 +178,7 @@ export class StreetLife {
     }
 
     if (trees.length) {
-      this.group.add(buildTrees(trees, alpine));
+      this.group.add(buildTrees(trees, alpine, city.coastal));
       // (the earth round the trunk)
       if (!alpine) {
         const pit = new THREE.PlaneGeometry(1.3, 1.3); pit.rotateX(-Math.PI / 2);

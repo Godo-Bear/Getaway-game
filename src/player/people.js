@@ -14,6 +14,9 @@ export const CREW_LOOKS = {
     style: { top: 'jacket', hair: 'spiky', build: 0.95 } },
   juno: { hoodie: 0xff8ac8, trousers: 0x2a2a3a, shoes: 0x3a3d45, skin: 0xe8c4a0, hair: 0xe0c890, shirt: 0xffffff,
     style: { top: 'ski', hair: 'ponytail', build: 0.92 } },
+  // Paz: the fixer in Porto Sereno (linen shirt, sunglasses, panama hat)
+  paz: { hoodie: 0xe8dcc0, trousers: 0x3a4a5a, shoes: 0x6a4a2a, skin: 0xb07a50, hair: 0x1a1410, shirt: 0xe8dcc0, hat: 0xd8c890,
+    style: { top: 'jacket', hair: 'curly', hat: 'cap', build: 1.0 } },
   nova: { hoodie: 0x1fb8d8, trousers: 0x1a1b20, shoes: 0x1a1b20, skin: 0xf0c8a8, hair: 0xa86ae8,
     style: { top: 'hoodie', hair: 'bob', build: 0.9, height: 0.96 } },
   vince: { hoodie: 0x4a3322, trousers: 0x23201c, shoes: 0x1a1410, skin: 0xd2a27f, hair: 0x2a2420, shirt: 0xd8d0c0,
@@ -45,6 +48,9 @@ export const CASINO_SECURITY = { hoodie: 0x16161a, trousers: 0x16161a, shoes: 0x
 // Sentinel Security (Frostvale): black parkas, red stripe, black beanies
 export const SENTINEL_LOOK = { hoodie: 0x1a1c22, trousers: 0x14161a, hat: 0x101114, shirt: 0xc8202e, shoes: 0x0a0a0a, gloves: 0x101114,
   style: { top: 'ski', hat: 'beanie', build: 1.12 } };
+// Porto Sereno customs officers: white short-sleeved shirts, navy trousers and caps
+export const CUSTOMS_LOOK = { hoodie: 0xf2f2ee, trousers: 0x1a2440, hat: 0x1a2440, shoes: 0x0a0a0a, tie: 0x1a2440,
+  style: { top: 'uniform', hat: 'police', badge: true, tie: true } };
 export const JUMPSUIT_LOOK = { hoodie: 0xe0701c, trousers: 0xe0701c, shoes: 0x222222, style: { top: 'jumpsuit', hair: 'buzz' } };
 
 // ---- People on the street

@@ -220,7 +220,7 @@ export class GuardSquad {
   }
 
   get range() {
-    return (this.alert ? this.alertRange : this.baseRange) * this.sight * (owns('quiet') ? 0.75 : 1); // (Ninja Kit)
+    return (this.alert ? this.alertRange : this.baseRange) * this.sight * (owns('quiet') ? 0.75 : 1) * (owns('drone') ? 0.8 : 1); // (Ninja Kit, Spotter Drone)
   }
 
   /**

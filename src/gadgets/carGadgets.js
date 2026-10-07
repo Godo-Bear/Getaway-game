@@ -43,6 +43,9 @@ export class CarGadgets {
     if (id === 'oil') this._oil();
     else if (id === 'emp') this._emp();
     else if (id === 'spikes') this._spikes();
+    else if (id === 'net') this._spikes({ net: true });
+    else if (id === 'surge') this._emp({ radius: 80, time: 4, title: 'Power surge!', color: 0x8a5cff });
+    else if (id === 'tow') { if (!this._tow()) return; }
     else if (id === 'screen') this._screen();
     else if (id === 'freeze') this._freeze();
     else if (id === 'plates') this._plates();
@@ -81,18 +84,18 @@ export class CarGadgets {
   }
 
   // ---------------------------------------------------------------- Spike Drop
-  _spikes() {
+  _spikes({ net = false } = {}) {
     const p = this.state.player;
     const x = p.pos.x - p.fwdX * 6, z = p.pos.z - p.fwdZ * 6;
     // Across the road: along the car's right-hand direction
     const ax = -p.fwdZ, az = p.fwdX;
     const g = new THREE.Group();
-    const bar = new THREE.Mesh(new THREE.BoxGeometry(SPIKE_HALF * 2, 0.08, 0.5), new THREE.MeshStandardMaterial({ color: 0x2a2d33, metalness: 0.6, roughness: 0.4 }));
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(SPIKE_HALF * 2, net ? 0.04 : 0.08, net ? 2.4 : 0.5), new THREE.MeshStandardMaterial({ color: net ? 0x3a9a8a : 0x2a2d33, metalness: net ? 0 : 0.6, roughness: net ? 0.9 : 0.4, wireframe: net }));
     bar.position.y = 0.05;
     g.add(bar);
     const spikeGeo = new THREE.ConeGeometry(0.07, 0.28, 5);
     const spikeMat = new THREE.MeshStandardMaterial({ color: 0xd8dde4, metalness: 0.9, roughness: 0.25, emissive: 0x3a2a10 });
-    const spikes = new THREE.InstancedMesh(spikeGeo, spikeMat, 24);
+    const spikes = new THREE.InstancedMesh(spikeGeo, spikeMat, net ? 0 : 24); // (a net: no spikes, floats and weights)
     const m = new THREE.Matrix4();
     for (let i = 0; i < 24; i++) {
       m.makeTranslation(-SPIKE_HALF + 0.15 + (i % 12) * ((SPIKE_HALF * 2 - 0.3) / 11), 0.22, i < 12 ? -0.12 : 0.12);
@@ -107,8 +110,9 @@ export class CarGadgets {
     g.rotation.y = Math.atan2(ax, az) - Math.PI / 2;
     this.state.scene.add(g);
     this.strips.push({ mesh: g, glow, x, z, ax, az, t: 0, hit: new Set() });
-    audio.sfx('spike', { vol: 0.6 });
-    this.state.game.hud.toast('Spike strip down!', 'Cops that drive over it burst their tyres.', '#ff9a3d', 2);
+    audio.sfx(net ? 'whoosh' : 'spike', { vol: 0.6 });
+    if (net) this.state.game.hud.toast('Net out!', 'Police cars that drive into it get tangled and crawl along.', '#3a9a8a', 2);
+    else this.state.game.hud.toast('Spike strip down!', 'Cops that drive over it burst their tyres.', '#ff9a3d', 2);
   }
 
   // ---------------------------------------------------------------- Smoke Screen
@@ -158,7 +162,8 @@ export class CarGadgets {
   }
 
   // ---------------------------------------------------------------- EMP
-  _emp() {
+  _emp({ radius = EMP_RADIUS, time = EMP_TIME, title = 'EMP!', color = 0x3d9bff } = {}) {
+    const EMP_RADIUS = radius, EMP_TIME = time; // (the Power Surge is a bigger, shorter one)
     const s = this.state, p = s.player;
     let hit = 0;
     for (const u of s.police.units) {
@@ -175,11 +180,32 @@ export class CarGadgets {
     const rb = s.roadblocks, far = admin.flag('infiniteRange') ? 1e9 : EMP_RADIUS;
     let blocks = 0;
     if (rb) rb.items = rb.items.filter((it) => { const near = Math.hypot(it.pos.x - p.pos.x, it.pos.z - p.pos.z) < far; if (near) { rb._remove(it); this._spark(it.pos); blocks++; } return !near; });
-    this._wave(p.pos, 0x3d9bff, admin.flag('infiniteRange') ? 150 : EMP_RADIUS);
+    this._wave(p.pos, color, admin.flag('infiniteRange') ? 150 : EMP_RADIUS);
     s.game.post?.lightning(0.35);
     audio.sfx('thunder', { vol: 0.5 });
     const what = [hit ? `${hit} police car${hit > 1 ? 's' : ''} knocked out for ${T(EMP_TIME)} seconds` : '', blocks ? `${blocks} roadblock${blocks > 1 ? 's' : ''} shorted out` : ''].filter(Boolean).join(', ');
-    s.game.hud.toast('EMP!', what ? `${what}. Go!` : 'No police cars or roadblocks were close enough.', '#3d9bff', 3);
+    s.game.hud.toast(title, what ? `${what}. Go!` : 'No police cars or roadblocks were close enough.', '#' + color.toString(16).padStart(6, '0'), 3);
+  }
+
+  // ---------------------------------------------------------------- Tow Hook
+  /** Hook the nearest police car behind you: it spins out and stalls. */
+  _tow() {
+    const s = this.state, p = s.player;
+    let best = null, bd = 45;
+    for (const u of s.police.units) {
+      const dx = u.car.pos.x - p.pos.x, dz = u.car.pos.z - p.pos.z, d = Math.hypot(dx, dz);
+      const behind = dx * p.fwdX + dz * p.fwdZ < 2;
+      if (d < bd && behind && !(u.stunned > 0)) { bd = d; best = u; }
+    }
+    if (!best) { s.game.hud.toast('Nothing to hook', 'No police car close behind you (45 m).', 'var(--muted)', 2); return false; }
+    best.stunned = T(5);
+    best.spinDir = Math.random() < 0.5 ? -1 : 1;
+    best.car.gripFactor = 0.2;
+    best.car.yawRate += best.spinDir * 5;
+    this._spark(best.car.pos);
+    audio.sfx('crash0', { vol: 0.7 });
+    s.game.hud.toast('Hooked!', 'That police car spins out and stalls for 5 seconds.', '#d8a028', 2.5);
+    return true;
   }
 
   _spark(pos) {

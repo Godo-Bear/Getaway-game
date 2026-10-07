@@ -5,6 +5,14 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-07', title: 'Chapter 13: Touchdown, and local gadgets', items: [
+    'Chapter 13: the crew lands abroad in Porto Sereno, a sunny harbour town with palm trees, terracotta roofs, trams and the sea',
+    'Part 1: carry three heavy bags past the customs officers at the airstrip (with a bag you\'re slower and can\'t climb)',
+    'Part 2: lose the police across town (mind the trams!) and get to the safehouse over the fish market',
+    'A new crew member: Paz, the local fixer',
+    'Local gadgets: each place has its own set of 3 in the Shop (Harbor City, Frostvale, Porto Sereno, Neon Kōji), unlocked when the story gets there',
+    'Porto Sereno is a new Free Run map',
+  ] },
   { date: '2026-10-07', title: 'The subway, jail, and busier streets', items: [
     'The raised roads are gone: there\'s a subway under the city instead. Ramps down through some blocks (blue SUBWAY signs), tunnels under two avenues, stations and subway trains',
     'The police can follow you down into the subway (and back up)',
