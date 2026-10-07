@@ -23,6 +23,7 @@ import { CarGadgets } from '../gadgets/carGadgets.js';
 import { CONTROLS } from '../ui/menus.js';
 import { clamp, damp, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
+import { noteCaught } from '../core/jail.js';
 import { showGarage } from '../ui/customise.js';
 import { playerCarColour, playerCarStyle, playerCarSpecs } from '../vehicles/carColours.js';
 import { StreetChaseMode } from './modes/streetChaseMode.js';
@@ -623,6 +624,7 @@ export class DrivingState extends PlayState {
     this.game.hud.setMeter(this.busted, this.busted > 0.01 && close ? 'BUSTED! Get moving!' : 'Busted', 'var(--blue)');
     if (this.busted >= 1) {
       this.busted = 0;
+      if (noteCaught(this)) return; // (the third time: off to jail)
       audio.sfx('caught');
       this.game.hud.setMeter(0, '');
       this.mode.onBusted();

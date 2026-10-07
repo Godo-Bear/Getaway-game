@@ -19,6 +19,7 @@ import { earn, owns } from '../../gadgets/gadgets.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { formatTime, clamp } from '../../core/utils.js';
+import { noteCaught } from '../../core/jail.js';
 import { audio } from '../../core/audio.js';
 
 // A story part played on foot (any chapter). What happens is set by the
@@ -242,7 +243,7 @@ export class ChapterFootMode {
     for (const m of av.puffs) m.position.y = m.userData.base + Math.sin(s.time * 2 + m.userData.ph) * 0.6;
     const behind = av.z - p.pos.z; // (> 0: the front has passed you)
     if (behind > -1 && p.pos.y < av.height + 0.5) {
-      this._caught('The avalanche buried you. Back to the last checkpoint: RUN!');
+      this._caught('The avalanche buried you. Back to the last checkpoint: RUN!', { accident: true });
       return;
     }
     if (!this.avalWarned && behind > -30) {
@@ -483,8 +484,9 @@ export class ChapterFootMode {
     if (this.aval) this.aval.z = Math.min(this.aval.z, cp.spawn.z - 40); // (the avalanche starts again behind you)
   }
 
-  _caught(message) {
+  _caught(message, { accident = false } = {}) {
     if (admin.flag('god')) { this.spotted = 0; return; } // admin god mode
+    if (!accident && noteCaught(this.state)) return; // (the third time: off to jail)
     this._closeMini();
     this.caughtHere++;
     this.run.caught++;

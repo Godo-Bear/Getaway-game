@@ -25,6 +25,7 @@ import { BankHeistMode } from './modes/bankHeistMode.js';
 import { CasinoHeistMode } from './modes/casinoHeistMode.js';
 import { CustomLevelMode } from './modes/customLevelMode.js';
 import { TrainMode } from './modes/trainMode.js';
+import { JailMode } from './modes/jailMode.js';
 import { PrisonMode } from './modes/prisonMode.js';
 import { setShopDaylight } from '../world/shopfronts.js';
 import { rumble } from '../core/haptics.js';
@@ -52,7 +53,7 @@ import { GlacierMode } from './modes/glacierMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {

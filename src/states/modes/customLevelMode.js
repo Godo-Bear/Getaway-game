@@ -6,6 +6,7 @@ import { save } from '../../core/save.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { formatTime, clamp } from '../../core/utils.js';
+import { noteCaught } from '../../core/jail.js';
 import { audio } from '../../core/audio.js';
 import { owns } from '../../gadgets/gadgets.js';
 
@@ -159,6 +160,7 @@ export class CustomLevelMode {
       this.spotted = clamp(this.spotted + (lit ? dt * params.fill : -dt * 0.55), 0, 1);
       hud.setMeter(this.spotted, lit ? 'SPOTTED! Get out of the light' : hidden ? 'Hiding' : 'Hidden', lit ? 'var(--red)' : '#8a8f9c');
       if (this.spotted >= 1 && !admin.flag('god')) {
+        if (noteCaught(s)) return; // (the third time: off to jail)
         this.caught++;
         this.spotted = 0;
         audio.sfx('caught');

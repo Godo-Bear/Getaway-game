@@ -4,6 +4,7 @@ import { makeGlowMaterial } from '../../world/materials.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { OfficerSquad, rooftopCitySpawns, inHideSpot } from '../../ai/officer.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
+import { noteCaught } from '../../core/jail.js';
 import { audio } from '../../core/audio.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
@@ -518,6 +519,7 @@ export class FreeRunMode {
 
   _caught(msg) {
     const s = this.state;
+    if (noteCaught(this.state)) return; // (the third time: off to jail)
     this.jobs.fail();
     audio.sfx('caught');
     this.spotted = 0;

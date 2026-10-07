@@ -9,6 +9,7 @@ import { earn } from '../../gadgets/gadgets.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
+import { noteCaught } from '../../core/jail.js';
 import { audio } from '../../core/audio.js';
 
 // Chapter 1, Part 1: the heist inside the Harbor Trust bank (on foot).
@@ -121,6 +122,7 @@ export class BankHeistMode {
 
   _caught(title, msg) {
     if (admin.flag('god')) { this.spotted = 0; this.alarmT = Math.max(this.alarmT, 10); return; } // admin god mode
+    if (noteCaught(this.state)) return; // (the third time: off to jail)
     this.run.caught++;
     audio.sfx('caught');
     if (this.alarm) this.alarmT = ALARM_TIME * diff().timer;

@@ -13,6 +13,7 @@ import { finishPart } from '../../story/chapterFlow.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { formatTime, clamp } from '../../core/utils.js';
+import { noteCaught } from '../../core/jail.js';
 import { audio } from '../../core/audio.js';
 
 // Chapter 7: the breakout from Blackwater Prison, in three stages (the
@@ -168,6 +169,7 @@ export class PrisonMode {
 
   _caught(title, msg) {
     if (admin.flag('god')) { this.spotted = 0; return; }
+    if (noteCaught(this.state)) return; // (the third time: off to jail)
     this.run.caught++;
     audio.sfx('caught');
     if (this.disguised) { this._setDisguise(false); msg += ' (They took the uniform.)'; }

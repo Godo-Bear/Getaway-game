@@ -13,6 +13,7 @@ import { earn } from '../../gadgets/gadgets.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
 import { formatTime, clamp } from '../../core/utils.js';
+import { noteCaught } from '../../core/jail.js';
 import { audio } from '../../core/audio.js';
 import { defaultPlan } from '../../ui/planBoard.js';
 
@@ -234,6 +235,7 @@ export class CasinoHeistMode {
 
   _caught(title, msg) {
     if (admin.flag('god')) { this.spotted = 0; return; } // admin god mode
+    if (noteCaught(this.state)) return; // (the third time: off to jail)
     this.run.caught++;
     audio.sfx('caught');
     if (this.alarm) this.alarmT = this.alarmTime;
