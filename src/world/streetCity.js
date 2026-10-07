@@ -54,9 +54,10 @@ const LANDMARKS = {
   airstrip: { height: 7, tint: 0x6a7480, door: 0x39e6ff, sign: 'LAKE AIRSTRIP', signColor: '#39e6ff' },
 };
 
-const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a];
+const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)
 const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4, 0x7a5236, 0xb8a080];
 const SNOW = 0xe8eef5;
+const GLASS_TINTS = [0x6f8aa0, 0x5f8a8e, 0x7a8ea8, 0x5a6a84, 0x8aa0b0];
 const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 0xb88a5a, 0x4a5a7a];
 
 /**
@@ -323,8 +324,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         const bz0 = z0 + ((z1 - z0) * r) / rows, bz1 = z0 + ((z1 - z0) * (r + 1)) / rows;
         const h = alpine ? rng.range(6, 10.5) : rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
         world.addBox(bx0, 0, bz0, bx1, h, bz1, { tag: 'building' });
+        const tint = rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
+        // (towers: about half are glass; their own random numbers, so the layout never changes)
+        const glass = !alpine && h > 38 && drng() < 0.55;
         batch.addBox({ x: bx0, y: 0, z: bz0 }, { x: bx1, y: h, z: bz1 },
-          { side: 'wall', top: 'roof', color: rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), Math.floor(rng() * 8) / 8], topScale: [6, 6] });
+          { side: 'wall', top: 'roof', color: glass ? drng.pick(GLASS_TINTS) : tint, uvScale: FACADE_UV, uvOffset, topScale: [6, 6] });
         if (alpine) {
           roofs.push([bx0, bz0, bx1, bz1, h]);
           if (rng() < 0.5) { // a stone chimney
@@ -337,7 +341,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         // (The old glowing shop band drew two random numbers here: keep drawing
         // them so every city is laid out exactly as before. Shops come later.)
         if (rng() < (alpine ? 0.4 : 0.5)) rng.pick(alpine ? [0, 0, 0] : [0, 0, 0, 0, 0]);
-        if (!alpine) dressBuilding(bx0, bz0, bx1, bz1, h);
+        if (!alpine) dressBuilding(bx0, bz0, bx1, bz1, h, glass);
         buildingsList.push({ x0: bx0, x1: bx1, z0: bz0, z1: bz1, h });
         minimapShapes.push({ type: 'building', x0: bx0, z0: bz0, x1: bx1, z1: bz1 });
       }
@@ -345,29 +349,89 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   }
 
   /**
-   * Harbor City: make a plain box look like a building. A cornice round the
-   * top, a ledge over the shop floor, and things on the roof: water tanks,
-   * air-con units, and on the towers a stepped crown with an aerial and a
-   * red warning light.
+   * Harbor City: make a plain box look like a building, in one of a few
+   * styles (decoration only: its own random numbers):
+   *  - glass towers: blue-green glass, metal mullions up every window
+   *    column, a lit band round the top, a stepped upper tier and a crown
+   *  - classic: a stone base, corner columns, pilasters up the walls, a
+   *    cornice and a band of trim higher up
+   *  - brick: a stone base, corner columns and balconies on one side
+   *  - plain: cornice and parapet
+   * Plus things on the roof: water tanks, air-con units, stair huts, and on
+   * the tall ones an aerial with a red warning light.
    */
-  function dressBuilding(x0, z0, x1, z1, h) {
+  function dressBuilding(x0, z0, x1, z1, h, glass = false) {
     const trim = { side: 'concrete', top: 'concrete', color: 0xb8b2a6, uvScale: [2, 1], topScale: [2, 2] };
-    const ring = (y0, y1, o, i, look) => {
-      batch.addBox({ x: x0 - o, y: y0, z: z0 - o }, { x: x1 + o, y: y1, z: z0 + i }, look);
-      batch.addBox({ x: x0 - o, y: y0, z: z1 - i }, { x: x1 + o, y: y1, z: z1 + o }, look);
-      batch.addBox({ x: x0 - o, y: y0, z: z0 + i }, { x: x0 + i, y: y1, z: z1 - i }, look);
-      batch.addBox({ x: x1 - i, y: y0, z: z0 + i }, { x: x1 + o, y: y1, z: z1 - i }, look);
+    const stone = { side: 'concrete', top: 'concrete', color: 0x6e6a64, uvScale: [2, 1], topScale: [2, 2] };
+    const metal = { side: 'plain', top: 'plain', color: 0x2a3038 };
+    const ring = (y0, y1, o, i, look, bx0 = x0, bz0 = z0, bx1 = x1, bz1 = z1) => {
+      batch.addBox({ x: bx0 - o, y: y0, z: bz0 - o }, { x: bx1 + o, y: y1, z: bz0 + i }, look);
+      batch.addBox({ x: bx0 - o, y: y0, z: bz1 - i }, { x: bx1 + o, y: y1, z: bz1 + o }, look);
+      batch.addBox({ x: bx0 - o, y: y0, z: bz0 + i }, { x: bx0 + i, y: y1, z: bz1 - i }, look);
+      batch.addBox({ x: bx1 - i, y: y0, z: bz0 + i }, { x: bx1 + o, y: y1, z: bz1 - i }, look);
     };
-    ring(h - 0.5, h + 0.35, 0.3, 0.45, trim);   // cornice and parapet
-    if (h > 10) ring(4.05, 4.3, 0.18, 0.1, trim); // ledge over the shops
-    if (h > 26 && drng() < 0.6) ring(h * 0.62, h * 0.62 + 0.3, 0.15, 0.1, trim); // a band higher up
+    // Strips up every face, every `step` metres (pilasters, mullions)
+    const strips = (step, w, out, y0, y1, look) => {
+      for (const [ax0, ax1, fixed, nx, nz] of [[x0, x1, z0, 0, -1], [x0, x1, z1, 0, 1], [z0, z1, x0, -1, 0], [z0, z1, x1, 1, 0]]) {
+        const len = ax1 - ax0, n = Math.max(1, Math.round(len / step));
+        for (let k = 1; k < n; k++) {
+          const a = ax0 + (len * k) / n;
+          if (nz) batch.addBox({ x: a - w / 2, y: y0, z: nz < 0 ? fixed - out : fixed }, { x: a + w / 2, y: y1, z: nz < 0 ? fixed : fixed + out }, look);
+          else batch.addBox({ x: nx < 0 ? fixed - out : fixed, y: y0, z: a - w / 2 }, { x: nx < 0 ? fixed : fixed + out, y: y1, z: a + w / 2 }, look);
+        }
+      }
+    };
+    const corners = (look, s = 0.9, out = 0.16) => {
+      for (const [cx, cz] of [[x0, z0], [x1, z0], [x0, z1], [x1, z1]]) {
+        const ax = cx === x0 ? cx - out : cx - s + out, az = cz === z0 ? cz - out : cz - s + out;
+        batch.addBox({ x: ax, y: 0, z: az }, { x: ax + s, y: h + 0.1, z: az + s }, look);
+      }
+    };
     const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const style = glass ? 'glass' : drng() < 0.35 ? 'classic' : drng() < 0.55 ? 'brick' : 'plain';
+
+    if (style === 'glass') {
+      strips(3, 0.14, 0.08, 0, h, metal);                                         // mullions
+      ring(h - 0.35, h, 0.1, 0.1, { side: 'glow', top: null, color: drng.pick([0x9fe8ff, 0xffffff, 0xffd9a0]) }); // lit band round the top
+      ring(0, 4.2, 0.12, 0.05, { side: 'concrete', top: 'concrete', color: 0x3a3e46 }); // dark lobby base
+    } else {
+      ring(h - 0.5, h + 0.35, 0.3, 0.45, trim);   // cornice and parapet
+      ring(0, 1.1, 0.12, 0.05, stone);            // stone base
+      if (h > 10) ring(4.05, 4.3, 0.18, 0.1, trim); // ledge over the shops
+      if (style !== 'plain') corners(style === 'brick' ? trim : stone);
+      if (style === 'classic') {
+        strips(6, 0.5, 0.14, 1.1, h - 0.5, trim);
+        if (h > 18) ring(h * 0.62, h * 0.62 + 0.35, 0.18, 0.1, trim);
+      }
+      if (style === 'brick' && h > 11 && drng() < 0.6) {
+        // Balconies up one side
+        const face = drng.int(0, 3), [nx, nz] = [[0, -1], [0, 1], [-1, 0], [1, 0]][face];
+        const a0 = nz ? x0 : z0, a1 = nz ? x1 : z1, f = nz ? (nz < 0 ? z0 : z1) : (nx < 0 ? x0 : x1), out = nz || nx;
+        const cols = Math.max(1, Math.floor((a1 - a0 - 4) / 6));
+        for (let y = 7.4; y < h - 3; y += 3.5) {
+          for (let k = 0; k < cols; k++) {
+            const a = a0 + 2 + ((a1 - a0 - 4) * (k + 0.5)) / cols;
+            const slab = nz ? [{ x: a - 1.2, y, z: Math.min(f, f + out * 1.1) }, { x: a + 1.2, y: y + 0.16, z: Math.max(f, f + out * 1.1) }]
+              : [{ x: Math.min(f, f + out * 1.1), y, z: a - 1.2 }, { x: Math.max(f, f + out * 1.1), y: y + 0.16, z: a + 1.2 }];
+            batch.addBox(slab[0], slab[1], trim);
+            const r0 = f + out * 1.04, r1 = f + out * 1.1;
+            batch.addBox(nz ? { x: a - 1.2, y: y + 0.16, z: Math.min(r0, r1) } : { x: Math.min(r0, r1), y: y + 0.16, z: a - 1.2 },
+              nz ? { x: a + 1.2, y: y + 1.0, z: Math.max(r0, r1) } : { x: Math.max(r0, r1), y: y + 1.0, z: a + 1.2 }, metal);
+          }
+        }
+      }
+    }
     if (h > 40) {
-      // A stepped crown, an aerial and its warning light
-      batch.addBlock(cx, h, cz, w * 0.62, 5, d * 0.62, { side: 'wall', top: 'roof', color: 0x8a8f9c, uvScale: FACADE_UV, topScale: [3, 3] });
-      batch.addBlock(cx, h + 5, cz, w * 0.3, 3, d * 0.3, { side: 'concrete', top: 'concrete', color: 0x9a968e });
-      batch.addBlock(cx, h + 8, cz, 0.25, 9, 0.25, { side: 'plain', top: 'plain', color: 0x3a3c40 });
-      beacons.push([cx, h + 17.2, cz]);
+      // A stepped upper tier, then a crown, an aerial and its warning light
+      const tierH = Math.round(h * 0.16);
+      batch.addBlock(cx, h, cz, w * 0.78, tierH, d * 0.78, { side: 'wall', top: 'roof', color: glass ? 0x6f8aa0 : 0x8a8f9c, uvScale: FACADE_UV, topScale: [3, 3] });
+      if (glass) ring(h + tierH - 0.3, h + tierH, 0.08, 0.08, { side: 'glow', top: null, color: 0x9fe8ff }, cx - w * 0.39, cz - d * 0.39, cx + w * 0.39, cz + d * 0.39);
+      else ring(h + tierH - 0.3, h + tierH + 0.3, 0.2, 0.3, trim, cx - w * 0.39, cz - d * 0.39, cx + w * 0.39, cz + d * 0.39);
+      const top = h + tierH;
+      batch.addBlock(cx, top, cz, w * 0.45, 4, d * 0.45, { side: 'wall', top: 'roof', color: 0x8a8f9c, uvScale: FACADE_UV, topScale: [3, 3] });
+      batch.addBlock(cx, top + 4, cz, w * 0.22, 2.5, d * 0.22, { side: 'concrete', top: 'concrete', color: 0x9a968e });
+      batch.addBlock(cx, top + 6.5, cz, 0.25, 9, 0.25, { side: 'plain', top: 'plain', color: 0x3a3c40 });
+      beacons.push([cx, top + 15.7, cz]);
       return;
     }
     // Roof clutter (kept away from the edges)

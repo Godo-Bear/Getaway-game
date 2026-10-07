@@ -5,6 +5,15 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-07', title: 'The subway, jail, and busier streets', items: [
+    'The raised roads are gone: there\'s a subway under the city instead. Ramps down through some blocks (blue SUBWAY signs), tunnels under two avenues, stations and subway trains',
+    'The police can follow you down into the subway (and back up)',
+    'Jail: get caught 3 times, in any mode, and the police take you to jail. Break out to carry on',
+    'Sharper steering: the car turns more and slides out to the side through corners',
+    'Free Run on foot: no car of yours parked in the street; traffic drives round the blocks and pulls over to park, and police cars come out when you\'re wanted',
+    'Steal a parked or stopped car and drive it right there, no loading screen (E to get out)',
+    'Better buildings: glass towers, stepped tops, stone bases, corner columns, pilasters and balconies',
+  ] },
   { date: '2026-10-06', title: 'Driving on different levels', items: [
     'A bigger city with three levels to drive on',
     'The Skyway: a ring road 9 m up round the outside of the city, with on-ramps from the streets',
