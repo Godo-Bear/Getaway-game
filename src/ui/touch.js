@@ -340,10 +340,18 @@ export class TouchControls {
       btn.addEventListener('pointercancel', off);
       btn.addEventListener('lostpointercapture', off);
     }
-    this.root.querySelector('.t-act').addEventListener('pointerdown', (e) => {
+    const act = this.root.querySelector('.t-act');
+    act.addEventListener('pointerdown', (e) => {
       e.preventDefault();
-      this.input.touch.pressed.add(e.currentTarget.classList.contains('punch') ? 'punch' : 'interact');
+      const a = e.currentTarget.classList.contains('punch') ? 'punch' : 'interact';
+      this.input.touch.pressed.add(a);
+      if (a === 'interact') this.input.touch.buttons.add('interact'); // (held: e.g. picking a lock)
+      try { act.setPointerCapture(e.pointerId); } catch { /* ignore */ }
     });
+    const actUp = () => this.input.touch.buttons.delete('interact');
+    act.addEventListener('pointerup', actUp);
+    act.addEventListener('pointercancel', actUp);
+    act.addEventListener('lostpointercapture', actUp);
     this.root.querySelector('.t-pause').addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.input.touch.pressed.add('pause');

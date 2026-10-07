@@ -5,6 +5,14 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-07', title: 'Chapter 15: Festa', items: [
+    'Chapter 15: rob the crooked inspector Varga in the middle of Porto Sereno\'s night festival, then leave town',
+    'Part 1: a parade of floats, lanterns, confetti and crowds. Wear a giant carnival head and dance with the parade so the police can\'t pick you out',
+    'Climb onto the moving galleon float (it carries you along) and pick the chest\'s lock while Varga\'s two lookouts look away. Then the whole street blacks out: run!',
+    'Part 2: ride the funicular up the hill and jump across to the other car as they pass halfway, because Varga is waiting at the top',
+    'Floats and funicular cars are real moving platforms you can stand on',
+    'Phone: hold the action button to pick a lock',
+  ] },
   { date: '2026-10-07', title: 'Chapter 14: The Bella Fortuna', items: [
     'Chapter 14: rob the Bella Fortuna, a casino ship anchored in Porto Sereno\'s bay, at night',
     'Part 1: climb a rope ladder up the ship\'s side, sneak through the decks and the casino, crack the counting room, then jump overboard to Paz\'s speedboat',

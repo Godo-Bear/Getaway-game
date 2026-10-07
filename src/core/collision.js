@@ -58,6 +58,37 @@ export class CollisionWorld {
     }
   }
 
+  /**
+   * Move a box that's already in the world (a moving platform: a parade
+   * float, a funicular car). Only the grid cells it leaves or enters change.
+   */
+  moveBox(box, dx, dy, dz) {
+    const cs = this.cellSize;
+    const ox0 = Math.floor(box.min.x / cs), ox1 = Math.floor(box.max.x / cs);
+    const oz0 = Math.floor(box.min.z / cs), oz1 = Math.floor(box.max.z / cs);
+    box.min.x += dx; box.max.x += dx;
+    box.min.y += dy; box.max.y += dy;
+    box.min.z += dz; box.max.z += dz;
+    const nx0 = Math.floor(box.min.x / cs), nx1 = Math.floor(box.max.x / cs);
+    const nz0 = Math.floor(box.min.z / cs), nz1 = Math.floor(box.max.z / cs);
+    if (ox0 === nx0 && ox1 === nx1 && oz0 === nz0 && oz1 === nz1) return;
+    for (let ix = ox0; ix <= ox1; ix++) {
+      for (let iz = oz0; iz <= oz1; iz++) {
+        const list = this.cells.get(this._key(ix, iz));
+        const k = list ? list.indexOf(box) : -1;
+        if (k >= 0) list.splice(k, 1);
+      }
+    }
+    for (let ix = nx0; ix <= nx1; ix++) {
+      for (let iz = nz0; iz <= nz1; iz++) {
+        const key = this._key(ix, iz);
+        let list = this.cells.get(key);
+        if (!list) this.cells.set(key, (list = []));
+        list.push(box);
+      }
+    }
+  }
+
   /** Convenience: add a box from its centre-bottom position and size. */
   addBlock(x, y, z, w, h, d, props) {
     return this.addBox(x - w / 2, y, z - d / 2, x + w / 2, y + h, z + d / 2, props);

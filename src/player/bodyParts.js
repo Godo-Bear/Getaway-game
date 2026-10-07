@@ -449,6 +449,24 @@ function addHat(P, hat) {
       }
       break;
     }
+    case 'bighead': {
+      // A carnival "cabeçudo": a huge papier-mâché head over your own, with a
+      // painted face, a big red nose, rosy cheeks and a crown of curls
+      const C = [0, 0.3, 0.02];
+      P.add(SPH, 'hat', C, 0, [0.34, 0.37, 0.33]);
+      P.add(SPH, 'hat', [0, 0.06, 0.03], 0, [0.17, 0.08, 0.15]);              // the chin/neck of the head
+      for (const sx of [-1, 1]) {
+        P.add(SPH, 'eyeWhite', [sx * 0.12, 0.36, 0.3], 0, [0.075, 0.085, 0.04]);
+        P.add(SPH_LO, 'pupil', [sx * 0.115, 0.355, 0.335], 0, [0.035, 0.042, 0.02]);
+        P.add(BOX, 'pupil', [sx * 0.12, 0.47, 0.31], [0.25, 0, sx * -0.2], [0.12, 0.025, 0.03]);  // eyebrows
+        P.add(SPH_LO, 'tie', [sx * 0.2, 0.25, 0.27], 0, [0.06, 0.045, 0.025]);  // rosy cheeks
+        P.add(SPH, 'hatBand', [sx * 0.31, 0.38, -0.03], 0, [0.08, 0.13, 0.12]); // curls over the ears
+      }
+      P.add(SPH, 'tie', [0, 0.28, 0.35], 0, [0.075, 0.07, 0.07]);              // the nose
+      P.add(rbox(0.16, 0.04, 0.03, 0.01), 'mouth', [0, 0.16, 0.31], [-0.25, 0, 0]);
+      P.add(dome(1.1), 'hatBand', [0, 0.32, -0.02], [-0.25, 0, 0], [0.36, 0.38, 0.35]); // the hair
+      break;
+    }
     case 'police':
     case 'guard': {
       // Peaked cap: a crown, a band, a shiny peak, a badge at the front
