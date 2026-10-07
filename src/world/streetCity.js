@@ -7,7 +7,7 @@ import { RoadGraph } from '../ai/roadGraph.js';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { makeShaftMaterial, lampShaftGeometry } from './atmosphere.js';
 import { Shopfronts, addShopsToBuildings } from './shopfronts.js';
-import { buildElevated, SKYWAY_REACH } from './elevated.js';
+import { planSubway, rampHole, buildSubway } from './subway.js';
 
 // Street-level city for the driving modes.
 //
@@ -19,9 +19,8 @@ import { buildElevated, SKYWAY_REACH } from './elevated.js';
 //    (a hiding spot: they lose you much faster in there).
 //  - Ramps in the parks launch the car into the air.
 //  - Street lamps, lane markings and working traffic lights.
-//  - More than one level (elevated.js): the Skyway ring road round the
-//    outside, on-ramps up to it, the railway you can drive along, and the
-//    Highline overpass across the middle.
+//  - The subway (subway.js): tunnels under two avenues, with stations and
+//    trains; ramps down to it through some of the blocks.
 //
 // Like the rooftop city, everything static is merged or instanced so the
 // whole city costs only a few dozen draw calls.
@@ -102,9 +101,14 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
 
   const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
 
-  // --- Ground (asphalt everywhere) ---------------------------------------
-  batch.addBox({ x: outer - 400, y: -0.5, z: outer - 400 }, { x: outerMax + 400, y: 0, z: outerMax + 400 },
-    { side: null, top: 'asphalt', topScale: [10, 10] });
+  // --- The subway's plan (which blocks get an entrance ramp) ----------------
+  const subwayPlan = planSubway({ n, roadC, road: ROAD, forced: new Set(Object.keys(forceKinds)) });
+  const holes = subwayPlan.ramps.map(rampHole);
+
+  // --- Ground (asphalt everywhere, open where the subway ramps go down) ---
+  for (const r of cutRects({ x0: outer - 400, z0: outer - 400, x1: outerMax + 400, z1: outerMax + 400 }, holes)) {
+    batch.addBox({ x: r.x0, y: -0.5, z: r.z0 }, { x: r.x1, y: 0, z: r.z1 }, { side: null, top: 'asphalt', topScale: [10, 10] });
+  }
 
   // --- City boundary wall -------------------------------------------------
   const wallT = 1.5, wallH = 2.2;
@@ -114,29 +118,21 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       ? { side: 'plain', top: 'plain', color: SNOW } // (a bank of snow)
       : { side: 'concrete', top: 'concrete', color: 0x9a9a9a, uvScale: [4, 4], topScale: [4, 4] });
   };
-  // (built once the on-ramps are known: each one leaves a gap in the wall)
-  const buildWalls = (gaps) => {
-    const run = (gs, a0, a1, f) => {
-      let s0 = a0;
-      for (const [g0, g1] of [...gs].sort((p, q) => p[0] - q[0])) { if (g0 > s0) f(s0, g0); s0 = Math.max(s0, g1); }
-      if (a1 > s0) f(s0, a1);
-    };
-    run(gaps.N, outer - wallT, outerMax + wallT, (a, b) => edge(a, outer - wallT, b, outer));
-    run(gaps.S, outer - wallT, outerMax + wallT, (a, b) => edge(a, outerMax, b, outerMax + wallT));
-    run(gaps.W, outer, outerMax, (a, b) => edge(outer - wallT, a, outer, b));
-    run(gaps.E, outer, outerMax, (a, b) => edge(outerMax, a, outerMax + wallT, b));
-  };
+  edge(outer - wallT, outer - wallT, outerMax + wallT, outer);
+  edge(outer - wallT, outerMax, outerMax + wallT, outerMax + wallT);
+  edge(outer - wallT, outer, outer, outerMax);
+  edge(outerMax, outer, outerMax + wallT, outerMax);
   // Hazard stripes on top of the wall so you can see it at night
   // Filler skyline outside the wall (visual only: no collision, so these must
   // never end up inside the city, or you'd drive straight through them)
   for (let i = 0; i < (alpine ? 0 : 70); i++) {
     const a = rng() * Math.PI * 2;
-    const r = half + ROAD + SKYWAY_REACH + 12 + rng.range(20, 140); // (out past the Skyway)
+    const r = half + ROAD + rng.range(20, 140);
     let x = Math.cos(a) * r, z = Math.sin(a) * r;
     const w = rng.range(14, 30), d = rng.range(14, 30), h = rng.range(15, 70);
     // The city is a square but this ring is a circle: near the corners the
     // circle dips inside the square. Push those buildings back out past the wall.
-    const need = outerMax + wallT + SKYWAY_REACH + 10 + Math.max(w, d) / 2;
+    const need = outerMax + wallT + 6 + Math.max(w, d) / 2;
     const m = Math.max(Math.abs(x), Math.abs(z));
     if (m < need) { x *= need / m; z *= need / m; }
     batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: rng.pick(WALL_TINTS), uvScale: FACADE_UV, uvOffset: [rng(), 0], topScale: [6, 6] });
@@ -148,11 +144,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     for (let i = 0; i < 420; i++) {
       const a = rng() * Math.PI * 2, r = outerMax + wallT + rng.range(6, 120);
       let x = Math.cos(a) * r, z = Math.sin(a) * r;
-      const m = Math.max(Math.abs(x), Math.abs(z)), need = outerMax + wallT + SKYWAY_REACH + 6;
+      const m = Math.max(Math.abs(x), Math.abs(z)), need = outerMax + wallT + 4;
       if (m < need) { x *= need / m; z *= need / m; }
       forest.push([x, z, rng.range(1.1, 2.2)]);
     }
-    group.add(buildMountains(rng, outerMax + SKYWAY_REACH));
+    group.add(buildMountains(rng, outerMax));
   }
 
   // --- Blocks ------------------------------------------------------------
@@ -192,6 +188,10 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     const [i, j] = key.split(',').map(Number);
     blockKinds[i * blocks + j] = kind;
   }
+  for (const key of subwayPlan.rampBlocks.keys()) {
+    const [i, j] = key.split(',').map(Number);
+    blockKinds[i * blocks + j] = 'subway';
+  }
   const landmarks = {};
   const extraSigns = [];
 
@@ -203,6 +203,26 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
 
       if (kind === 'park') {
         landmarks[`${i},${j}`] = makePark(x0, z0, x1, z1);
+        continue;
+      }
+      if (kind === 'subway') {
+        // A ramp down to the subway through the middle, buildings either side
+        const r = subwayPlan.rampBlocks.get(`${i},${j}`), h = rampHole(r);
+        const ix0 = x0 + SIDEWALK, ix1 = x1 - SIDEWALK, iz0 = z0 + SIDEWALK, iz1 = z1 - SIDEWALK;
+        for (const p of cutRects({ x0, z0, x1, z1 }, [h])) {
+          batch.addBox({ x: p.x0, y: 0, z: p.z0 }, { x: p.x1, y: 0.15, z: p.z1 }, { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
+        }
+        if (alpine) banks.push([x0, z0, x1, z1]);
+        const keep = [[r.c0 - 2, r.c1 + 2]];
+        if (r.axis === 'z') {
+          if (h.x0 - 1.5 - ix0 > 8) fillBuildings(ix0, iz0, h.x0 - 1.5, iz1);
+          if (ix1 - h.x1 - 1.5 > 8) fillBuildings(h.x1 + 1.5, iz0, ix1, iz1);
+          addKerbs(x0, z0, x1, z1, { north: keep, south: keep });
+        } else {
+          if (h.z0 - 1.5 - iz0 > 8) fillBuildings(ix0, iz0, ix1, h.z0 - 1.5);
+          if (iz1 - h.z1 - 1.5 > 8) fillBuildings(ix0, h.z1 + 1.5, ix1, iz1);
+          addKerbs(x0, z0, x1, z1, { west: keep, east: keep });
+        }
         continue;
       }
       if (LANDMARKS[kind]) {
@@ -537,24 +557,12 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   for (const side of [-1, 1]) {
     // Side girders and the rails
     batch.addBox({ x: outer, y: EL_Y + 1.2, z: elZ + side * EL_HALF - 0.25 }, { x: outerMax, y: EL_Y + 2.0, z: elZ + side * EL_HALF + 0.25 }, pillarLook);
-    world.addBox(outer, EL_Y + 1.2, elZ + side * EL_HALF - 0.25, outerMax, EL_Y + 2.2, elZ + side * EL_HALF + 0.25, { tag: 'rail' }); // (you can drive up here now)
     for (const r of [-0.75, 0.75]) {
       const rz = elZ + side * 2.8 + r;
       batch.addBox({ x: outer, y: EL_Y + 1.2, z: rz - 0.07 }, { x: outerMax, y: EL_Y + 1.35, z: rz + 0.07 }, { side: 'plain', top: 'plain', color: 0x8a8f96 });
     }
   }
   minimapShapes.push({ type: 'bridge', x0: outer, z0: elZ - EL_HALF, x1: outerMax, z1: elZ + EL_HALF });
-  }
-
-  // --- Elevated roads: the Skyway, its ramps, the railway and the Highline --
-  const elev = buildElevated({ batch, world, outer, outerMax, roadC, n, road: ROAD, elZ, elHalf: EL_HALF, alpine, wallT });
-  buildWalls(elev.gaps);
-  {
-    // (the minimap: nothing outside the wall but the elevated roads)
-    const e0 = elev.minEdge - 12, e1 = elev.outerEdge + 12;
-    minimapShapes.push({ type: 'void', x0: e0, z0: e0, x1: e1, z1: outer - wallT }, { type: 'void', x0: e0, z0: outerMax + wallT, x1: e1, z1: e1 },
-      { type: 'void', x0: e0, z0: outer - wallT, x1: outer - wallT, z1: outerMax + wallT }, { type: 'void', x0: outerMax + wallT, z0: outer - wallT, x1: e1, z1: outerMax + wallT });
-    minimapShapes.push(...elev.shapes);
   }
 
   // Where the street lamps stand (world x, z), so nothing is parked on them.
@@ -615,6 +623,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     }
   }
 
+  // --- The subway (before the meshes are built) ---------------------------------------------------------
+  const subway = buildSubway({ plan: subwayPlan, batch, world, graph, roadC, alpine });
+  group.add(subway.group);
+  minimapShapes.push(...subway.shapes);
+
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));
   group.add(buildRampMeshes(ramps));
@@ -632,7 +645,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     }
     group.add(batch2.build(mats));
   }
+  // (no street lamp standing in a subway entrance)
+  const inHole = (x, z) => holes.some((h) => x > h.x0 - 1 && x < h.x1 + 1 && z > h.z0 - 1 && z < h.z1 + 1);
+  for (let k = lamps.length - 1; k >= 0; k--) { const [x, z] = lamps[k]; if (inHole(x, z) || inHole(z, -x)) lamps.splice(k, 1); }
   group.add(buildLamps(lamps));
+
   const trafficLights = new TrafficLights(graph, ROAD);
   group.add(trafficLights.group);
 
@@ -653,23 +670,30 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   group.add(signGroup);
   for (const sgn of extraSigns) group.add(sgn);
 
+  /** Height of the drivable surface at (x, z): 0 on roads, sloped on ramps. */
   /**
    * Height of the drivable surface at (x, z) for something at height y: 0 on
-   * the roads, sloped on ramps, and the elevated roads when you're up there
-   * (or climbing to them).
+   * the roads (sloped on the park ramps), and down in the subway when you're
+   * down there (or on a ramp to it). Over a ramp's opening there's no street.
    */
   function groundHeight(x, z, y = 0) {
-    let h = 0;
-    for (const r of ramps) {
-      if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) continue;
-      // t = 0 at the low end, 1 at the high (launch) end
-      let t = r.axis === 'x' ? (x - r.x0) / (r.x1 - r.x0) : (z - r.z0) / (r.z1 - r.z0);
-      if (r.dir < 0) t = 1 - t;
-      h = t * r.height;
-      break;
+    let h = -Infinity;
+    if (y > -1 && !subway.inHole(x, z)) {
+      h = 0;
+      for (const r of ramps) {
+        if (x < r.x0 || x > r.x1 || z < r.z0 || z > r.z1) continue;
+        // t = 0 at the low end, 1 at the high (launch) end
+        let t = r.axis === 'x' ? (x - r.x0) / (r.x1 - r.x0) : (z - r.z0) / (r.z1 - r.z0);
+        if (r.dir < 0) t = 1 - t;
+        h = t * r.height;
+        break;
+      }
     }
-    return Math.max(h, elev.heightAt(x, z, y));
+    const under = subway.heightAt(x, z, y);
+    if (h === -Infinity && under === -Infinity) return Math.min(0, y); // (nowhere to be: stay put)
+    return Math.max(h, under);
   }
+
 
   const train = alpine ? { group: new THREE.Group(), update() {} } : new ElevatedTrain(outer, outerMax, elZ + 2.8, EL_Y + 1.35);
   group.add(train.group);
@@ -678,18 +702,15 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
 
   return {
     group, world, graph, ramps, parks, alleys, trafficLights, minimapShapes, landmarks,
-    bounds: { min: elev.minEdge - 12, max: elev.outerEdge + 12 }, // (the minimap: out to the Skyway)
-    cityBounds: { min: outer, max: outerMax },
-    elevated: elev,
-    /** Fell off the edge (outside the wall, on the ground): somewhere you can't drive. */
-    offMap: (x, z, y) => y < 2 && (x < outer - wallT || x > outerMax + wallT || z < outer - wallT || z > outerMax + wallT) && elev.heightAt(x, z, y) === -Infinity, // (no road you could be on: not even the bottom of a ramp)
+    bounds: { min: outer, max: outerMax },
     roadWidth: ROAD,
     groundHeight,
     isInAlley: (x, z) => alleys.some((a) => inRect(x, z, a)),
     isInPark: (x, z) => parks.some((p) => inRect(x, z, p)),
     isInGarage: (x, z) => garages.some((g) => inRect(x, z, g)),
     garages,
-    isUnderBridge: (x, z, y = 0) => (y < EL_Y - 1 && Math.abs(z - elZ) < EL_HALF && x > outer && x < outerMax) || elev.under(x, z, y),
+    isUnderBridge: (x, z, y = 0) => y > -1 && Math.abs(z - elZ) < EL_HALF && x > outer && x < outerMax,
+    subway,
     train,
     chimneys,
     kerbs, lampSpots, alpine, elZ, sidewalk: SIDEWALK,
@@ -882,7 +903,7 @@ export class TrafficLights {
 
 // ----------------------------------------------------------------------
 // A three-car train that runs back and forth along the elevated line.
-// You can drive along the railway now: hit(pos) says if a car touches it.
+// Pure decoration: it has no collider (nothing can reach it anyway).
 // ----------------------------------------------------------------------
 class ElevatedTrain {
   constructor(minX, maxX, z, y) {
@@ -904,19 +925,6 @@ class ElevatedTrain {
       win.position.set(-i * 14.6, 2.2, 0);
       this.group.add(car, win);
     }
-  }
-
-  /**
-   * Does a car (at pos, radius r) touch the train? Returns which way to push
-   * it out (across the track) and the train's speed, or null.
-   */
-  hit(pos, r = 1.8) {
-    const g = this.group.position;
-    if (pos.y < g.y - 1.5 || pos.y > g.y + 4) return null;
-    const lo = this.dir > 0 ? g.x - 36.2 : g.x - 7, hi = this.dir > 0 ? g.x + 7 : g.x + 36.2;
-    if (pos.x < lo - r || pos.x > hi + r || Math.abs(pos.z - g.z) > 1.5 + r) return null;
-    const side = Math.sign(pos.z - g.z) || 1;
-    return { pushZ: g.z + side * (1.5 + r) - pos.z, side, speed: this.wait > 0 ? 0 : 18 * this.dir };
   }
 
   update(dt) {
@@ -987,4 +995,21 @@ function buildMountains(rng, outerMax) {
   const g = new THREE.Group();
   g.add(rock, cap);
   return g;
+}
+
+/** A rectangle with some rectangles cut out of it, as a list of rectangles. */
+function cutRects(r, holes) {
+  const hs = holes.filter((h) => h.x1 > r.x0 && h.x0 < r.x1 && h.z1 > r.z0 && h.z0 < r.z1);
+  if (!hs.length) return [r];
+  const xs = [...new Set([r.x0, r.x1, ...hs.flatMap((h) => [Math.max(r.x0, h.x0), Math.min(r.x1, h.x1)])])].sort((a, b) => a - b);
+  const out = [];
+  for (let k = 0; k < xs.length - 1; k++) {
+    const a = xs[k], b = xs[k + 1], m = (a + b) / 2;
+    if (b - a < 1e-6) continue;
+    const cuts = hs.filter((h) => m > h.x0 && m < h.x1).map((h) => [Math.max(r.z0, h.z0), Math.min(r.z1, h.z1)]).sort((p, q) => p[0] - q[0]);
+    let z = r.z0;
+    for (const [c0, c1] of cuts) { if (c0 > z) out.push({ x0: a, x1: b, z0: z, z1: c0 }); z = Math.max(z, c1); }
+    if (r.z1 > z) out.push({ x0: a, x1: b, z0: z, z1: r.z1 });
+  }
+  return out;
 }

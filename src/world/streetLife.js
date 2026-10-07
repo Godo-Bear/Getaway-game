@@ -142,7 +142,7 @@ export class StreetLife {
       }
       if (len - 2 - start > 8) this.walks.push({ a: at(start, PED_IN), b: at(len - 2, PED_IN), len: len - 2 - start, k, ix, iz });
       // The El's pillars stand at the kerb: nothing parked under the railway
-      const onEl = (!uz && Math.abs(az - city.elZ) < city.roadWidth / 2 + 2) || (!ux && Math.abs(ax - (city.elevated?.highX ?? 1e6)) < city.roadWidth / 2 + 2); // (and the Highline's)
+      const onEl = !uz && Math.abs(az - city.elZ) < city.roadWidth / 2 + 2;
       let shelterHere = !alpine && rng() < 0.12;
       for (let t = 6; t < len - 6; t += 7) {
         const [cx, cz] = at(t, 0);

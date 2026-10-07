@@ -309,7 +309,7 @@ export class DrivingState extends PlayState {
       const impact = collideCarWithWorld(car, this.city.world);
       if (car === p && impact > 5) this._damage((impact - 5) * 0.012, impact);
     }
-    this._levels(dt);
+    this._subway(dt);
     collideCars(all, (a, b, impact) => {
       a.lastImpact = Math.max(a.lastImpact, impact);
       b.lastImpact = Math.max(b.lastImpact, impact);
@@ -458,6 +458,7 @@ export class DrivingState extends PlayState {
     this.mode.syncMeshes?.();
     this.city.trafficLights.update(frozen ? 0 : dt);
     this.city.train.update(frozen ? 0 : dt);
+    this.city.subway?.update(frozen ? 0 : dt);
     if (this.playerMesh.userData.flames) this.playerMesh.userData.flames.visible = p.boosting;
     updateUnderglow(this.playerMesh, this.time, p.airborne);
     this.playerMesh.userData.tailMat.color.setHex(p.controls.throttle < 0 ? 0xff2030 : 0x881018);
@@ -523,7 +524,7 @@ export class DrivingState extends PlayState {
       return;
     }
     if (this.time && police.jammed > 0) this.heli.blinded = Math.max(this.heli.blinded || 0, 0.2); // (radio jammed: they can't call you in)
-    const lit = this.heli.chase(dt, p, diff().copSpeed) && !this.inGarage;
+    const lit = this.heli.chase(dt, p, diff().copSpeed) && !this.inGarage && !this.city.subway?.isUnder(p.pos.y); // (it can't see into the subway)
     if (lit) {
       police.lastKnown.copy(p.pos);
       police.timeSinceSeen = 0;
@@ -538,57 +539,39 @@ export class DrivingState extends PlayState {
     }
   }
 
-  /** Is the player somewhere the cops struggle to see (alley, park, under the El or a bridge, a garage)? */
+  /** Is the player somewhere the cops struggle to see (alley, park, under the El, a garage, the subway)? */
   get playerHidden() {
     const p = this.player.pos;
-    return this.inGarage || this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z) || this.city.isUnderBridge(p.x, p.z, p.y);
+    return this.inGarage || this.city.isInAlley(p.x, p.z) || this.city.isInPark(p.x, p.z) || this.city.isUnderBridge(p.x, p.z, p.y) || !!this.city.subway?.isUnder(p.y);
   }
 
   /**
-   * The elevated roads: the train on the railway knocks you aside, a car that
-   * goes over the edge onto the ground outside the city is put back, and the
-   * first time you get up onto each level it says where you are.
+   * The subway: the trains knock you aside if you're on their track, the
+   * light dims as you go down, and the first time you're down there it says so.
    */
-  _levels(dt) {
-    const p = this.player, city = this.city;
-    // The train (you can drive along its tracks)
-    const hit = city.train.hit?.(p.pos);
+  _subway(dt) {
+    const sub = this.city.subway, p = this.player;
+    if (!sub) return;
+    const hit = sub.hit(p.pos);
     if (hit) {
-      p.pos.z += hit.pushZ;
-      const into = p.vel.z * -hit.side;
-      if (into > 0) p.vel.z += into * hit.side * 1.4;
-      p.vel.x = p.vel.x * 0.4 + hit.speed * 0.8;
-      p.vel.z += hit.side * 6;
+      if (hit.axis === 'x') { p.pos.z += hit.push; p.vel.z = p.vel.z * 0.3 + hit.side * 7; p.vel.x = p.vel.x * 0.4 + hit.speed * 0.8; }
+      else { p.pos.x += hit.push; p.vel.x = p.vel.x * 0.3 + hit.side * 7; p.vel.z = p.vel.z * 0.4 + hit.speed * 0.8; }
       p.syncMesh();
       if (!(this._trainHitT > 0)) {
         this._trainHitT = 2;
         this._damage(0.12, 22);
         audio.sfx('crash1', { vol: 0.9 });
-        this.game.hud.toast('Hit by the train!', 'Stay off the track it\'s on.', 'var(--red)', 2);
+        this.game.hud.toast('Hit by a subway train!', 'Keep off the track (the yellow line marks it).', 'var(--red)', 2);
       }
     }
     if (this._trainHitT > 0) this._trainHitT -= dt;
-    // Over the edge onto the ground outside the wall: back on the road
-    if (city.offMap?.(p.pos.x, p.pos.z, p.pos.y) && !p.airborne) {
-      const n = city.graph.nearestNode(p.pos.x, p.pos.z);
-      p.place(n.x, n.z, p.heading);
-      this.game.hud.toast('Back on the road', 'You went over the edge.', 'var(--cyan)', 2);
+    // Darker down there (eases in and out on the ramps)
+    const under = Math.min(1, Math.max(0, -p.pos.y / 5));
+    this.lighting.under = (this.lighting.under || 0) + (under - (this.lighting.under || 0)) * Math.min(1, dt * 4);
+    if (under > 0.9 && !this._subwaySaid) {
+      this._subwaySaid = true;
+      this.game.hud.toast('The subway', 'Tunnels under two avenues, with stations. The police can follow you down, but they lose sight of you easily. Mind the trains!', 'var(--cyan)', 4);
     }
-    // Where you are (first time on each level, this drive)
-    const on = city.elevated?.onSurface(p.pos.x, p.pos.z, p.pos.y);
-    const label = on?.label;
-    if (label && label !== this._levelLabel && !(this._levelsSeen ||= new Set()).has(label)) {
-      this._levelsSeen.add(label);
-      const say = {
-        'Skyway ramp': ['Up to the Skyway', 'A ring road 9 m up, all the way round the city.'],
-        Skyway: ['The Skyway', 'Round the outside of the city. The railway and the Highline join it: look for the gaps in the rail.'],
-        'the railway': ['On the railway', 'Drive the tracks right across the city. Watch out for the train!'],
-        'Highline ramp': ['Up to the Highline', 'The highest road in the city, 18 m up.'],
-        'the Highline': ['The Highline', 'Over the middle of the city and over the railway. The police can\'t follow you up here, but the helicopter can.'],
-      }[label];
-      if (say) this.game.hud.toast(say[0], say[1], 'var(--cyan)', 3);
-    }
-    this._levelLabel = label;
   }
 
   get inGarage() {

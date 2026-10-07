@@ -17,10 +17,11 @@ import { clamp, damp, lerp } from '../core/utils.js';
 // Heading convention: heading 0 faces +Z, forward = (sin h, cos h).
 
 export const CAR_SPECS = {
+  // slip: how much the car slides out to the side as it turns (0 = none)
   player: {
     maxSpeed: 42, accel: 17, brake: 40, reverseMax: 13,
-    grip: 10, driftGrip: 1.5, steerLow: 2.7, steerHigh: 1.15,
-    nitroAccel: 20, nitroMaxFactor: 1.32, mass: 1,
+    grip: 8, driftGrip: 1.5, steerLow: 3.2, steerHigh: 1.55,
+    nitroAccel: 20, nitroMaxFactor: 1.32, mass: 1, slip: 0.5,
   },
   police: {
     maxSpeed: 38, accel: 15, brake: 40, reverseMax: 12,
@@ -158,6 +159,8 @@ export class Car {
       if (c.handbrake) steerRate *= 1.45;
       const targetYaw = -c.steer * steerRate * Math.sign(vF || 1);
       this.yawRate = damp(this.yawRate, targetYaw, 10, dt);
+      // Turning swings the back out: the car slides to the outside of the turn
+      if (s.slip) vL += this.yawRate * vF * s.slip * dt;
     } else {
       // In the air: no grip, no steering (just a little spin)
       this.yawRate = damp(this.yawRate, -c.steer * 0.4, 2, dt);

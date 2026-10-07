@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { Car, CAR_SPECS } from '../vehicles/car.js';
 import { makeCarMesh, makeBikeMesh, updateSirens } from '../vehicles/carModel.js';
 import { driveToward, handleStuck, makeAiState } from './driver.js';
+import { NavNet, underground } from './navNet.js';
 
 // Police pursuit AI.
 //
@@ -16,6 +17,11 @@ import { driveToward, handleStuck, makeAiState } from './driver.js';
 //              road graph, at each intersection turning toward you
 //   SEARCH   - the trail has gone cold: cruise to random intersections
 //              near where you were last seen
+//
+// Different levels (the subway): a cop on the street can't see you down in
+// a tunnel (or the other way round) unless right on top of you. To get to
+// you they drive the route map (navNet.js): to the nearest subway ramp,
+// down it and along the tunnels (and back up again).
 //
 // Cops never stay stuck: they reverse out, and if that fails (or they end up
 // far behind) they are quietly respawned somewhere off-screen.
@@ -61,6 +67,7 @@ export class PoliceForce {
     this.searching = false;
     this.anySees = false;
     this.time = 0;
+    this.nav = city.subway ? new NavNet(city) : null;
   }
 
   get cars() {
@@ -87,10 +94,11 @@ export class PoliceForce {
     this.justReacquired = false;
   }
 
-  /** Line of sight at car-roof height, blocked by buildings. */
+  /** Line of sight at car-roof height, blocked by buildings (and the ground between levels). */
   canSee(from, to) {
     _dir.set(to.x - from.x, 0, to.z - from.z);
     const d = _dir.length();
+    if (underground(from.y) !== underground(to.y) && d > 10) return false;
     if (d > SIGHT_RANGE * (this.sightScale || 1)) return false; // (further in daylight)
     if (d < 0.01) return true;
     _dir.divideScalar(d);
@@ -100,6 +108,20 @@ export class PoliceForce {
 
   /** Put a unit on an intersection away from the player and out of view. */
   respawn(unit, player, camera, { minDist = 80, maxDist = 170 } = {}) {
+    unit.navTarget = null;
+    // You're down in the subway: half the time they come down a tunnel after you
+    if (this.nav?.active && underground(player.pos.y) && this.rng() < 0.5) {
+      const below = this.nav.extra.filter((n) => underground(n.y) && Math.hypot(n.x - player.pos.x, n.z - player.pos.z) > 60 &&
+        Math.hypot(n.x - player.pos.x, n.z - player.pos.z) < 200 && !this.units.some((u) => u !== unit && Math.hypot(u.car.pos.x - n.x, u.car.pos.z - n.z) < 10));
+      if (below.length) {
+        const nd = below[Math.floor(this.rng() * below.length)];
+        unit.car.place(nd.x, nd.z, Math.atan2(player.pos.x - nd.x, player.pos.z - nd.z));
+        unit.car.pos.y = nd.y;
+        unit.car.syncMesh();
+        unit.targetNode = null; unit.prevNode = null; unit.ai = makeAiState(); unit.farTimer = 0;
+        return;
+      }
+    }
     const nodes = this.city.graph.nodes;
     let candidates = nodes.filter((n) => {
       const d = Math.hypot(n.x - player.pos.x, n.z - player.pos.z);
@@ -168,6 +190,7 @@ export class PoliceForce {
       .slice(0, MAX_CLOSE)
       .map((x) => x.u);
 
+    this.nav?.tick(dt);
     for (const u of this.units) {
       const car = u.car;
       car.speedFactor = heat.speedFactor;
@@ -191,7 +214,8 @@ export class PoliceForce {
       }
       const distToPlayer = Math.hypot(player.pos.x - car.pos.x, player.pos.z - car.pos.z);
       const isClose = close.includes(u);
-      if (!this.searching && isClose && u.seesPlayer && distToPlayer < 110) {
+      const sameLevel = Math.abs(car.pos.y - player.pos.y) < 2.5;
+      if (!this.searching && isClose && u.seesPlayer && sameLevel && distToPlayer < 110) {
         // --- PURSUE: aim a little ahead of the player
         u.mode = 'pursue';
         const dist = Math.hypot(player.pos.x - car.pos.x, player.pos.z - car.pos.z);
@@ -203,6 +227,8 @@ export class PoliceForce {
         const want = dist < 16 ? Math.max(player.speed + dist * 0.5, 3) : 60;
         driveToward(car, tx, tz, want, { allowDrift: true });
         u.targetNode = null;
+      } else if (this._levels(u, car, player)) {
+        // (driving the route map between the street and the subway)
       } else {
         // --- NAVIGATE (towards last known position) or SEARCH (random nearby)
         u.mode = this.searching ? 'search' : 'navigate';
@@ -257,6 +283,39 @@ export class PoliceForce {
       u.farTimer = far ? u.farTimer + dt : 0;
       if (u.farTimer > 3 && !this.searching) this.respawn(u, player, camera);
     }
+  }
+
+  /**
+   * When the cop and its goal are on different levels (or the cop is down in
+   * the subway), drive the route map: to a ramp, down (or up) it, along the
+   * tunnels. Returns false when it isn't needed (then the usual street
+   * driving takes over).
+   */
+  _levels(u, car, player) {
+    const nav = this.nav;
+    if (!nav?.active) return false;
+    const goalPos = this.searching ? (underground(car.pos.y) ? null : this.lastKnown) : this.lastKnown;
+    const copDown = underground(car.pos.y), goalDown = goalPos ? underground(goalPos.y) : false;
+    if (!copDown && !goalDown) { if (u.navTarget) { u.navTarget = null; u.targetNode = null; } return false; }
+    // Searching from down below: head back up to the street
+    const goal = goalPos ? nav.nearest(goalPos) : this.city.graph.nearestNode(car.pos.x, car.pos.z);
+    if (!u.navTarget) u.navTarget = nav.nearest(car.pos);
+    const t = u.navTarget;
+    const reached = Math.hypot(t.x - car.pos.x, t.z - car.pos.z) < (t.links ? 6 : 9) && Math.abs((t.y || 0) - car.pos.y) < 3;
+    if (reached) {
+      const nx = nav.next(t, goal);
+      if (!nx) {
+        // There: same tunnel (or street) as you, drive straight at where you were seen
+        u.mode = 'navigate';
+        driveToward(car, this.lastKnown.x, this.lastKnown.z, 30, { allowDrift: false });
+        return true;
+      }
+      u.navTarget = nx;
+    }
+    u.mode = 'navigate';
+    const tn = u.navTarget;
+    driveToward(car, tn.x, tn.z, copDown || tn.links ? 28 : 42, { allowDrift: !copDown });
+    return true;
   }
 
   /** A junction 70-150 m from the player for a back-up cruiser to patrol. */

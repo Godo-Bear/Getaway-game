@@ -333,6 +333,7 @@ export class NightLighting {
     u.moonDir.value.copy(moon).normalize();
     this.moon.color.copy(L.lc);
     this.moon.intensity = L.li * (1 - k * 0.6);
+    this._moonI = null;
     this.hemi.color.copy(L.hs);
     this.hemi.groundColor.copy(L.hg);
     this.hemiBase = L.hi * (1 - k * 0.15 * L.sun);
@@ -399,7 +400,15 @@ export class NightLighting {
     this.skyMat.uniforms.time.value += dt;
     this.starMat.uniforms.time.value = this.skyMat.uniforms.time.value;
     this.skyMat.uniforms.flash.value = flash;
-    this.hemi.intensity = this.hemiBase + flash * 6;
+    // Underground (the subway): the sky's light fades out (0 = outside, 1 = down there)
+    const u = this.under || 0;
+    this.hemi.intensity = (this.hemiBase + flash * 6) * (1 - 0.45 * u);
+    if (u > 0 || this._moonDimmed) {
+      if (this._moonI == null) this._moonI = this.moon.intensity;
+      this.moon.intensity = this._moonI * (1 - 0.9 * u);
+      this._moonDimmed = u > 0;
+      if (!this._moonDimmed) { this.moon.intensity = this._moonI; this._moonI = null; }
+    }
   }
 
   /** Keep the moon's shadow box centred on the player. */

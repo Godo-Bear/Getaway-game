@@ -55,6 +55,24 @@ export class MeshBatcher {
   }
 
   /**
+   * Add any flat four-sided face: corners a, b, c, d in order round it, with
+   * normal n (the caller makes sure the winding matches).
+   */
+  addPoly(key, a, b, c, d, n, color, uvFn) {
+    const bk = this._bucket(key);
+    const corners = [a, b, c, d];
+    _c.set(color);
+    for (const i of [0, 1, 2, 0, 2, 3]) {
+      const p = corners[i];
+      bk.pos.push(p[0], p[1], p[2]);
+      bk.nrm.push(n[0], n[1], n[2]);
+      const uv = uvFn(p[0], p[1], p[2], i);
+      bk.uv.push(uv[0], uv[1]);
+      bk.col.push(_c.r, _c.g, _c.b);
+    }
+  }
+
+  /**
    * Add an axis-aligned box.
    * opts:
    *   side   - material key for the four walls (null = skip walls)

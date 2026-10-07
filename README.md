@@ -189,11 +189,6 @@ service cloud.firestore {
   * **Shop counters**: at a till, E opens the counter: buy an espresso or an energy drink (run 15% faster for a minute), a hoodie and cap (a disguise: two stars off and they lose you), a burner phone (one star off), a tag finder app (crew tags on the minimap), a lucky charm (cash bags pay double), or rob the till.
   * **Stats and achievements** (title screen > Stats): distance on foot and driven, tills, pickpockets, police lost, most wanted, officers down, tags, jobs, challenges, things bought, cars stolen, distance on bikes, and 19 achievements that pay out once ($100-$1000).
   * **Rumble and vibration**: a gamepad rumbles, and a phone buzzes, on punches, big landings, crashes and getting caught (Settings > Vibration).
-* **Driving on different levels** (every driving city: Free Run, Street Chase and the story's drives): the city is bigger now, with three levels to drive on.
-  * **The Skyway**: a ring road 9 m up, all the way round the outside of the city. An on-ramp climbs up to it from the end of a street on each side (through a gap in the city wall; grey on the minimap, outlined).
-  * **The railway**: the elevated train line joins the Skyway at both ends, so you can drive along the tracks right across the city. The train still runs on one of them: it knocks you aside if it hits you.
-  * **The Highline**: the highest road, 18 m up, across the middle of the city and over the railway (lighter grey on the minimap). Ramps climb to it from the Skyway, north and south.
-  * Rails along every edge keep you on; if you do go over, you're put back on the road. The police cars can't follow you up there (the helicopter can), and under the bridges counts as a hiding place. Frostvale has the Skyway and the Highline (no railway).
 * **Getting around** (Free Run on foot):
   * **Steal a parked car**: cars are parked along the kerbs. Walk up to one and press E to break in and drive off in it (a little slower than your own car). The owner calls it in: half a star on foot, and two patrol cars come looking for it on the streets, even with police off, until you lose them (+$80).
   * **Bikes and e-scooters**: docks by the parks and on corners (blue and green dots on the minimap). E to ride (a bike is 85% faster than running, a scooter 55%), E again to get off. Climbing, ladders, zip lines and wall runs put it down.

@@ -1,8 +1,6 @@
 import * as THREE from 'three';
 import { generateRooftopCity, findClearRoofSpot } from '../../world/rooftopCity.js';
 import { makeGlowMaterial } from '../../world/materials.js';
-import { makeCarMesh } from '../../vehicles/carModel.js';
-import { playerCarColour, playerCarStyle } from '../../vehicles/carColours.js';
 import { Helicopter } from '../../ai/helicopter.js';
 import { OfficerSquad, rooftopCitySpawns, inHideSpot } from '../../ai/officer.js';
 import { formatTime, makeRng, clamp } from '../../core/utils.js';
@@ -27,15 +25,14 @@ import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 //    police on foot lose you in the crowd)
 //  - Walk into the little shops at street level and rob the tills
 //    (police on: the alarm brings them running)
-//  - Your car is parked down on the street (blue beams): walk up to it to
-//    drive the city. Park in a garage there to come back up here.
+//  - Press T (or "Get in a car") to drive the city; park in a garage there
+//    to come back up here. (Your own car isn't parked on the street.)
 //  - Getting around (freeGetAround.js): steal parked cars, ride bikes and
 //    e-scooters from the docks, bring a crew member along, and the safehouse
 //    (lay low and save, garage, wardrobe, gadgets, start here)
 //  - Police (optional, pause menu): one helicopter. Caught = back to safety
 //    and a few dollars lighter; it never ends the run.
 
-const CAR_RADIUS = 3.2;
 const BAG_CASH = 25;
 const BAG_COUNT = 3;
 const ESCAPE_TIME = 20; // seconds out of the light (police on) for an escape bonus
@@ -134,7 +131,11 @@ export class FreeRunMode {
   }
 
   // ---------------------------------------------------------------- the car
-  /** Park the getaway car at a few spots on the streets near the start. */
+  /**
+   * Where you step out when you get out of your car (spots on the streets near
+   * the start). Your own car isn't parked on the street any more: press T
+   * (or "Get in a car") to drive. The street has everyone else's cars.
+   */
   _buildCars() {
     const c = this.city, w = c.world, sp = c.spawn;
     const spots = [];
@@ -149,23 +150,8 @@ export class FreeRunMode {
     const picked = spots.filter(clear)
       .sort((a, b) => Math.hypot(a.x - sp.x, a.z - sp.z) - Math.hypot(b.x - sp.x, b.z - sp.z))
       .slice(0, 5);
-    const color = playerCarColour();
-    this.cars = picked.map((s) => {
-      const g = new THREE.Group();
-      const mesh = makeCarMesh({ kind: 'player', color, style: playerCarStyle(), parked: true });
-      mesh.rotation.y = s.heading;
-      g.add(mesh);
-      const ring = new THREE.Mesh(new THREE.RingGeometry(3.4, 3.9, 36), makeGlowMaterial(0x39a8ff, 0.7));
-      ring.rotation.x = -Math.PI / 2;
-      ring.position.y = 0.06;
-      const beam = new THREE.Mesh(new THREE.CylinderGeometry(1, 1, 60, 14, 1, true), makeGlowMaterial(0x39a8ff, 0.12));
-      beam.position.y = 30;
-      g.add(ring, beam);
-      g.position.set(s.x, w.groundHeight(s.x, s.z, 3), s.z);
-      this.city.group.add(g);
-      w.addBlock(s.x, g.position.y, s.z, s.heading ? 4.4 : 2, 1.3, s.heading ? 2 : 4.4, { tag: 'car' });
-      return { group: g, ring, pos: g.position, heading: s.heading };
-    });
+    this.carSpots = picked.map((s) => ({ pos: new THREE.Vector3(s.x, w.groundHeight(s.x, s.z, 3), s.z), heading: s.heading }));
+    this.cars = []; // (no car of yours parked here)
   }
 
   // ---------------------------------------------------------------- run
@@ -183,11 +169,10 @@ export class FreeRunMode {
     hud.setObjective(this.city.groundLevel ? `Explore ${this.map.name}` : 'Explore the rooftops');
     this._carButton();
     this.setCrew(freeSession(s.game).crew || null, { quiet: true });
-    if (this.fromCar && this.cars.length) {
+    if (this.fromCar && this.carSpots.length) {
       // Out of the car: on the street beside it, facing the way it's parked
       this.fromCar = false;
-      this.leftCar = true; // (walk away from it first, or you'd climb straight back in)
-      const c = this.cars[0], h = c.heading;
+      const c = this.carSpots[0], h = c.heading;
       s.placePlayer(new THREE.Vector3(c.pos.x + Math.cos(h) * 2.4, c.pos.y, c.pos.z - Math.sin(h) * 2.4), h - Math.PI);
       hud.toast('On foot', 'Climb the yellow ladders to the rooftops and grab the cash bags. Press T (or "Get in a car") to drive again.', 'var(--amber)', 5);
       return;
@@ -266,19 +251,6 @@ export class FreeRunMode {
       return;
     }
 
-    // Your car: walk up to it (at street level) to drive
-    let nearCar = null, carD = Infinity;
-    for (const c of this.cars) {
-      c.ring.rotation.z += dt * 0.8;
-      const d = Math.hypot(c.pos.x - p.pos.x, c.pos.z - p.pos.z);
-      if (d < carD) { carD = d; nearCar = c; }
-    }
-    if (this.leftCar && carD > CAR_RADIUS + 1.5) this.leftCar = false;
-    if (nearCar && carD < CAR_RADIUS && !this.leftCar && Math.abs(p.pos.y - nearCar.pos.y) < 2) {
-      switchFreeRoam(s, 'car');
-      return;
-    }
-
     // The clock (carries on in the car) and how busy the streets are
     const hour = s.lighting.hour;
     freeSession(s.game).hour = hour;
@@ -347,7 +319,6 @@ export class FreeRunMode {
     this._police(dt, inShop, behindCounter);
 
     // Marker: a waypoint you set on the map, the nearest cash bag, or the car when you're down on the street
-    const onStreet = p.pos.y < 1.5;
     let best = null, bd = Infinity;
     for (const b of this.bags) {
       if (!b.group.visible) continue;
@@ -356,7 +327,6 @@ export class FreeRunMode {
     }
     const dots = [
       ...this.bags.filter((b) => b.group.visible).map((b) => ({ x: b.pos.x, z: b.pos.z, color: '#4dffa6' })),
-      ...this.cars.map((c) => ({ x: c.pos.x, z: c.pos.z, color: '#39a8ff', size: 1.3 })),
       ...(this.officers?.units || []).filter((u) => !u.inactive && u.model.root.visible).map((u) => ({ x: u.pc.pos.x, z: u.pc.pos.z, color: '#ff3346' })),
       ...(this.heli ? [{ x: this.heli.pos.x, z: this.heli.pos.z, color: '#ff3346', size: 1.8 }] : []),
     ];
@@ -372,8 +342,6 @@ export class FreeRunMode {
       hud.setMarker(goal.clone().setY(goal.y + 1.6), s.camera, job ? job.label : race.label, race ? '#39e6ff' : '#ffb020', p.pos.distanceTo(goal));
     } else if (way) {
       hud.setMarker(new THREE.Vector3(way.x, 2, way.z), s.camera, 'Waypoint', '#ff5ad0', Math.hypot(way.x - p.pos.x, way.z - p.pos.z));
-    } else if (onStreet && nearCar && !this.city.groundLevel) {
-      hud.setMarker(nearCar.pos.clone().setY(nearCar.pos.y + 2.2), s.camera, 'Your car', '#39a8ff', carD);
     } else if (best) hud.setMarker(best.pos.clone().setY(best.pos.y + 1.5), s.camera, 'Cash', 'var(--safe)', bd);
     else hud.setMarker(null);
     const stars = this.stars;
@@ -381,7 +349,7 @@ export class FreeRunMode {
       : race ? `<span>${race.name} <b style="color:#39e6ff">${formatTime(race.t)}</b>${race.best ? ` · best ${formatTime(race.best)}` : ''}</span>` : '';
     hud.setStats(`${doing}<span>Time <b>${formatTime(t)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
       `<span>Wanted <b style="color:${stars ? '#ffd040' : '#6a6f7c'};letter-spacing:1px">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</b></span>` +
-      `<span>Tags <b style="color:#ffd040">${this.tags.found}/${this.tags.total}</b></span><span>Car <b>${Math.round(carD)} m</b></span>`);
+      `<span>Tags <b style="color:#ffd040">${this.tags.found}/${this.tags.total}</b></span>`);
   }
 
   // ---------------------------------------------------------------- crime and the police

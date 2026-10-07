@@ -26,24 +26,31 @@ export class Minimap {
     g.fillStyle = '#3a3e4a'; // roads (everything not covered is road)
     g.fillRect(0, 0, off.width, off.height);
     for (const s of city.minimapShapes) {
-      if (s.type === 'bridge' || s.type === 'garage' || s.type === 'elevated') continue;
-      g.fillStyle = { park: '#1f4a2a', shop: '#4a3418', ladder: '#ffd040', void: '#07090f' }[s.type] || '#12151d';
+      if (s.type === 'bridge' || s.type === 'garage' || s.type === 'tunnel' || s.type === 'station' || s.type === 'subwayRamp') continue;
+      g.fillStyle = { park: '#1f4a2a', shop: '#4a3418', ladder: '#ffd040' }[s.type] || '#12151d';
+      g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
+    }
+    // The subway: tunnels (dashed, see-through), stations, and the ramps down (solid blue)
+    for (const s of city.minimapShapes) {
+      if (s.type !== 'tunnel' && s.type !== 'station') continue;
+      g.fillStyle = s.type === 'station' ? 'rgba(90,140,255,0.55)' : 'rgba(40,90,200,0.28)';
+      g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
+      g.save();
+      g.setLineDash([6, 5]);
+      g.strokeStyle = 'rgba(120,170,255,0.8)';
+      g.lineWidth = 1.5;
+      g.strokeRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
+      g.restore();
+    }
+    for (const s of city.minimapShapes) {
+      if (s.type !== 'subwayRamp') continue;
+      g.fillStyle = '#3d7bff';
       g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
     }
     for (const s of city.minimapShapes) {
       if (s.type !== 'bridge') continue;
       g.fillStyle = 'rgba(120,130,150,0.35)';
       g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
-    }
-    // Elevated roads (the Skyway, its ramps, the Highline): lighter, the higher the lighter, with an edge
-    for (const s of city.minimapShapes) {
-      if (s.type !== 'elevated') continue;
-      const hi = (s.level || 9) > 14;
-      g.fillStyle = s.rail ? 'rgba(150,160,180,0.55)' : hi ? '#8a94ac' : '#5c6478';
-      g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
-      g.strokeStyle = hi ? '#c8d0e0' : '#9aa4bc';
-      g.lineWidth = 1.5;
-      g.strokeRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
     }
     // Parking garages (hiding spots): blue with a white P
     for (const s of city.minimapShapes) {
