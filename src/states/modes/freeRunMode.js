@@ -15,6 +15,8 @@ import { addStat, maxStat } from '../../core/stats.js';
 import { save } from '../../core/save.js';
 import { FreeJobs, Challenges, openCounter } from './freeActivities.js';
 import { ParkedCars, BikeDocks, CrewFollower, Safehouse, CREW } from './freeGetAround.js';
+import { FootTraffic, FootDrive, pushFromCars } from './freeTraffic.js';
+import { Car } from '../../vehicles/car.js';
 import { freeSession, freeMap, switchFreeRoam, freeEarn, freeRoamPauseButtons, applyFreeSky, busyness, isRushHour } from './freeRoam.js';
 import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 
@@ -31,6 +33,9 @@ import { dressAlpineTown } from '../../world/levels/chapter8Town.js';
 //  - Getting around (freeGetAround.js): steal parked cars, ride bikes and
 //    e-scooters from the docks, bring a crew member along, and the safehouse
 //    (lay low and save, garage, wardrobe, gadgets, start here)
+//  - Traffic (freeTraffic.js): cars driving round the blocks, pulling over
+//    to park; police cars when you're wanted. Steal a parked or stopped car
+//    and drive it right here (no loading); E to get out.
 //  - Police (optional, pause menu): one helicopter. Caught = back to safety
 //    and a few dollars lighter; it never ends the run.
 
@@ -82,6 +87,8 @@ export class FreeRunMode {
     this.parked = new ParkedCars(this);
     this.docks = new BikeDocks(this);
     this.safehouse = new Safehouse(this);
+    this.traffic = new FootTraffic(this, { count: { low: 6, medium: 9, high: 12 }[this.state.game.settings.graphics] ?? 9 });
+    this.drive = null;
     this.heat = 0;
     this.calm = 0;
     return city;
@@ -230,8 +237,26 @@ export class FreeRunMode {
     return { rotor: clamp(1 - d / 110, 0.05, 1) * 0.5, music: 0.45, intensity: 0.3 + this.spotted * 0.6 };
   }
 
+  /** Driving a stolen car: you don't walk (your controls drive it). */
+  get inputLocked() { return !!this.drive; }
+
   update(dt) {
     const s = this.state, p = s.player, hud = s.game.hud, t = s.time;
+    // In a car you stole: drive it (E to get out)
+    if (this.drive) this._driving(dt);
+    // The traffic (and police cars when you're wanted)
+    this.traffic.update(dt, { wanted: this.stars, target: this.stars ? (this.officers?.seesPlayer || this.drive ? p.pos : (this.officers?.lastKnown || p.pos)) : null, driving: this.drive?.car || null });
+    if (!this.drive) {
+      const hit = pushFromCars(p, this.traffic.all.map((c) => c.car));
+      if (hit && !(this._hitT > 0)) {
+        this._hitT = 2;
+        p.stumbleTimer = 1.1;
+        p.vel.x += hit.vel.x * 0.6; p.vel.z += hit.vel.z * 0.6;
+        audio.sfx('crash0', { vol: 0.5 });
+        hud.toast('Watch the traffic!', '', 'var(--red)', 1.5);
+      }
+      if (this._hitT > 0) this._hitT -= dt;
+    }
 
     // Cash bags
     for (const b of this.bags) {
@@ -284,23 +309,18 @@ export class FreeRunMode {
     const contact = atTill ? null : this.jobs.nearContact(p);
     const dock = atTill || contact ? null : this.docks.nearDock(p);
     const riding = !!this.docks.ride;
-    const steal = atTill || contact || dock || riding ? null : this.parked.update(dt, p);
-    if (atTill || contact || dock || riding) this.parked.update(dt, { pos: { x: p.pos.x, y: 99, z: p.pos.z } }); // (keep the cars near you)
-    const home = !atTill && !contact && !dock && !steal && this.safehouse.near(p);
-    s.setAction(atTill ? 'Shop counter' : contact ? 'Take a job' : riding ? 'Get off' : dock ? (dock.scooter ? 'Ride an e-scooter' : 'Ride a bike')
+    const busy = atTill || contact || dock || riding || this.drive;
+    const steal = busy ? null : this.parked.update(dt, p) || this.traffic.stealable(p);
+    if (busy) this.parked.update(dt, { pos: { x: p.pos.x, y: 99, z: p.pos.z } }); // (keep the cars near you)
+    const home = !busy && !steal && this.safehouse.near(p);
+    s.setAction(this.drive ? 'Get out' : atTill ? 'Shop counter' : contact ? 'Take a job' : riding ? 'Get off' : dock ? (dock.scooter ? 'Ride an e-scooter' : 'Ride a bike')
       : steal ? 'Steal car' : home ? 'Safehouse' : null);
-    if (s.game.input.wasPressed('interact')) {
+    if (s.game.input.wasPressed('interact') && !this._exitedNow) {
       if (atTill) { openCounter(this, atTill); return; } // (buy something, or rob it)
       if (contact) this.jobs.start(contact);
       else if (riding || dock) this.docks.toggle(dock);
-      else if (steal) {
-        // Break in and drive off: the owner calls it in
-        this.onCrime('theft');
-        addStat(s.game, 'carsStolen');
-        audio.sfx('glass', { vol: 0.5 });
-        switchFreeRoam(s, 'car', { stolen: this.parked.steal(steal) });
-        return;
-      } else if (home) { this.safehouse.open(); return; }
+      else if (steal) { this._steal(steal); return; }
+      else if (home) { this.safehouse.open(); return; }
     }
     this.docks.update(dt, p);
     this.follower?.update(dt);
@@ -348,9 +368,76 @@ export class FreeRunMode {
     const stars = this.stars;
     const doing = job ? `<span>${job.name} <b style="color:${job.left < 15 ? 'var(--red)' : '#ffb020'}">${formatTime(Math.max(0, job.left))}</b></span>`
       : race ? `<span>${race.name} <b style="color:#39e6ff">${formatTime(race.t)}</b>${race.best ? ` · best ${formatTime(race.best)}` : ''}</span>` : '';
-    hud.setStats(`${doing}<span>Time <b>${formatTime(t)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
+    hud.setStats(`${doing}${this.drive ? `<span>Speed <b>${Math.round(this.drive.car.speed * 3.6)} km/h</b></span>` : ''}<span>Time <b>${formatTime(t)}</b></span><span>Cash this session <b style="color:var(--safe)">$${freeSession(s.game).cash}</b></span>` +
       `<span>Wanted <b style="color:${stars ? '#ffd040' : '#6a6f7c'};letter-spacing:1px">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</b></span>` +
       `<span>Tags <b style="color:#ffd040">${this.tags.found}/${this.tags.total}</b></span>`);
+  }
+
+  // ---------------------------------------------------------------- stolen cars
+
+  /**
+   * Break in and drive off, right here (no loading). A parked car's owner
+   * calls it in; pulling a driver out of a stopped car is worse.
+   */
+  _steal(what) {
+    const s = this.state, hud = s.game.hud;
+    let car, mesh, jacked = false;
+    if (what.spot) { // (a parked car)
+      mesh = this.parked.takeMesh(what);
+      car = new Car({}, mesh);
+      car.place(mesh.position.x, mesh.position.z, mesh.rotation.y);
+    } else { // (a car in the traffic: stopped at the lights, or pulled over)
+      this.traffic.take(what);
+      car = what.car; mesh = what.mesh;
+      jacked = what.state !== 'abandoned';
+    }
+    this.drive = new FootDrive(this, car, mesh);
+    this.onCrime(jacked ? 'assault' : 'theft');
+    if (jacked) this.onCrime('theft');
+    addStat(s.game, 'carsStolen');
+    audio.sfx('glass', { vol: 0.5 });
+    audio.sfx('door', { vol: 0.6 });
+    hud.toast(jacked ? 'Carjacked!' : 'Stolen car!', 'Drive it right here: E to get out. The owner\'s calling the police.', 'var(--red)', 3.5);
+  }
+
+  /** Driving the car you stole. */
+  _driving(dt) {
+    const s = this.state, d = this.drive, hud = s.game.hud;
+    d.update(dt);
+    this._exitedNow = false;
+    // Knock over anyone in the way (that's assault)
+    if (d.car.speed > 5) {
+      for (const c of this.crowd.people) {
+        if (c.knock > 0 || c.model.root.visible === false) continue;
+        if (Math.hypot(c.body.pos.x - d.car.pos.x, c.body.pos.z - d.car.pos.z) < 2) {
+          this.crowd.knockDown(c, d.car.fwdX, d.car.fwdZ);
+          audio.sfx('punch', { vol: 0.5 });
+          if (!(this._runOver > 0)) { this._runOver = 3; this.onCrime('assault'); }
+        }
+      }
+    }
+    if (this._runOver > 0) this._runOver -= dt;
+    // Boxed in by a police car while stopped: busted
+    const cop = this.traffic.cops.find((c) => Math.hypot(c.car.pos.x - d.car.pos.x, c.car.pos.z - d.car.pos.z) < 7.5);
+    this._boxed = cop && d.stopped > 0.5 ? (this._boxed || 0) + dt : 0;
+    if (this._boxed > 0) hud.setMeter(Math.min(1, this._boxed / 2.5), 'BUSTED! Get moving!', 'var(--blue)');
+    if (this._boxed >= 2.5 && !admin.flag('god')) {
+      this._boxed = 0;
+      this._getOut();
+      this._caught('Busted! The police boxed you in. Back to safety.');
+      return;
+    }
+    if (s.game.input.wasPressed('interact')) { this._getOut(); this._exitedNow = true; }
+  }
+
+  _getOut() {
+    const d = this.drive;
+    if (!d) return;
+    d.exit();
+    this.traffic.give(d.car, d.mesh);
+    this.drive = null;
+    this.state.game.hud.setMeter(0, '');
+    audio.sfx('door', { vol: 0.6 });
   }
 
   // ---------------------------------------------------------------- crime and the police
@@ -448,7 +535,10 @@ export class FreeRunMode {
     // (walking along with people: you're just another face in the crowd)
     const hidden = inHideSpot(this.city, p.pos) || behindCounter || (p.horizontalSpeed < 4.6 && p.grounded && this.crowd.blendsIn(p.pos));
     const lure = s.gadgets?.lure ? s.gadgets.lure.pos : null;
-    if (want && this.officers.update(dt, p, hidden || s.concealed, lure) === 'caught' && !admin.flag('god')) this._caught('Caught by the police! Back to safety.');
+    if (want && this.officers.update(dt, p, hidden || s.concealed, lure) === 'caught' && !admin.flag('god') && !this.drive) this._caught('Caught by the police! Back to safety.');
+    // A police car that gets close tells the officers on foot where you are
+    if (want && this.traffic.cops.some((c) => Math.hypot(c.car.pos.x - p.pos.x, c.car.pos.z - p.pos.z) < 25) && !(this._radioT > 0)) { this._radioT = 4; this.officers.alert(6); }
+    if (this._radioT > 0) this._radioT -= dt;
 
     // The helicopter (police on, or three stars and up)
     const needHeli = this.police || stars >= 3;
@@ -553,6 +643,8 @@ export class FreeRunMode {
     this.jobs?.dispose();
     this.challenges?.dispose();
     this.parked?.dispose();
+    if (this.drive) { this.state.model.root.visible = true; this.drive = null; }
+    this.traffic?.dispose();
     this.docks?.dispose();
     this.follower?.dispose();
     this.follower = null;

@@ -47,12 +47,12 @@ export class ParkedCars {
     this.mode = mode;
     const city = mode.city, rng = makeRng(mode.map.foot.seed * 13 + 3);
     const half = ((city.blockCenters.length - 1) / 2) * city.pitch, B = 42;
-    // Spots along the kerbs (4.2 m out from the block, on the street), not by your own car
+    // Spots along the kerbs (3.5 m out from the block: at the kerb, clear of the traffic lane)
     this.spots = [];
     for (const cx of city.blockCenters) {
       for (const cz of city.blockCenters) {
         for (const t of [-12, 0, 12]) {
-          for (const [x, z, h] of [[cx + t, cz - B / 2 - 4.2, Math.PI / 2], [cx + t, cz + B / 2 + 4.2, Math.PI / 2], [cx - B / 2 - 4.2, cz + t, 0], [cx + B / 2 + 4.2, cz + t, 0]]) {
+          for (const [x, z, h] of [[cx + t, cz - B / 2 - 3.5, Math.PI / 2], [cx + t, cz + B / 2 + 3.5, Math.PI / 2], [cx - B / 2 - 3.5, cz + t, 0], [cx + B / 2 + 3.5, cz + t, 0]]) {
             if (Math.abs(x) > half + 30 || Math.abs(z) > half + 30 || rng() < 0.35) continue;
             if (mode.cars.some((c) => Math.hypot(c.pos.x - x, c.pos.z - z) < 8)) continue;
             // (not in front of a shop door, a ladder or a stairwell door)
@@ -100,6 +100,15 @@ export class ParkedCars {
     }
     if (p.pos.y > 1.5) return null;
     return this.cars.find((c) => c.spot && Math.hypot(c.spot.x - p.pos.x, c.spot.z - p.pos.z) < 3.2) || null;
+  }
+
+  /** You're stealing it (driving it off right here): its mesh is yours now. */
+  takeMesh(car) {
+    car.spot.stolen = true;
+    const mesh = car.mesh;
+    if (car.box) this.mode.city.world.removeBox(car.box);
+    car.spot = car.mesh = car.box = null;
+    return mesh;
   }
 
   /** You drove off in it: it's gone from here. */
