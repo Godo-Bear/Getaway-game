@@ -171,7 +171,7 @@ function start(renderer) {
     game.dt = admin.flag('slowMo') ? dt * 0.5 : dt; // (admin: Slow motion)
 
     game.input.poll(dt);
-    game.touch.setMode(game.sm.currentName === 'onFoot' ? 'onFoot' : game.sm.currentName === 'driving' ? 'driving' : 'none');
+    game.touch.setMode(game.sm.current?.mode?.touchMode || (game.sm.currentName === 'onFoot' ? 'onFoot' : game.sm.currentName === 'driving' ? 'driving' : 'none')); // (a mode can ask for other buttons: the speedboat uses the driving ones)
     game.sm.update(game.dt);
     game.sm.render(renderer);
     autoQuality.update(dt);

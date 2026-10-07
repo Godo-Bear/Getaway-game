@@ -5,6 +5,14 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-07', title: 'Chapter 14: The Bella Fortuna', items: [
+    'Chapter 14: rob the Bella Fortuna, a casino ship anchored in Porto Sereno\'s bay, at night',
+    'Part 1: climb a rope ladder up the ship\'s side, sneak through the decks and the casino, crack the counting room, then jump overboard to Paz\'s speedboat',
+    'The swell: every so often the ship rolls and you slide across the deck unless you crouch to hold on. The guards grab the rail too, so their torches go off: your moment to slip past',
+    'Part 2: drive a speedboat across the bay with police launches after you. Hide behind rocks, thread the narrow gaps in the reef (their boats don\'t fit), then slip into a sea cave',
+    'Boats! A speedboat with a boost, police launches with flashing lights, a rowing boat',
+    'Phone: the boat uses the Drift and Nitro buttons',
+  ] },
   { date: '2026-10-07', title: 'Gadget slots, the Locator, new looks and a better jailbreak', items: [
     'Gadget slots: buy up to 3 in the Shop (even the first one costs cash). Each slot holds one gadget on foot and one in the car',
     'Press 1, 2 or 3 to use the gadget in that slot (F still uses the last one). On a phone there\'s a button for each gadget',

@@ -110,6 +110,7 @@ export class ThirdPersonCamera {
       this.camera.position.set(this.pivot.x, this.pivot.y + (EYE_HEIGHT - PIVOT_HEIGHT) + this.bob, this.pivot.z);
       this._dir.set(-Math.sin(this.yaw) * cp, Math.sin(this.pitch), -Math.cos(this.yaw) * cp);
       this.camera.lookAt(this.camera.position.x + this._dir.x, this.camera.position.y + this._dir.y, this.camera.position.z + this._dir.z);
+      if (this.roll) this.camera.rotateZ(this.roll); // (a mode can roll the view, e.g. a ship in a swell)
       this._updateFov(dt, speed);
       return;
     }
@@ -127,6 +128,7 @@ export class ThirdPersonCamera {
 
     this.camera.position.copy(this.pivot).addScaledVector(this._dir, this.currentDistance);
     this.camera.lookAt(this.pivot);
+    if (this.roll) this.camera.rotateZ(this.roll);
 
     this._updateFov(dt, speed);
   }

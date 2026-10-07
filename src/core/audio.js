@@ -525,6 +525,10 @@ class AudioManager {
       case 'jump':
         this._noiseHit(0.12, 1800, 0.8, 0.08 * vol, 0, 'highpass');
         return;
+      case 'splash': // into the sea: a deep whump and a hiss of spray
+        this._noiseHit(0.55, 500, 0.7, 0.55 * vol, 0, 'lowpass');
+        this._noiseHit(0.35, 2600, 0.9, 0.22 * vol, 0.04);
+        return;
       case 'crash': {
         const now = performance.now();
         if (now - this.lastImpact < 220) return;

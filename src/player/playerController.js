@@ -101,6 +101,7 @@ export class PlayerController {
     this.mantle = null;     // { from, to, duration, t, vault, keepSpeed }
     this.height = T.height; // current body height (lower while sliding)
     this.speedScale = 1;    // AI runners (police officers) can be slower
+    this.drift = new THREE.Vector3(); // an outside push (m/s) on top of your own movement, e.g. a ship's deck rolling
     // Shop gadgets (set by the on-foot state)
     this.jumpScale = 1;     // Spring Boots: higher jumps
     this.wallRunScale = 1;  // Gecko Gloves: longer wall-runs
@@ -292,8 +293,8 @@ export class PlayerController {
     // --- Move and collide, one axis at a time --------------------------------
     const fallSpeed = -this.vel.y;
     const wasGrounded = this.grounded;
-    this._moveAxis('x', this.vel.x * dt);
-    this._moveAxis('z', this.vel.z * dt);
+    this._moveAxis('x', (this.vel.x + this.drift.x) * dt);
+    this._moveAxis('z', (this.vel.z + this.drift.z) * dt);
     this._moveY(this.vel.y * dt);
 
     if (this.grounded && !wasGrounded) this._onLand(fallSpeed);

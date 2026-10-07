@@ -68,6 +68,9 @@ export function isCardOpen() {
 }
 
 export const CONTROLS = {
+  boat: `
+    <kbd>W</kbd> / <kbd>S</kbd> throttle and reverse &nbsp; <kbd>A</kbd> / <kbd>D</kbd> steer &nbsp; <kbd>Space</kbd> boost &nbsp; <kbd>Shift</kbd> or <kbd>C</kbd> tight turn<br>
+    The police can only chase what they can see: rocks, islands and the reef's narrow gaps break their view &nbsp; <kbd>R</kbd> last checkpoint &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFoot: `
     <kbd>Mouse</kbd> look around &nbsp; <kbd>W A S D</kbd> move<br>
     <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
@@ -75,17 +78,17 @@ export const CONTROLS = {
     Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
     Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
     <kbd>Click</kbd> punch (from behind it knocks a guard out; from the front it stuns them, if they don't block: three quick punches end in an uppercut that breaks a block) &nbsp; <kbd>Right click</kbd> or <kbd>Z</kbd> throw a coin (guards go to look where it lands) &nbsp; <kbd>E</kbd> action when one shows on screen (behind someone in the street: pickpocket) &nbsp; <kbd>C</kbd> while sprinting into someone: slide tackle<br>
-    <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> gadgets &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
   onFootNoLock: `
     <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
     <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>X</kbd> action (knock out)<br>
-    <kbd>Click</kbd> or <kbd>B</kbd> punch (3 quick = combo) &nbsp; <kbd>Z</kbd> throw a coin &nbsp; <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>F</kbd> gadget &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
+    <kbd>Click</kbd> or <kbd>B</kbd> punch (3 quick = combo) &nbsp; <kbd>Z</kbd> throw a coin &nbsp; <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> gadgets &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
   driving: `
     <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
     <kbd>Shift</kbd> handbrake (drift) &nbsp; <kbd>Space</kbd> nitro<br>
     Blue canisters on the road, drifting and near-misses refill nitro. Keep moving: stopping near cops fills the Busted meter.<br>
     <kbd>Q</kbd> horn (traffic pulls aside) &nbsp; <kbd>C</kbd> camera &nbsp; <kbd>Scroll</kbd> zoom<br>
-    <kbd>M</kbd> big map: click to set a waypoint &nbsp; <kbd>F</kbd> gadget<br>
+    <kbd>M</kbd> big map: click to set a waypoint &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> gadgets<br>
     <kbd>E</kbd> hack the junction you just drove through (red lights + bollards stop the cops behind you)<br>
     Hide from the cops in parking garages (blue P on the minimap).<br>
     <kbd>R</kbd> unstick (when stopped) &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
@@ -123,7 +126,7 @@ export function controlsHtml() {
     </div>
     <div class="controls-grid"><kbd>P / Esc</kbd><span>Pause</span><kbd>Tab</kbd><span>Case Board (story)</span>
       <kbd>Scroll wheel</kbd><span>Zoom the camera in and out (on foot and driving)</span>
-      <kbd>F</kbd><span>Use your gadget (buy gadgets in the Shop on the title screen)</span>
+      <kbd>1 / 2 / 3</kbd><span>Use the gadget in that slot (buy gadget slots and gadgets in the Shop on the title screen); <kbd>F</kbd> uses the one you used last</span>
       <kbd>G</kbd><span>Ghost mode on/off (story): no police, roam freely. Nothing counts while it's on; turning it off takes you back to where you turned it on</span>
       <kbd>H</kbd><span>Show / hide the controls help</span>
       <kbd>T</kbd><span>Free Run: jump into your car, or get out and walk</span></div>
