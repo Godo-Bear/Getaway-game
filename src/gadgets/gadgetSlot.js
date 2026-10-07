@@ -1,53 +1,97 @@
-import { equipped } from './gadgets.js';
+import { equippedList } from './gadgets.js';
 import { admin } from '../core/admin.js';
 
-// The equipped gadget for one "slot" (on foot or in the car): which gadget
-// it is, its recharge timer, and the little HUD badge that shows it
-// (icon, name, and a bar that fills back up while it recharges).
+// Your gadget slots for one kind (on foot or in the car): up to three
+// gadgets, each with its own recharge timer, and the HUD badges that show
+// them (number key, icon, name, and a bar that fills back up while it
+// recharges). Press 1, 2 or 3 to use that slot; F uses the one you picked
+// last. On a phone each slot gets its own button.
+//
+// `gadget`, `ready`, `cooldown` and `used()` are about the picked slot, so
+// the gadget code just picks a slot (select) and then uses it as before.
 
 export class GadgetSlot {
   /** @param {'foot'|'car'} kind */
   constructor(game, kind) {
     this.game = game;
     this.kind = kind;
-    this.gadget = equipped(kind);
-    this.cooldown = 0;
+    this.slots = equippedList(kind).map((g) => ({ gadget: g, cooldown: 0, full: 0 }));
+    this.pick = Math.max(0, this.slots.findIndex((s) => s.gadget));
     this.el = document.getElementById('hud-gadget');
-    this._last = '';
     // Active effects (cloak, smoke, jammer...) with how long each has left
     this.fx = this.el.querySelector('.g-effects');
     if (!this.fx) { this.fx = document.createElement('div'); this.fx.className = 'g-effects'; this.el.appendChild(this.fx); }
     this.fx.innerHTML = '';
     this._fxKey = '';
-    if (this.gadget) {
-      this.el.hidden = false;
-      this.el.style.setProperty('--gc', this.gadget.color);
-      this.el.querySelector('.g-icon').textContent = this.gadget.icon;
-      this.el.querySelector('.g-name').textContent = this.gadget.name;
-    } else this.el.hidden = true;
+    for (const r of this.el.querySelectorAll('.g-row')) r.remove();
+    this.rows = this.slots.map((s, i) => {
+      if (!s.gadget) return null;
+      const r = document.createElement('div');
+      r.className = 'g-row';
+      r.style.setProperty('--gc', s.gadget.color);
+      r.innerHTML = `<div class="g-key">${i + 1}</div><div class="g-icon">${s.gadget.icon}</div><div class="g-text"><div class="g-name">${s.gadget.name}</div><div class="g-state"></div><div class="g-bar"><div></div></div></div>`;
+      this.el.appendChild(r);
+      return { el: r, state: r.querySelector('.g-state'), bar: r.querySelector('.g-bar > div'), last: '' };
+    });
+    this.el.hidden = !this.slots.some((s) => s.gadget);
+    this._touch();
   }
 
-  get ready() {
-    return this.gadget && this.cooldown <= 0;
+  get cur() { return this.slots[this.pick] || { gadget: null, cooldown: 0, full: 0 }; }
+  get gadget() { return this.cur.gadget; }
+  /** (swap the gadget in the picked slot: the admin tools and tests use this) */
+  set gadget(g) {
+    if (this.slots[this.pick]) this.slots[this.pick].gadget = g;
+    else this.slots[this.pick] = { gadget: g, cooldown: 0, full: 0 };
+  }
+  get cooldown() { return this.cur.cooldown; }
+  /** (setting it, e.g. to 0 on a restart, sets every slot) */
+  set cooldown(v) { for (const s of this.slots) s.cooldown = v; }
+  get ready() { return !!this.gadget && this.cur.cooldown <= 0; }
+
+  /** Pick slot i (0-2) to use. Returns false if there's nothing in it. */
+  select(i) {
+    if (!this.slots[i]?.gadget) {
+      this.game.hud.toast(`Slot ${i + 1} is empty`, i >= this.slots.length ? 'Buy more gadget slots in the Shop on the title screen.' : 'Put a gadget in it in the Shop on the title screen.', 'var(--muted)', 2.5);
+      return false;
+    }
+    this.pick = i;
+    return true;
   }
 
   /** Start the recharge (call after a successful use). */
   used() {
-    this.cooldown = admin.flag('noCooldowns') ? 0 : this.gadget.cooldown * (admin.flag('doubleAll') ? 0.5 : 1);
-    this.full = this.cooldown || this.gadget.cooldown;
+    const c = this.cur;
+    if (!c.gadget) return;
+    c.cooldown = admin.flag('noCooldowns') ? 0 : c.gadget.cooldown * (admin.flag('doubleAll') ? 0.5 : 1);
+    c.full = c.cooldown || c.gadget.cooldown;
   }
 
   update(dt) {
-    if (!this.gadget) return;
-    this.cooldown = Math.max(0, this.cooldown - dt);
-    const k = 1 - this.cooldown / (this.full || this.gadget.cooldown);
-    const txt = this.cooldown > 0 ? `${Math.ceil(this.cooldown)}s` : 'READY · F';
-    if (txt !== this._last) {
-      this._last = txt;
-      this.el.querySelector('.g-state').textContent = txt;
-      this.el.classList.toggle('ready', this.cooldown <= 0);
-    }
-    this.el.querySelector('.g-bar > div').style.width = `${(k * 100).toFixed(0)}%`;
+    this.slots.forEach((s, i) => {
+      if (!s.gadget) return;
+      s.cooldown = Math.max(0, s.cooldown - dt);
+      const row = this.rows[i];
+      if (!row) return;
+      const k = 1 - s.cooldown / (s.full || s.gadget.cooldown);
+      const txt = s.cooldown > 0 ? `${Math.ceil(s.cooldown)}s` : `READY · ${i + 1}`;
+      const key = `${txt}|${i === this.pick}`;
+      if (key !== row.last) {
+        row.last = key;
+        row.state.textContent = txt;
+        row.el.classList.toggle('ready', s.cooldown <= 0);
+        row.el.classList.toggle('picked', i === this.pick && this.slots.filter((x) => x.gadget).length > 1);
+      }
+      row.bar.style.width = `${(k * 100).toFixed(0)}%`;
+    });
+    this._touch();
+  }
+
+  /** The phone's gadget buttons: one per slot, with the gadget's icon. */
+  _touch() {
+    const t = this.game.touch;
+    if (!t?.setGadgets) return;
+    t.setGadgets(this.slots.map((s) => (s.gadget ? { icon: s.gadget.icon, color: s.gadget.color, ready: s.cooldown <= 0 } : null)));
   }
 
   /**
@@ -66,16 +110,18 @@ export class GadgetSlot {
     live.forEach((e, i) => { if (bars[i]) bars[i].style.width = `${Math.max(0, Math.min(1, e.left / e.total)) * 100}%`; });
   }
 
-  /** Pressed F with nothing equipped, or while recharging. */
+  /** Pressed a gadget key with nothing equipped, or while recharging. */
   explainNotReady() {
     const hud = this.game.hud;
-    if (!this.gadget) hud.toast('No gadget', 'Buy gadgets in the Shop on the title screen, then equip one.', 'var(--muted)', 3);
-    else hud.toast(`${this.gadget.name} recharging`, `Ready in ${Math.ceil(this.cooldown)} s.`, 'var(--muted)', 1.5);
+    if (!this.slots.length) hud.toast('No gadget slots', 'Buy a gadget slot (and a gadget to put in it) in the Shop on the title screen.', 'var(--muted)', 3);
+    else if (!this.gadget) hud.toast('No gadget', 'Buy gadgets in the Shop on the title screen, then put one in a slot.', 'var(--muted)', 3);
+    else hud.toast(`${this.gadget.name} recharging`, `Ready in ${Math.ceil(this.cur.cooldown)} s.`, 'var(--muted)', 1.5);
   }
 
   hide() {
     this.el.hidden = true;
     this.fx.innerHTML = '';
     this._fxKey = '';
+    this.game.touch?.setGadgets?.([]);
   }
 }

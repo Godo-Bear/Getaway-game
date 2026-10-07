@@ -229,6 +229,7 @@ export class DrivingState extends PlayState {
     if (input.wasPressed('respawn')) this._unstick();
     if (input.wasPressed('map')) this.openMap();
     if (input.wasPressed('gadget')) this.carGadgets.use();
+    for (let i = 0; i < 3; i++) if (input.wasPressed(`gadget${i + 1}`)) this.carGadgets.use(i);
     if (input.wasPressed('interact')) this.cityHack.trigger();
     const zoom = input.consumeZoom();
     if (zoom) {

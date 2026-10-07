@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GadgetSlot } from './gadgetSlot.js';
+import { Locator, LOCATOR_TIME } from './locator.js';
 import { makeGlowMaterial, getGlowTexture } from '../world/materials.js';
 import { audio } from '../core/audio.js';
 import { admin } from '../core/admin.js';
@@ -36,8 +37,10 @@ export class CarGadgets {
     this.timed = {};    // freeze / emp / jammer: { left, total }
   }
 
-  use() {
+  /** Use a gadget: the one in slot i (0-2), or the one you used last. */
+  use(i = null) {
     if (this.state.mode.ghost) return; // no police in ghost mode
+    if (i != null && !this.slot.select(i)) return;
     if (!this.slot.ready) { this.slot.explainNotReady(); return; }
     const id = this.slot.gadget.id;
     if (id === 'oil') this._oil();
@@ -46,6 +49,7 @@ export class CarGadgets {
     else if (id === 'net') this._spikes({ net: true });
     else if (id === 'surge') this._emp({ radius: 80, time: 4, title: 'Power surge!', color: 0x8a5cff });
     else if (id === 'tow') { if (!this._tow()) return; }
+    else if (id === 'radar') this._radar();
     else if (id === 'screen') this._screen();
     else if (id === 'freeze') this._freeze();
     else if (id === 'plates') this._plates();
@@ -318,6 +322,7 @@ export class CarGadgets {
     if (this.screen > 0) fx.push({ name: 'Smoke screen', left: this.screen, total: T(SCREEN_TIME) });
     if (this.shifted > 0) fx.push({ name: 'New paint', left: this.shifted, total: T(PLATES_TIME) });
     if (this.dark > 0) fx.push({ name: 'Blackout', left: this.dark, total: T(BLACKOUT_TIME) });
+    if (this.locator?.on) fx.push({ name: 'Radar', left: this.locator.t, total: this.locator.total });
     const last = (list, total, name) => {
       if (!list.length) return;
       const left = Math.max(...list.map((x) => total - x.t));
@@ -328,8 +333,17 @@ export class CarGadgets {
     return fx;
   }
 
+  /** Radar Locator: mark the police cars, the helicopter and the goal for 10 s. */
+  _radar() {
+    this.locator ||= new Locator(this.state, { driving: true });
+    const n = this.locator.start(T(LOCATOR_TIME));
+    audio.sfx('whoosh', { vol: 0.7 });
+    this.state.game.hud.toast('Radar ping!', n ? `${n} marked for ${T(LOCATOR_TIME)} seconds.` : 'Nothing close by right now.', '#5ab4ff', 2.5);
+  }
+
   update(dt) {
     this.slot.update(dt);
+    this.locator?.update(dt);
     for (const [id, t] of Object.entries(this.timed)) { t.left -= dt; if (t.left <= 0) delete this.timed[id]; }
     this.slot.showEffects(this._effects());
     if (this.shifted > 0) {
@@ -395,6 +409,7 @@ export class CarGadgets {
     for (const w of this.waves) this.state.scene.remove(w.ring, w.flash);
     this.slicks = [];
     this.waves = [];
+    this.locator?.stop();
     this.slot.cooldown = 0;
   }
 

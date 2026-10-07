@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GadgetSlot } from './gadgetSlot.js';
+import { Locator, LOCATOR_TIME } from './locator.js';
 import { getGlowTexture } from '../world/materials.js';
 import { PlayerModel } from '../player/playerModel.js';
 import { audio } from '../core/audio.js';
@@ -54,9 +55,11 @@ export class FootGadgets {
     return this.decoy ? this.decoy.body : null;
   }
 
-  use() {
+  /** Use a gadget: the one in slot i (0-2), or the one you used last. */
+  use(i = null) {
     if (this.state.mode.ghost) return; // no police to fool in ghost mode
     if (this.box) { this._clearBox('You throw the box off.'); return; } // (press again to get out)
+    if (i != null && !this.slot.select(i)) return;
     if (!this.slot.ready) { this.slot.explainNotReady(); return; }
     const id = this.slot.gadget.id;
     const ok = id === 'smoke' ? this._smoke() : id === 'decoy' ? this._decoy() : id === 'flash' ? this._flash()
@@ -67,9 +70,19 @@ export class FootGadgets {
       : id === 'snowball' ? this._stun({ radius: 22, cone: 0.6, time: 4, heli: false, title: 'Snowballs!', color: 0xe8f4ff, verb: 'knocked dizzy' })
       : id === 'gulls' ? this._stun({ radius: 18, time: 6, heli: false, title: 'Seagulls!', color: 0xf2ece0, verb: 'mobbed by gulls', birds: true })
       : id === 'siesta' ? this._siesta()
+      : id === 'locator' ? this._locate()
       : id === 'holo' ? this._decoy({ time: T(14), title: 'Hologram billboard!', color: 0xff4fd8 })
       : this._grapple();
     if (ok) this.slot.used();
+  }
+
+  // ---------------------------------------------------------------- Locator
+  _locate() {
+    this.locator ||= new Locator(this.state);
+    const n = this.locator.start(T(LOCATOR_TIME));
+    audio.sfx('whoosh', { vol: 0.7 });
+    this.state.game.hud.toast('Locator ping!', n ? `${n} thing${n > 1 ? 's' : ''} marked nearby for ${T(LOCATOR_TIME)} seconds.` : 'Nothing close by right now.', '#5ab4ff', 2.5);
+    return true;
   }
 
   // ---------------------------------------------------------------- Smoke
@@ -438,10 +451,12 @@ export class FootGadgets {
     if (this.smoke) fx.push({ name: 'Smoke', left: this.smoke.time - this.smoke.t, total: this.smoke.time });
     if (this.decoy) fx.push({ name: 'Decoy', left: this.decoy.time - this.decoy.t, total: this.decoy.time });
     if (this.dazed > 0) fx.push({ name: 'Police dazed', left: this.dazed, total: this.dazedTotal });
+    if (this.locator?.on) fx.push({ name: 'Locator', left: this.locator.t, total: this.locator.total });
     return fx;
   }
 
   update(dt) {
+    this.locator?.update(dt);
     // (seagulls circling the people you threw bread at)
     if (this.flocks) {
       for (const f of this.flocks) {
@@ -541,6 +556,7 @@ export class FootGadgets {
     this._clearSmoke();
     this._clearDecoy();
     this._clearCable();
+    this.locator?.stop();
     this.slot.cooldown = 0;
   }
 

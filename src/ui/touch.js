@@ -18,13 +18,13 @@
 import { save } from '../core/save.js';
 
 const LABELS = {
-  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide', e: 'Gadget', f: 'Coin' },
-  driving: { a: 'Drift', b: 'Nitro', c: 'Cam', d: 'Horn', e: 'Gadget', f: null },
-  none: { a: null, b: null, c: null, d: null, e: null, f: null },
+  onFoot: { a: 'Jump', b: 'Sprint', c: 'View', d: 'Slide', f: 'Coin' },
+  driving: { a: 'Drift', b: 'Nitro', c: 'Cam', d: 'Horn', f: null },
+  none: { a: null, b: null, c: null, d: null, f: null },
 };
 const ACTIONS = {
-  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: 'crouch', e: 'gadget', f: 'throw' },
-  driving: { a: 'drift', b: 'nitro', c: 'camera', d: 'horn', e: 'gadget' },
+  onFoot: { a: 'jump', b: 'sprint', c: 'view', d: 'crouch', g1: 'gadget1', g2: 'gadget2', g3: 'gadget3', f: 'throw' },
+  driving: { a: 'drift', b: 'nitro', c: 'camera', d: 'horn', g1: 'gadget1', g2: 'gadget2', g3: 'gadget3' },
   none: {},
 };
 const RADIUS = 55; // joystick throw in pixels
@@ -45,7 +45,7 @@ export class TouchControls {
         <button data-b="b"></button>
         <button data-b="a" class="t-main"></button>
       </div>
-      <button data-b="e" class="t-gadget"></button>
+      <div class="t-gadgets">${[1, 2, 3].map((n) => `<button data-b="g${n}" data-g="${n}" data-n="${n}" hidden></button>`).join('')}</div>
       <button data-b="f" class="t-coin" hidden></button>
       <button class="t-pause" aria-label="Pause">II</button>
       <button class="t-act" hidden></button>
@@ -77,6 +77,7 @@ export class TouchControls {
     this._latch = {};
     this.root.classList.toggle('t-hidden', mode === 'none');
     for (const btn of this.root.querySelectorAll('[data-b]')) {
+      if (btn.dataset.g) continue; // (the gadget buttons: setGadgets)
       const label = LABELS[mode][btn.dataset.b];
       btn.textContent = label || '';
       btn.hidden = !label || (btn.dataset.b === 'f' && !this._coinOn);
@@ -93,6 +94,25 @@ export class TouchControls {
     const hide = !on || this.mode !== 'onFoot';
     if (b.hidden !== hide) b.hidden = hide;
     b.classList.toggle('cooling', !ready);
+  }
+
+  /**
+   * The gadget buttons: one per slot with a gadget in it, showing its icon
+   * (dimmed while it recharges). list: [{icon, color, ready} | null, ...]
+   */
+  setGadgets(list) {
+    if (this.editing) return;
+    const key = list.map((g) => (g ? `${g.icon}${g.ready ? 1 : 0}` : '-')).join('|');
+    if (key === this._gKey) return;
+    this._gKey = key;
+    this.root.querySelectorAll('[data-g]').forEach((b, i) => {
+      const g = list[i];
+      b.hidden = !g;
+      if (!g) return;
+      b.textContent = g.icon;
+      b.style.setProperty('--gc', g.color);
+      b.classList.toggle('cooling', !g.ready);
+    });
   }
 
   /** Light a button up while its action is switched on (e.g. sprint). */
@@ -127,7 +147,7 @@ export class TouchControls {
   _layoutEls() {
     const q = (sel) => this.root.querySelector(sel);
     return { stick: q('.t-stick'), a: q('[data-b="a"]'), b: q('[data-b="b"]'), c: q('[data-b="c"]'), d: q('[data-b="d"]'),
-      e: q('[data-b="e"]'), f: q('[data-b="f"]'), act: q('.t-act') };
+      e: q('.t-gadgets'), f: q('[data-b="f"]'), act: q('.t-act') };
   }
 
   /** Put the controls where the saved layout says (or where they start). */
@@ -160,6 +180,7 @@ export class TouchControls {
     this.editing = true;
     for (const el of Object.values(els)) { before.labels.set(el, [el.hidden, el.textContent]); el.hidden = false; }
     els.f.textContent = 'Coin';
+    this.root.querySelectorAll('[data-g]').forEach((b, i) => { before.labels.set(b, [b.hidden, b.textContent]); b.hidden = false; b.textContent = ['🧰', '🧰', '🧰'][i]; });
     els.act.textContent = 'Punch';
     const S = save.data.settings;
     const pos = { ...(S.touchLayout?.pos || {}) };
@@ -232,6 +253,7 @@ export class TouchControls {
         save.write();
         this.editing = false;
         for (const [el, [hidden, text]] of before.labels) { el.hidden = hidden; el.textContent = text; }
+        this._gKey = null;
         this.mode = null;
         this.setMode(this._wantMode ?? before.mode ?? 'none');
         this.root.hidden = before.hidden;

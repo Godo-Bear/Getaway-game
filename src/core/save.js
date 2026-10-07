@@ -56,7 +56,9 @@ const DEFAULTS = {
   shop: {
     cash: 500,       // spend it in the Shop; earned by playing
     owned: [],       // gadget ids you've bought
-    equipped: { foot: null, car: null }, // the F-key gadget for each
+    equipped: { foot: null, car: null }, // the first gadget in your slots, for each
+    slots: 0,        // gadget slots bought (up to 3; even the first one costs cash)
+    loadout: {},     // { foot: [id, id, id], car: [...] }: what's in each slot
   },
 };
 

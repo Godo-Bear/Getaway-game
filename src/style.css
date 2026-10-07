@@ -79,17 +79,22 @@ html, body {
 .marker .lbl { font-size: 15px; font-weight: 700; margin-top: 6px; color: var(--mc, var(--amber)); text-shadow: 0 1px 6px #000; }
 
 /* Equipped gadget badge (left edge, clear of the controls help) */
-#hud-gadget { left: 18px; top: 44%; display: flex; gap: 10px; align-items: center; padding: 8px 12px 8px 8px; border-radius: 12px;
-  background: rgba(10, 13, 22, 0.72); border: 1px solid color-mix(in srgb, var(--gc, #fff) 45%, transparent); }
+#hud-gadget { left: 18px; top: 40%; display: grid; gap: 6px; }
 #hud-gadget[hidden] { display: none; }
-#hud-gadget .g-icon { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; color: #0a0d16;
+#hud-gadget .g-row { display: flex; gap: 10px; align-items: center; padding: 6px 12px 6px 6px; border-radius: 12px;
+  background: rgba(10, 13, 22, 0.72); border: 1px solid color-mix(in srgb, var(--gc, #fff) 45%, transparent); }
+#hud-gadget .g-row.picked { border-color: var(--gc, #fff); box-shadow: 0 0 0 1px var(--gc, #fff) inset; }
+#hud-gadget .g-key { width: 18px; font-family: var(--display); font-size: 16px; color: var(--muted); text-align: center; }
+#hud-gadget .g-icon { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; font-size: 20px; color: #0a0d16;
   background: radial-gradient(circle at 35% 30%, #fff, var(--gc, #fff) 55%, color-mix(in srgb, var(--gc, #fff) 50%, #000)); opacity: 0.55; }
-#hud-gadget.ready .g-icon { opacity: 1; box-shadow: 0 0 16px var(--gc, #fff); }
-#hud-gadget .g-name { font-weight: 700; font-size: 15px; }
-#hud-gadget .g-state { font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
-#hud-gadget.ready .g-state { color: var(--gc, #fff); font-weight: 700; }
-#hud-gadget .g-bar { width: 110px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); margin-top: 4px; overflow: hidden; }
+#hud-gadget .ready .g-icon { opacity: 1; box-shadow: 0 0 14px var(--gc, #fff); }
+#hud-gadget .g-name { font-weight: 700; font-size: 14px; }
+#hud-gadget .g-state { font-size: 11px; color: var(--muted); letter-spacing: 0.04em; }
+#hud-gadget .ready .g-state { color: var(--gc, #fff); font-weight: 700; }
+#hud-gadget .g-bar { width: 100px; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.12); margin-top: 3px; overflow: hidden; }
 #hud-gadget .g-bar > div { height: 100%; width: 100%; background: var(--gc, #fff); }
+/* On a phone the gadget buttons show the icons and recharge: just keep the effect countdowns */
+body.touch-mode #hud-gadget .g-row { display: none; }
 body.touch-mode #hud-gadget { left: auto; right: calc(20px + env(safe-area-inset-right, 0px)); top: 150px; transform: scale(0.85); transform-origin: right top; }
 
 
@@ -205,6 +210,13 @@ body.touch-mode #hud-gadget { left: auto; right: calc(20px + env(safe-area-inset
 .loadout { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 12px 0 10px; font-size: 14px; color: var(--muted); }
 .loadout .slot { color: var(--ink); font-weight: 700; padding: 4px 10px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--gc) 60%, transparent); background: color-mix(in srgb, var(--gc) 12%, transparent); }
 .loadout .slot small { color: var(--muted); font-weight: 500; }
+.loadout.slots { display: grid; gap: 6px; padding: 10px 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.04); }
+.loadout .slot-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; color: var(--ink); }
+.loadout .slot-row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.loadout .slot-row > small { width: 76px; }
+.loadout .slot b { color: var(--muted); margin-right: 2px; }
+.loadout .slot.locked { --gc: #555; color: var(--muted); font-weight: 500; }
+.loadout .fine { margin: 2px 0 0; }
 .tabs { display: flex; gap: 4px; padding: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 12px; overflow-x: auto; }
 .tab { flex: 1; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; border: none; border-radius: 9px; padding: 7px 8px; background: transparent; color: var(--muted); white-space: nowrap; }
 .tab small { margin-left: 5px; font-weight: 500; opacity: 0.7; }
@@ -296,8 +308,13 @@ body.touch-mode #hud-gadget { left: auto; right: calc(20px + env(safe-area-inset
 #touch button.on { background: rgba(255, 176, 32, 0.5); }
 #touch .t-pause { position: absolute; top: calc(12px + env(safe-area-inset-top, 0px)); right: calc(210px + env(safe-area-inset-right, 0px)); width: 46px; height: 46px; pointer-events: auto; }
 body.touch-mode #hud-controls { display: none; }
-#touch .t-gadget { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(200px + env(safe-area-inset-bottom, 0px));
-  width: 60px; height: 60px; font-size: 12px; pointer-events: auto; border-color: rgba(255, 176, 32, 0.7); }
+#touch .t-gadgets { position: absolute; right: calc(24px + env(safe-area-inset-right, 0px)); bottom: calc(200px + env(safe-area-inset-bottom, 0px));
+  display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: auto; }
+#touch .t-gadgets[hidden], #touch .t-gadgets:not(:has(button:not([hidden]))) { display: none; }
+#touch .t-gadgets button { width: 56px; height: 56px; font-size: 26px; border-color: color-mix(in srgb, var(--gc, #ffb020) 75%, transparent); position: relative; }
+#touch .t-gadgets button.cooling { opacity: 0.45; }
+#touch .t-gadgets button::after { content: attr(data-n); position: absolute; right: -2px; bottom: -2px; width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(10, 13, 22, 0.9); font: 700 11px/18px var(--body); color: var(--muted); }
 /* Touch: the speedometer sits between the joystick and the buttons */
 body.touch-mode #hud-speedo { right: auto; left: 50%; transform: translateX(-50%); bottom: calc(10px + env(safe-area-inset-bottom, 0px)); width: 150px; text-align: center; }
 body.touch-mode #hud-speed { font-size: 44px; }
@@ -342,7 +359,8 @@ body.touch-mode #hud-speed { font-size: 44px; }
   #touch button.t-main { width: 76px; height: 76px; }
   #touch button.t-small { width: 48px; height: 48px; }
   #touch .t-ghost { width: 60px; height: 34px; top: 38%; }
-  #touch .t-gadget { width: 50px; height: 50px; bottom: calc(160px + env(safe-area-inset-bottom, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); }
+  #touch .t-gadgets { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); gap: 6px; }
+  #touch .t-gadgets button { width: 46px; height: 46px; font-size: 22px; }
   .btn { font-size: 16px; padding: 8px 14px; }
   .btn small { font-size: 12px; }
   .btns { gap: 8px; margin-top: 4px; }
@@ -433,11 +451,11 @@ body.touch-mode #hud-speed { font-size: 44px; }
 #adm-load, #adm-copy, #adm-open { text-transform: none; }
 
 /* ---------- Touch layout fixes ---------- */
-/* The gadget badge sits just left of the Gadget button (not on top of it) */
-body.touch-mode #hud-gadget { top: auto; left: auto; right: calc(92px + env(safe-area-inset-right, 0px)); bottom: calc(196px + env(safe-area-inset-bottom, 0px));
+/* Phones: the gadget buttons (a column at the right edge) show each gadget; the effect timers sit beside them */
+body.touch-mode #hud-gadget { top: auto; left: auto; right: calc(96px + env(safe-area-inset-right, 0px)); bottom: calc(280px + env(safe-area-inset-bottom, 0px));
   transform: scale(0.8); transform-origin: right bottom; }
 @media (max-height: 520px) {
-  body.touch-mode #hud-gadget { right: calc(72px + env(safe-area-inset-right, 0px)); bottom: calc(156px + env(safe-area-inset-bottom, 0px)); }
+  body.touch-mode #hud-gadget { right: calc(72px + env(safe-area-inset-right, 0px)); bottom: calc(222px + env(safe-area-inset-bottom, 0px)); }
 }
 /* Phones held upright: pause button in the corner, minimap just below it */
 @media (max-width: 600px) {
@@ -853,3 +871,17 @@ body:has(#overlay:not([hidden])) #hud-controls { opacity: 0 !important; }
 .upd-tag { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #16141c; background: var(--amber); border-radius: 4px; padding: 1px 5px; }
 .upd ul { margin: 4px 0 0; padding-left: 18px; }
 .upd li { font-size: 13px; color: var(--muted); line-height: 1.45; }
+
+/* Locator gadget: markers on everything nearby for 10 seconds */
+.locator { position: fixed; inset: 0; pointer-events: none; z-index: 6; overflow: hidden; }
+.loc-mark { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: center; gap: 1px; white-space: nowrap;
+  font: 700 11px var(--body); color: #fff; text-shadow: 0 1px 2px #000; will-change: transform; }
+.loc-mark[hidden] { display: none; }
+.loc-mark i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 13px;
+  background: color-mix(in srgb, var(--lc) 30%, rgba(10, 13, 22, 0.8)); border: 2px solid var(--lc); box-shadow: 0 0 10px var(--lc); }
+.loc-mark span { color: var(--lc); }
+.loc-mark b { font-weight: 600; font-size: 10px; opacity: 0.85; }
+.loc-mark.edge span { display: none; }
+.loc-mark.edge i { animation: loc-pulse 0.8s ease-in-out infinite alternate; }
+@keyframes loc-pulse { to { transform: scale(1.18); } }
+body.touch-mode #hud-gadget .g-effects { position: static; min-width: 130px; }

@@ -263,8 +263,9 @@ export class PrisonMode {
       const cycle = 1.2 + 2.0 * d.timer;
       const px = this.prevX ?? pos.x;
       for (const las of L.corridorLasers) {
-        let on = !this.freed; // (Ricky's cell alarm cut the power to the lasers)
-        for (const b of las.beams) if (this.freed) b.visible = false;
+        const powerCut = this.freed && !this.lasersStayOn; // (Ricky's cell alarm cut the power to the lasers; a quiet escape doesn't)
+        let on = !powerCut;
+        for (const b of las.beams) if (powerCut) b.visible = false;
         if (on && las.type === 'pulse') {
           const k = (s.time + las.phase * cycle) % cycle;
           on = k < 1.2;

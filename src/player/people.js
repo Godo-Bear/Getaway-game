@@ -58,9 +58,9 @@ const SKINS = [0xf0c8a8, 0xe0b090, 0xc4946f, 0x8d5a3b, 0x5a3a24];
 const CLOTHES = [0x3b6fb6, 0xc24a4a, 0x4a9a5a, 0xd9a441, 0x7a5aa8, 0x2e2e36, 0xe0e0e0, 0x8a5a3a, 0xd46a9a, 0x3aa3a0, 0x5a6a3a, 0x34466a];
 const TROUSERS = [0x34466a, 0x24324a, 0x2e2e36, 0x1a1b20, 0xc8b48a, 0x5a4a3a, 0x7a7f8a];
 const SHOES = [0x1a1a1a, 0xe8e8e8, 0x6a4a2a, 0x3a3d45, 0xc0283a];
-const HAIRS = ['short', 'short', 'buzz', 'spiky', 'curly', 'bob', 'long', 'ponytail', 'bun', 'bald'];
+const HAIRS = ['short', 'short', 'buzz', 'spiky', 'curly', 'bob', 'long', 'ponytail', 'bun', 'bald', 'afro', 'braids', 'dreads', 'slick', 'undercut'];
 const NATURAL_HAIR = HAIR_COLOURS.slice(0, 8);
-const BEARDS = ['stubble', 'moustache', 'goatee', 'beard'];
+const BEARDS = ['stubble', 'moustache', 'goatee', 'beard', 'chops'];
 const WINTER_HATS = [0xc0283a, 0x3a6ea8, 0xe8e8e8, 0x2f8a4c, 0xe8c040, 0x1a1b20, 0xe87ab0];
 
 /**
@@ -71,9 +71,9 @@ export function randomPerson(rng, { cold = false } = {}) {
   const pick = (list) => list[Math.floor(rng() * list.length)];
   const skin = pick(SKINS);
   const hair = pick(HAIRS);
-  const top = cold ? pick(['ski', 'ski', 'jacket', 'sweater']) : pick(['hoodie', 'jacket', 'jacket', 'tee', 'tee', 'sweater', 'suit']);
+  const top = cold ? pick(['ski', 'ski', 'jacket', 'sweater']) : pick(['hoodie', 'jacket', 'jacket', 'tee', 'tee', 'sweater', 'suit', 'leather', 'tracksuit', 'hawaiian', 'vest', 'trench']);
   const hatChance = cold ? 0.7 : 0.22;
-  const hat = rng() < hatChance ? (cold ? pick(['beanie', 'bobble']) : pick(['beanie', 'cap', 'cap'])) : null;
+  const hat = rng() < hatChance ? (cold ? pick(['beanie', 'bobble']) : pick(['beanie', 'cap', 'cap', 'bucket', 'fedora', 'headphones', 'beret'])) : null;
   return {
     hoodie: pick(CLOTHES), trousers: top === 'suit' ? pick([0x2e2e36, 0x24324a, 0x3a3d45]) : pick(TROUSERS),
     shoes: pick(SHOES), skin, hair: rng() < 0.92 ? pick(NATURAL_HAIR) : pick(HAIR_COLOURS),
@@ -82,7 +82,7 @@ export function randomPerson(rng, { cold = false } = {}) {
     style: {
       top, hair, hat,
       beard: hair !== 'bob' && hair !== 'ponytail' && hair !== 'bun' && rng() < 0.25 ? pick(BEARDS) : null,
-      face: rng() < (cold ? 0.3 : 0.12) ? 'shades' : 'face',
+      face: rng() < (cold ? 0.3 : 0.12) ? (rng() < 0.3 ? 'aviators' : 'shades') : 'face',
       build: 0.88 + rng() * 0.26,
       height: 0.92 + rng() * 0.12,
     },

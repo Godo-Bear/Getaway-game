@@ -6,9 +6,13 @@
 //
 // Five Shop categories (utility, movement, damage, getaways, mole), and two
 // kinds of gadget:
-//   active  - equip one for on foot and one for the car; press F (LB on a
-//             gamepad, the Gadget button on a phone) to use it, then it
-//             recharges for a while.
+//   active  - equip them into your gadget slots (on foot and in the car):
+//             press 1, 2 or 3 to use the one in that slot (F uses the one
+//             you used last; LB on a gamepad; a phone shows a button for
+//             each), then it recharges for a while.
+//
+// Gadget slots cost cash, even the first one (SLOT_PRICES): each slot you
+// buy holds one gadget on foot and one in the car, up to 3.
 //   passive - always working once you own them.
 //
 // What each gadget actually does lives in footGadgets.js / carGadgets.js.
@@ -58,6 +62,10 @@ export const GADGETS = [
     desc: 'Throws a glowing hologram of you that runs off the way you\'re looking. For 8 seconds the spotlights and officers chase it instead of you.' },
   { id: 'jammer', cat: 'utility', kind: 'car', name: 'Signal Jammer', price: 1600, cooldown: 70, color: '#ff3a6a', icon: '⌁',
     desc: 'Scrambles the police radio for 8 seconds: they lose your trail on the spot, search somewhere else, and can\'t call in roadblocks.' },
+  { id: 'locator', cat: 'utility', kind: 'foot', name: 'Locator', price: 600, cooldown: 30, color: '#5ab4ff', icon: '⌖',
+    desc: 'A ping goes out: for 10 seconds everything nearby gets a marker, even through walls. Police and guards (red), cash (green), bags (amber), cars you could take (yellow) and where you\'re going (blue), with how far away each one is.' },
+  { id: 'radar', cat: 'utility', kind: 'car', name: 'Radar Locator', price: 900, cooldown: 35, color: '#5ab4ff', icon: '⌖',
+    desc: 'The car\'s radar pings: for 10 seconds every police car, the helicopter and where you\'re going get a marker on screen, with how far away they are.' },
   { id: 'clip', cat: 'utility', kind: 'passive', name: 'Money Clip', price: 1500, color: '#4dffa6', icon: '$',
     desc: 'You earn 25% more cash from everything.' },
   // ---- Movement
@@ -160,9 +168,64 @@ export function spend(amount) {
   return true;
 }
 export function owns(id) { return shop().owned.includes(id) && usable(gadget(id)); }
+
+// ---------------------------------------------------------------- slots
+export const MAX_SLOTS = 3;
+/** What the 1st, 2nd and 3rd gadget slots cost. */
+export const SLOT_PRICES = [150, 600, 1500];
+
+/** How many gadget slots you've bought (admins get all three). */
+export function slotsOwned() {
+  return admin.on ? MAX_SLOTS : Math.min(MAX_SLOTS, shop().slots || 0);
+}
+/** The price of the next slot (null when you have them all). */
+export function nextSlotPrice() {
+  const n = shop().slots || 0;
+  return n >= MAX_SLOTS ? null : SLOT_PRICES[n];
+}
+/** Buy the next gadget slot. Returns false if you can't afford it (or have them all). */
+export function buySlot() {
+  const price = nextSlotPrice();
+  if (price == null || shop().cash < price) return false;
+  shop().cash -= price;
+  shop().slots = (shop().slots || 0) + 1;
+  // Fill the new slot with a gadget you own that isn't in a slot yet
+  for (const kind of ['foot', 'car']) {
+    const free = GADGETS.find((g) => g.kind === kind && owns(g.id) && !loadout(kind).includes(g.id));
+    if (free) equip(free.id);
+  }
+  save.write();
+  return true;
+}
+
+/** The ids in your slots for 'foot' or 'car' (always MAX_SLOTS long; older saves had one). */
+function loadout(kind) {
+  const s = shop();
+  s.loadout ||= {};
+  if (!Array.isArray(s.loadout[kind])) s.loadout[kind] = [s.equipped?.[kind] || null, null, null];
+  return s.loadout[kind];
+}
+/** Keep the old single "equipped" field in step (the admin panel and cloud saves read it). */
+function sync(kind) {
+  shop().equipped ||= {};
+  shop().equipped[kind] = equippedList(kind).find(Boolean)?.id || null;
+}
+
+/** Your gadgets for 'foot' or 'car', one per slot you've bought (null = empty slot). */
+export function equippedList(kind) {
+  return loadout(kind).slice(0, slotsOwned()).map((id) => {
+    const g = id ? gadget(id) : null;
+    return usable(g) && owns(g.id) ? g : null;
+  });
+}
+/** Your first equipped gadget for 'foot' or 'car'. */
 export function equipped(kind) {
-  const g = shop().equipped[kind] ? gadget(shop().equipped[kind]) : null;
-  return usable(g) ? g : null;
+  return equippedList(kind).find(Boolean) || null;
+}
+/** Which slot (0-2) a gadget is in, or -1. */
+export function slotOf(id) {
+  const g = gadget(id);
+  return g && g.kind !== 'passive' ? equippedList(g.kind).findIndex((x) => x?.id === id) : -1;
 }
 
 /** Buy a gadget (and equip it straight away if its slot is free). Returns false if you can't afford it. */
@@ -171,15 +234,34 @@ export function buy(id) {
   if (!usable(g) || owns(id) || areaLocked(g) || shop().cash < g.price) return false;
   shop().cash -= g.price;
   shop().owned.push(id);
-  if (g.kind !== 'passive' && !shop().equipped[g.kind]) shop().equipped[g.kind] = id;
+  if (g.kind !== 'passive') equip(id); // (into a free slot, if you have one)
   save.write();
   return true;
 }
 
-export function equip(id) {
+/**
+ * Put a gadget in a slot: the slot you pick (0-2), or the first free one.
+ * Returns false if there's no slot for it (buy one first).
+ */
+export function equip(id, slot = null) {
   const g = gadget(id);
-  if (!g || !owns(id) || g.kind === 'passive') return;
-  shop().equipped[g.kind] = id;
+  if (!g || !owns(id) || g.kind === 'passive') return false;
+  const L = loadout(g.kind), n = slotsOwned();
+  const at = slot ?? equippedList(g.kind).findIndex((x) => !x);
+  if (at == null || at < 0 || at >= n) return false;
+  for (let i = 0; i < L.length; i++) if (L[i] === id) L[i] = null; // (it moves)
+  L[at] = id;
+  sync(g.kind);
+  save.write();
+  return true;
+}
+/** Take a gadget out of its slot. */
+export function unequip(id) {
+  const g = gadget(id);
+  if (!g || g.kind === 'passive') return;
+  const L = loadout(g.kind);
+  for (let i = 0; i < L.length; i++) if (L[i] === id) L[i] = null;
+  sync(g.kind);
   save.write();
 }
 

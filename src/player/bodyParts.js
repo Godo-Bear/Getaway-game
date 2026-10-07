@@ -16,7 +16,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 export const SLOTS = [
   'hoodie', 'accent', 'shirt', 'tie', 'trousers', 'shoes', 'sole', 'skin', 'mask', 'gloves',
   'hair', 'stubble', 'hat', 'hatBand', 'metal', 'gold', 'belt', 'eyeWhite', 'pupil', 'mouth',
-  'lens', 'bag', 'strap', 'cash', 'patch',
+  'lens', 'bag', 'strap', 'cash', 'patch', 'cover',
 ];
 const SLOT = Object.fromEntries(SLOTS.map((s, i) => [s, i]));
 
@@ -104,8 +104,13 @@ const chestR = (y, b) => (y < 0.32 ? 0.19 : 0.185 + ((y - 0.32) / 0.3) * 0.06) *
 /** How far forward the front of the torso is at height y. */
 const frontZ = (y, b, puff = 0) => (chestR(y, b) + puff) * WZ;
 
-const heavyTop = (top) => top === 'ski';
-const sleeveCuff = (top) => top === 'hoodie' || top === 'sweater' || top === 'ski' || top === 'jacket';
+const heavyTop = (top) => top === 'ski' || top === 'trench';
+const sleeveCuff = (top) => top === 'hoodie' || top === 'sweater' || top === 'ski' || top === 'jacket' || top === 'leather' || top === 'tracksuit' || top === 'trench';
+/** Tops with short sleeves (bare forearms). vest: no sleeves at all. */
+const shortSleeve = (top) => top === 'tee' || top === 'hawaiian';
+const bareArms = (top) => shortSleeve(top) || top === 'vest';
+/** Face coverings: the whole face is hidden (counts as a mask). */
+export const MASK_FACES = ['mask', 'hockey', 'bandana'];
 
 /** Hips: the top of the trousers (stays upright while the torso leans). */
 function buildHips({ b }) {
@@ -129,7 +134,7 @@ function buildTorso({ b, top, bag, badge, tie }) {
   const onChest = (y, extra = 0.004) => frontZ(y, b, puff) + extra;
 
   // Belt (hidden under hoodies, jumpers and coats)
-  const belt = top === 'tee' || top === 'uniform' || top === 'jacket';
+  const belt = top === 'tee' || top === 'uniform' || top === 'jacket' || top === 'leather' || top === 'vest' || top === 'hawaiian';
   if (belt) {
     P.add(band(0.197 * b, 0.065), 'belt', [0, 0.03, 0], 0, [1, 1, 0.7]);
     P.add(rbox(0.065, 0.05, 0.02, 0.008), 'metal', [0, 0.03, 0.197 * b * 0.7 + 0.004]);
@@ -214,6 +219,63 @@ function buildTorso({ b, top, bag, badge, tie }) {
       P.add(BOX, 'metal', [0, 0.38, onChest(0.38, 0.006)], [slope, 0, 0], [0.012, 0.5, 0.01]);
       break;
     }
+    case 'leather': {
+      // Biker jacket: an off-centre zip, wide lapels, snap collar, zipped pockets
+      P.add(rbox(0.09 * b, 0.3, 0.02, 0.008), 'shirt', [-0.02, 0.47, onChest(0.47, -0.002)], [slope, 0, 0]);
+      P.add(BOX, 'metal', [0.05 * b, 0.36, onChest(0.36, 0.006)], [slope, 0, -0.18], [0.01, 0.5, 0.01]);
+      for (const sx of [-1, 1]) {
+        P.add(BOX, T, [sx * 0.09 * b, 0.56, onChest(0.56, 0.008)], [slope + 0.1, 0, sx * 0.55], [0.07, 0.14, 0.014]);
+        P.add(BOX, 'metal', [sx * 0.1 * b, 0.22, onChest(0.22, 0.006)], [0, 0, sx * 0.5], [0.08, 0.008, 0.008]);
+        P.add(SPH_LO, 'metal', [sx * 0.15 * b, 0.6, onChest(0.6, 0.012)], 0, 0.009);
+      }
+      P.add(band(0.105, 0.06, 12), T, [0, 0.655, -0.005], 0, [1, 1, 0.92]);
+      P.add(band(0.2 * b + 0.006, 0.07), T, [0, 0.08, 0], 0, [1, 1, 0.72]);
+      break;
+    }
+    case 'tracksuit': {
+      // Zip-up track top: white stripes down the sides and arms, a high collar
+      P.add(BOX, 'metal', [0, 0.38, onChest(0.38, 0.004)], [slope, 0, 0], [0.012, 0.5, 0.01]);
+      for (const sx of [-1, 1]) P.add(BOX, 'patch', [sx * chestR(0.4, b) * 0.98, 0.36, 0], 0, [0.012, 0.56, 0.05]);
+      P.add(band(0.098, 0.07, 12), T, [0, 0.66, 0], 0, [1, 1, 0.95]);
+      P.add(band(0.195 * b + 0.004, 0.06), 'accent', [0, 0.04, 0], 0, [1, 1, 0.72]);
+      P.add(rbox(0.05, 0.035, 0.012, 0.008), 'patch', [0.1 * b, 0.52, onChest(0.52, 0.004)], [slope, 0, 0]);
+      break;
+    }
+    case 'vest': {
+      // Sleeveless vest: a scoop neck, a little chain
+      P.add(band(0.088, 0.025, 12), 'accent', [0, 0.645, 0], 0, [1, 1, 0.95]);
+      P.add(cyl(0.004, 0.004, 0.16, 4), 'gold', [0, 0.6, onChest(0.58, 0.01)], [slope + PI / 2 - 0.9, 0, 0]);
+      P.add(SPH_LO, 'gold', [0, 0.53, onChest(0.53, 0.012)], 0, 0.014);
+      break;
+    }
+    case 'hawaiian': {
+      // Loud holiday shirt: an open collar, buttons, big flowers
+      P.add(BOX, 'accent', [0, 0.38, onChest(0.38, 0.004)], [slope, 0, 0], [0.014, 0.5, 0.01]);
+      for (const sx of [-1, 1]) P.add(BOX, T, [sx * 0.05, 0.62, onChest(0.62, 0.012)], [0.5, 0, sx * 0.55], [0.08, 0.07, 0.012]);
+      P.add(rbox(0.05, 0.1, 0.012, 0.01), 'skin', [0, 0.6, onChest(0.6, -0.002)], [slope, 0, 0]);
+      const flowers = [[0.11, 0.48, 1], [-0.1, 0.36, 1], [0.06, 0.22, 1], [-0.12, 0.15, 1], [0.13, 0.32, -1], [-0.06, 0.52, -1], [0.0, 0.3, -1], [0.1, 0.12, -1]];
+      for (const [x, y, side] of flowers) {
+        const z = side * onChest(y, 0.002);
+        P.add(SPH_LO, 'patch', [x * b, y, z], 0, [0.032, 0.032, 0.006]);
+        P.add(SPH_LO, 'gold', [x * b, y, z + side * 0.004], 0, [0.011, 0.011, 0.004]);
+      }
+      break;
+    }
+    case 'trench': {
+      // Long belted coat: double row of buttons, wide lapels, a belt with a buckle
+      for (const sx of [-1, 1]) {
+        for (const y of [0.25, 0.37, 0.49]) P.add(SPH_LO, 'accent', [sx * 0.07 * b, y, onChest(y, 0.008)], 0, 0.013);
+        P.add(BOX, 'accent', [sx * 0.08 * b, 0.55, onChest(0.55, 0.01)], [slope, 0, sx * 0.45], [0.06, 0.18, 0.012]);
+      }
+      P.add(rbox(0.08 * b, 0.12, 0.02, 0.006), 'shirt', [0, 0.57, onChest(0.57, -0.004)], [slope, 0, 0]);
+      P.add(band(0.21 * b + 0.01, 0.055), 'accent', [0, 0.1, 0], 0, [1, 1, 0.75]);
+      P.add(rbox(0.06, 0.05, 0.015, 0.006), 'metal', [0, 0.1, (0.21 * b + 0.01) * 0.75 + 0.004]);
+      P.add(cyl(0.12, 0.13, 0.09, 12, true), T, [0, 0.66, -0.01], [-0.15, 0, 0], [1, 1, 0.95]); // turned-up collar
+      // The coat's skirt, flaring out over the hips
+      P.add(cyl(0.215 * b + 0.01, 0.25 * b, 0.36, 14, true), T, [0, -0.13, 0], 0, [1, 1, 0.78]);
+      P.add(BOX, 'accent', [0, -0.13, (0.24 * b) * 0.78 + 0.002], 0, [0.01, 0.34, 0.01]);
+      break;
+    }
     default: break;
   }
 
@@ -277,6 +339,40 @@ function addHair(P, hair, withHat) {
       }
       break;
     }
+    case 'afro': {
+      capOn(1.1, 1.5, -0.35);
+      if (withHat) break;
+      P.add(SPH, 'hair', [0, SK.y + 0.06, -0.03], 0, [SK.rx * 1.6, SK.ry * 1.35, SK.rz * 1.45]);
+      break;
+    }
+    case 'braids':
+      capOn(1.05, 1.4, -0.36);
+      for (let i = -2; i <= 2; i++) P.add(BOX, 'stubble', [i * 0.045, SK.y + 0.1, 0], [0, 0, 0], [0.008, 0.01, 0.3 * (1 - Math.abs(i) * 0.12)]); // the rows
+      for (const sx of [-1, 1]) {
+        for (const k of [0, 1]) P.add(cap(0.022, 0.24, 6), 'hair', [sx * (0.05 + k * 0.05), 0.07, -0.13 + k * 0.02], [0.22, 0, sx * 0.08]);
+      }
+      break;
+    case 'dreads':
+      capOn(1.08, 1.4, -0.36);
+      for (let i = 0; i < 9; i++) {
+        const a = PI * 0.35 + (i / 8) * PI * 1.3; // round the back and sides
+        const x = Math.sin(a) * 0.13, z = Math.cos(a) * 0.125;
+        P.add(cap(0.022, 0.2, 6), 'hair', [x, 0.13, z - 0.01], [-z * 1.6, 0, x * 1.6]);
+      }
+      break;
+    case 'slick':
+      // Slicked straight back, shiny, with a little wave at the back
+      capOn(1.05, 1.32, -0.42);
+      if (!withHat) P.add(SPH, 'hair', [0, 0.31, 0.06], [-0.3, 0, 0], [0.12, 0.04, 0.08]);
+      P.add(SPH_LO, 'hair', [0, 0.2, -0.145], 0, [0.11, 0.05, 0.03]);
+      break;
+    case 'undercut':
+      capOn(1.02, 1.4, -0.3, 'stubble');
+      if (!withHat) {
+        P.add(dome(0.9), 'hair', [0, SK.y + 0.02, 0.0], [-0.35, 0, 0], [SK.rx * 1.06, SK.ry * 1.14, SK.rz * 1.1]);
+        P.add(SPH, 'hair', [0.03, 0.33, 0.1], [-0.6, 0, -0.3], [0.09, 0.04, 0.05]); // swept over to one side
+      }
+      break;
     default: // 'short'
       capOn(1.06, 1.3, -0.36);
       if (!withHat) P.add(SPH, 'hair', [0.02, 0.335, 0.085], [-0.5, 0, -0.2], [0.1, 0.035, 0.055]); // a fringe
@@ -293,6 +389,7 @@ function addBeard(P, beard) {
     P.add(SPH, 'hair', [0, 0.085, 0.075], 0, [0.075, 0.06, 0.06]);
     P.add(rbox(0.09, 0.022, 0.03, 0.01), 'hair', [0, 0.163, 0.14]);
   }
+  if (beard === 'chops') for (const sx of [-1, 1]) P.add(rbox(0.035, 0.1, 0.07, 0.015), 'hair', [sx * 0.118, 0.16, 0.05], [0, 0, sx * 0.12]);
   if (beard === 'moustache') P.add(rbox(0.085, 0.024, 0.03, 0.011), 'hair', [0, 0.162, 0.14]);
   if (beard === 'goatee') {
     P.add(SPH, 'hair', [0, 0.1, 0.11], 0, [0.04, 0.045, 0.035]);
@@ -321,6 +418,37 @@ function addHat(P, hat) {
       P.add(SPH_LO, 'hatBand', [0, SK.y + SK.ry * 1.1, -0.02], 0, 0.016);
       break;
     }
+    case 'fedora': {
+      // Pinched crown, a ribbon, a wide brim all round
+      P.inFrame([0, 0.33, -0.005], [-0.1, 0, 0], 1, () => {
+        P.add(cyl(0.135, 0.158, 0.13, 14), 'hat', [0, 0.04, 0], 0, [1, 1, 1.12]);
+        P.add(BOX, 'hat', [0, 0.11, 0], 0, [0.04, 0.02, 0.2]);
+        P.add(band(0.159, 0.035, 14), 'hatBand', [0, -0.005, 0], 0, [1, 1, 1.12]);
+        P.add(cyl(0.27, 0.27, 0.012, 18), 'hat', [0, -0.025, 0], 0, [1, 1, 1.05]);
+      });
+      break;
+    }
+    case 'bucket': {
+      domeOn(1.13, 1.35, -0.12);
+      P.add(cyl(0.18, 0.22, 0.06, 16, true), 'hat', [0, 0.27, 0.005], [-0.12, 0, 0], [1, 1, 1.06]);
+      P.add(band(0.165, 0.025, 16), 'hatBand', [0, 0.31, 0.0], [-0.12, 0, 0], [1, 1, 1.06]);
+      break;
+    }
+    case 'beret': {
+      P.add(SPH, 'hat', [0.03, 0.34, -0.01], [0, 0, -0.22], [0.18, 0.05, 0.17]);
+      P.add(band(0.15, 0.025, 14), 'hatBand', [0, 0.315, 0], [-0.1, 0, -0.1], [1, 1, 1.05]);
+      P.add(cyl(0.004, 0.006, 0.025, 4), 'hat', [0.04, 0.39, -0.01]);
+      break;
+    }
+    case 'headphones': {
+      // Big headphones: a band over the top, two cushioned cups
+      P.add(new THREE.TorusGeometry(0.168, 0.014, 6, 16, PI), 'hat', [0, SK.y + 0.01, 0], [0, PI / 2, 0], [1, 1.02, 1]);
+      for (const sx of [-1, 1]) {
+        P.add(cyl(0.055, 0.055, 0.04, 12), 'hat', [sx * 0.165, 0.2, 0], [0, 0, PI / 2]);
+        P.add(cyl(0.035, 0.035, 0.012, 10), 'hatBand', [sx * 0.188, 0.2, 0], [0, 0, PI / 2]);
+      }
+      break;
+    }
     case 'police':
     case 'guard': {
       // Peaked cap: a crown, a band, a shiny peak, a badge at the front
@@ -339,6 +467,7 @@ function buildHead({ face, hair, beard, hat }) {
   const P = new Part();
   const masked = face === 'mask';
   const S = masked ? 'mask' : 'skin';
+  const showHair = !masked; // (hockey masks and bandanas still show your hair)
   P.add(cyl(0.066, 0.072, 0.16, 10), S, [0, 0.04, 0]);
   P.add(SPH, S, [0, SK.y, 0], 0, [SK.rx, SK.ry, SK.rz]);
   P.add(SPH, S, [0, 0.14, 0.02], 0, [0.11, 0.09, 0.115]); // jaw and chin
@@ -354,8 +483,33 @@ function buildHead({ face, hair, beard, hat }) {
   } else {
     for (const sx of [-1, 1]) P.add(BOX, 'hair', [sx * 0.056, 0.277, 0.141], [0, 0, sx * -0.1], [0.066, 0.016, 0.02]); // eyebrows
     P.add(rbox(0.06, 0.013, 0.012, 0.005), 'mouth', [0, 0.133, 0.128]);
-    addHair(P, hair, !!hat);
-    addBeard(P, beard);
+    if (showHair) addHair(P, hair, !!hat && hat !== 'headphones');
+    if (face !== 'hockey' && face !== 'bandana') addBeard(P, beard);
+  }
+  if (face === 'bandana') {
+    // A scarf tied over the nose and mouth, the knot at the back
+    P.add(new THREE.SphereGeometry(1, 14, 8, -PI * 0.12, PI * 1.24, 1.25, 1.2), 'cover', [0, 0.17, 0.0], 0, [0.152, 0.14, 0.168]);
+    P.add(cyl(0.004, 0.11, 0.1, 3), 'cover', [0, 0.06, 0.12], [0.35, 0, 0], [1, 1, 0.3]);
+    P.add(SPH_LO, 'cover', [0, 0.2, -0.155], 0, [0.03, 0.025, 0.02]);
+    for (const sx of [-1, 1]) P.add(cap(0.012, 0.05, 4), 'cover', [sx * 0.025, 0.16, -0.17], [0.3, 0, sx * 0.4]);
+  }
+  if (face === 'hockey') {
+    // A white goalie mask: eye holes, breathing holes, a red stripe, straps
+    P.add(new THREE.SphereGeometry(1, 14, 10, 0, PI, 0.35, 2.2), 'cover', [0, 0.2, 0.012], 0, [0.15, 0.17, 0.162]);
+    const onMask = (x, y) => 0.015 + 0.162 * Math.sqrt(Math.max(0, 1 - (x / 0.15) ** 2 - ((y - 0.2) / 0.17) ** 2));
+    for (const sx of [-1, 1]) P.add(rbox(0.048, 0.028, 0.012, 0.01), 'pupil', [sx * 0.052, 0.238, onMask(sx * 0.052, 0.238)], [0, sx * 0.3, 0]);
+    for (const [x, y] of [[-0.03, 0.16], [0, 0.155], [0.03, 0.16], [-0.015, 0.125], [0.015, 0.125], [0, 0.095]]) P.add(SPH_LO, 'pupil', [x, y, onMask(x, y)], 0, [0.007, 0.007, 0.004]);
+    P.add(BOX, 'tie', [0, 0.3, onMask(0, 0.3) - 0.004], [-0.75, 0, 0], [0.024, 0.11, 0.008]);
+    for (const sx of [-1, 1]) P.add(BOX, 'belt', [sx * 0.145, 0.24, 0.02], 0, [0.01, 0.018, 0.25]);
+  }
+  if (face === 'aviators') {
+    // Gold-rimmed teardrop lenses
+    for (const sx of [-1, 1]) {
+      P.add(SPH, 'lens', [sx * 0.054, 0.232, 0.157], [0, 0, sx * 0.25], [0.034, 0.03, 0.01]);
+      P.add(new THREE.TorusGeometry(0.034, 0.004, 4, 14), 'gold', [sx * 0.054, 0.232, 0.161], [0, 0, 0], [1, 0.88, 1]);
+      P.add(BOX, 'gold', [sx * 0.143, 0.245, 0.07], 0, [0.006, 0.006, 0.16]);
+    }
+    P.add(BOX, 'gold', [0, 0.258, 0.16], 0, [0.05, 0.006, 0.006]);
   }
   if (face === 'shades') {
     for (const sx of [-1, 1]) {
@@ -383,11 +537,15 @@ function buildUpperArm({ top, sx }) {
   const P = new Part();
   const puff = heavyTop(top) ? 0.014 : 0;
   const L = RIG.upperArm;
-  P.add(SPH, 'hoodie', [0, -0.025, 0], 0, [0.076 + puff, 0.085 + puff, 0.078 + puff]); // shoulder
-  if (top === 'tee') {
+  P.add(SPH, top === 'vest' ? 'skin' : 'hoodie', [0, -0.025, 0], 0, [0.076 + puff, 0.085 + puff, 0.078 + puff]); // shoulder
+  if (top === 'vest') {
+    P.add(cap(0.059, L - 0.08), 'skin', [0, -L / 2 - 0.01, 0]);
+  } else if (shortSleeve(top)) {
     P.add(cap(0.059, L - 0.08), 'skin', [0, -L / 2 - 0.01, 0]);
     P.add(cyl(0.079, 0.074, 0.15, 10, true), 'hoodie', [0, -0.07, 0]); // short sleeve
+    if (top === 'hawaiian') P.add(SPH_LO, 'patch', [sx * 0.074, -0.08, 0.02], 0, [0.006, 0.03, 0.03]);
   } else {
+    if (top === 'tracksuit') P.add(BOX, 'patch', [sx * 0.07, -L / 2, 0], 0, [0.01, L - 0.02, 0.02]);
     P.add(cap(0.068 + puff, L - 0.09), 'hoodie', [0, -L / 2 - 0.01, 0]);
     if (top === 'uniform') P.add(rbox(0.012, 0.06, 0.05, 0.004), 'accent', [sx * 0.066, -0.08, 0]); // shoulder patch
   }
@@ -399,9 +557,10 @@ function buildForeArm({ top, sx }) {
   const P = new Part();
   const puff = heavyTop(top) ? 0.012 : 0;
   const L = RIG.foreArm;
-  const bare = top === 'tee';
+  const bare = bareArms(top);
   P.add(cap(0.06 + puff, L - 0.08), bare ? 'skin' : 'hoodie', [0, -L / 2 + 0.005, 0]);
-  if (sleeveCuff(top)) P.add(band(0.064 + puff, 0.045, 10), top === 'jacket' ? 'hoodie' : 'accent', [0, -L + 0.035, 0]);
+  if (top === 'tracksuit') P.add(BOX, 'patch', [sx * 0.058, -L / 2 + 0.005, 0], 0, [0.01, L - 0.06, 0.02]);
+  if (sleeveCuff(top)) P.add(band(0.064 + puff, 0.045, 10), top === 'jacket' || top === 'leather' ? 'hoodie' : 'accent', [0, -L + 0.035, 0]);
   if (top === 'suit') P.add(band(0.058, 0.03, 10), 'shirt', [0, -L + 0.01, 0]);
   // Hand: palm, curled fingers, thumb
   const y = -L - 0.045;
@@ -422,7 +581,8 @@ function buildShin({ top }) {
   const P = new Part();
   const L = RIG.shin;
   P.add(cap(0.077, L - 0.11), 'trousers', [0, -L / 2 + 0.01, 0]);
-  if (top !== 'jumpsuit' && top !== 'suit' && top !== 'uniform') P.add(band(0.079, 0.035, 10), 'trousers', [0, -L + 0.07, 0]); // turn-ups
+  if (top === 'tracksuit') P.add(BOX, 'patch', [0.074, -L / 2 + 0.03, 0], 0, [0.01, L - 0.12, 0.02]);
+  if (top !== 'jumpsuit' && top !== 'suit' && top !== 'uniform' && top !== 'tracksuit') P.add(band(0.079, 0.035, 10), 'trousers', [0, -L + 0.07, 0]); // turn-ups
   // Shoe: the upper and a sole
   P.add(rbox(0.13, 0.08, 0.27, 0.035), 'shoes', [0, -L + 0.0, 0.05]);
   P.add(rbox(0.136, 0.028, 0.278, 0.012), 'sole', [0, -L - 0.047, 0.05]);

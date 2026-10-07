@@ -5,6 +5,15 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-07', title: 'Gadget slots, the Locator, new looks and a better jailbreak', items: [
+    'Gadget slots: buy up to 3 in the Shop (even the first one costs cash). Each slot holds one gadget on foot and one in the car',
+    'Press 1, 2 or 3 to use the gadget in that slot (F still uses the last one). On a phone there\'s a button for each gadget',
+    'New gadgets: the Locator (on foot) and the Radar Locator (in the car) mark everything nearby for 10 seconds, even through walls',
+    'Jail breakouts: pick a plan (dig a tunnel, hide in the laundry truck, or the crew\'s zip line), with a night guard on patrol',
+    'Carrying a bag: the suitcase is held in your hand and swings as you walk',
+    'New looks: afro, braids, dreadlocks, slicked-back and undercut hair; fedora, bucket hat, beret and headphones; leather jacket, tracksuit, vest, holiday shirt and long coat; aviators, a bandana and a hockey mask; sideburns',
+    'New presets: Biker, Tracksuit, Beach day, Long coat, Hockey mask and Bandana bandit, plus more colours',
+  ] },
   { date: '2026-10-07', title: 'Chapter 13: Touchdown, and local gadgets', items: [
     'Chapter 13: the crew lands abroad in Porto Sereno, a sunny harbour town with palm trees, terracotta roofs, trams and the sea',
     'Part 1: carry three heavy bags past the customs officers at the airstrip (with a bag you\'re slower and can\'t climb)',

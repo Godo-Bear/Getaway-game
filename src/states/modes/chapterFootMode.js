@@ -200,7 +200,7 @@ export class ChapterFootMode {
   _dropCarried() {
     const c = this.carrying;
     if (!c) return;
-    this.state.model.root.remove(c.carryMesh);
+    c.carryMesh.parent?.remove(c.carryMesh);
     c.group.visible = true;
     this.carrying = null;
     this._setCarrySlow(false);
@@ -216,15 +216,24 @@ export class ChapterFootMode {
     const s = this.state, p = s.player, hud = s.game.hud;
     if (!this.carry.length || this.ghost) return;
     if (this.carrying) p.speedScale *= 0.72; // (every frame: the game resets it each frame)
+    if (this.carrying) s.model.carrying = true;
     for (const c of this.carry) if (!c.done && c.group.visible) c.ring.rotation.z += dt;
     if (!this.carrying) {
       const c = this.carry.find((x) => !x.done && x.group.visible && Math.hypot(x.home.x - p.pos.x, x.home.z - p.pos.z) < 1.6 && Math.abs(x.home.y - p.pos.y) < 2);
       if (c) {
         this.carrying = c;
         c.group.visible = false;
-        c.carryMesh = new THREE.Mesh(c.bag.geometry, c.bag.material);
-        c.carryMesh.position.set(0.42, 0.62, 0.05);
-        s.model.root.add(c.carryMesh);
+        // (held in your right hand: it swings along with your arm as you walk)
+        c.carryMesh = new THREE.Group();
+        const body = new THREE.Mesh(c.bag.geometry, c.bag.material);
+        body.rotation.y = Math.PI / 2;
+        body.position.y = -0.62;
+        const grip = new THREE.Mesh(c.handle.geometry, c.handle.material);
+        grip.rotation.y = Math.PI / 2;
+        grip.position.y = -0.33;
+        c.carryMesh.add(body, grip);
+        c.carryMesh.position.set(0.02, -0.32, 0.02);
+        (s.model.elbowR || s.model.root).add(c.carryMesh);
         this._setCarrySlow(true);
         audio.sfx('click', { vol: 0.7 });
         hud.toast(`Got a ${this.part.carry.label || 'bag'}`, 'It\'s heavy: you\'re slower and you can\'t climb with it. Get it to the van (green ring) without being seen.', 'var(--amber)', 4);
@@ -235,7 +244,7 @@ export class ChapterFootMode {
     if (Math.hypot(d.x - p.pos.x, d.z - p.pos.z) < 3.4) {
       const c = this.carrying;
       c.done = true;
-      s.model.root.remove(c.carryMesh);
+      c.carryMesh.parent?.remove(c.carryMesh);
       this.carrying = null;
       this._setCarrySlow(false);
       audio.sfx('clue', { vol: 0.8 });

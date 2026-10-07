@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { lookColors, lookStyle } from './outfits.js';
 import { damp, clamp } from '../core/utils.js';
-import { partGeometry, SLOTS, RIG } from './bodyParts.js';
+import { partGeometry, SLOTS, RIG, MASK_FACES } from './bodyParts.js';
 
 // A person: you, the crew, guards, police, people on the street. Rounded
 // limbs, a face with eyes that blink, hair, beards, hats and clothes
@@ -37,7 +37,7 @@ const DEFAULTS = {
   hoodie: 0x24252b, trousers: 0x1a1e2a, shoes: 0x0f0f10, mask: 0x111318,
   hair: 0x2a1c14, hat: 0x2a2b31, shirt: 0xe6e2da, tie: 0x7a1f2e,
   metal: 0xb8bcc4, gold: 0xe8b830, belt: 0x18181a, eyeWhite: 0xeeeae2, pupil: 0x23170f,
-  lens: 0x0c0d10, bag: 0x3b4a2a, strap: 0x1d1f16, cash: 0x5fae5a, patch: 0xe8e8e8,
+  lens: 0x0c0d10, bag: 0x3b4a2a, strap: 0x1d1f16, cash: 0x5fae5a, patch: 0xe8e8e8, cover: 0xc0283a,
 };
 const PUNCH_TIME = 0.32;
 const UPPER_TIME = 0.42; // (the uppercut that ends a combo is slower and bigger)
@@ -67,6 +67,7 @@ function resolve(colors, style) {
   c.accent = colors.accent ?? shade(c.hoodie, lum(c.hoodie) < 0.02 ? 1.9 : 0.68);
   c.sole = colors.sole ?? (lum(c.shoes) > 0.4 ? 0xf2f2ee : shade(c.shoes, 0.55));
   c.hatBand = colors.hatBand ?? (s.hat === 'police' ? 0x0e0e12 : s.hat === 'guard' ? shade(c.hat, 0.6) : shade(c.hat, 0.78));
+  if (s.face === 'hockey') { c.cover = colors.cover ?? 0xeeeae2; c.tie = colors.tie ?? 0xc0283a; }
   c.mouth = mix(c.skin, 0x6a2a2a, 0.35);
   c.stubble = mix(c.skin, c.hair, 0.55);
   return { colors: c, style: s };
@@ -269,7 +270,7 @@ export class PlayerModel {
     if (!colors) { this._apply_look(resolve(own.colors, own.style)); return; }
     const { style = {}, mask, ...cols } = colors;
     const mine = resolve(own.colors, own.style);
-    const face = mine.style.face === 'mask' ? 'face' : mine.style.face;
+    const face = MASK_FACES.includes(mine.style.face) ? 'face' : mine.style.face;
     this._apply_look(resolve(
       { ...own.colors, ...cols, skin: mine.colors.skin, gloves: cols.gloves ?? mine.colors.skin },
       { ...own.style, hat: null, ...style, face },
@@ -622,6 +623,10 @@ export class PlayerModel {
 
   _apply(pc) {
     const p = this.pose;
+    // Carrying something heavy in the right hand (a suitcase): that arm hangs
+    // down and only swings a little
+    if (this.carrying) { p.shR *= 0.35; p.shRz = Math.max(p.shRz || 0, 0.12); p.elR = Math.max(p.elR, -0.25); }
+    this.carrying = false;
     this.hipL.rotation.x = p.hipL;
     this.hipR.rotation.x = p.hipR;
     this.kneeL.rotation.x = p.kneeL;

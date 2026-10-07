@@ -10,7 +10,7 @@ import { showCard } from './menus.js';
 import { admin, ABILITIES, ABILITY_GROUPS } from '../core/admin.js';
 import { save } from '../core/save.js';
 import { cloud } from '../core/cloud.js';
-import { GADGETS, gadget } from '../gadgets/gadgets.js';
+import { GADGETS, gadget, equip, equipped } from '../gadgets/gadgets.js';
 import { CHAPTER_LIST } from '../story/chapters.js';
 import { CAR_COLOURS } from '../vehicles/carColours.js';
 import { audio } from '../core/audio.js';
@@ -181,8 +181,9 @@ export function showAdminPanel(onBack) {
   // --- unlocks
   on($('adm-gadgets'), () => {
     shop.owned = GADGETS.map((g) => g.id);
-    shop.equipped.foot ||= 'cloak';
-    shop.equipped.car ||= 'freeze';
+    shop.slots = Math.max(shop.slots || 0, 3);
+    if (!equipped('foot')) equip('cloak');
+    if (!equipped('car')) equip('freeze');
     save.write();
     note = 'Every gadget is yours (equip them in the Shop).';
     again();

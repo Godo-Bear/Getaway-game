@@ -29,7 +29,10 @@ export const BINDINGS = {
   drift: ['ShiftLeft', 'ShiftRight'], // driving: handbrake / drift
   nitro: ['Space'],         // driving: nitro boost
   map: ['KeyM'],            // driving: big city map (set a waypoint)
-  gadget: ['KeyF'],         // use your equipped gadget
+  gadget: ['KeyF'],         // use your gadget (the slot you used last)
+  gadget1: ['Digit1', 'Numpad1'], // use the gadget in slot 1, 2 or 3
+  gadget2: ['Digit2', 'Numpad2'],
+  gadget3: ['Digit3', 'Numpad3'],
   interact: ['KeyE', 'KeyX'], // the action shown on screen (knock out a guard, hack a traffic light...)
   pause: ['KeyP', 'Escape'],
   help: ['KeyH'],

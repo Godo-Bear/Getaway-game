@@ -6,7 +6,7 @@
 import { showCard } from './menus.js';
 import { save } from '../core/save.js';
 import { audio } from '../core/audio.js';
-import { OUTFITS, PALETTE, SKINS, FACES, HAIRS, HAIR_COLOURS, BEARDS, HATS, TOPS, currentLook } from '../player/outfits.js';
+import { OUTFITS, PALETTE, SKINS, FACES, HAIRS, HAIR_COLOURS, BEARDS, HATS, TOPS, COVER_COLOURS, currentLook } from '../player/outfits.js';
 import { CAR_COLOURS, CAR_PARTS, CAR_BODIES, isBodyUnlocked, isColourUnlocked, playerCarColour, playerCarStyle } from '../vehicles/carColours.js';
 import { showLookPreview, showCarPreview } from './lookPreview.js';
 
@@ -48,9 +48,10 @@ export function showLookEditor(game, onBack, onChange = () => {}) {
 
   showCard(`
     <p class="sub kicker">Wardrobe</p><h2>Your look</h2>
-    <p class="sub cz-note">Mix and match. In daylight a balaclava gets noticed: with your face showing, police and bounty hunters on the street only recognise you up close.</p>
+    <p class="sub cz-note">Mix and match. In daylight a balaclava (or a bandana, or a hockey mask) gets noticed: with your face showing, police and bounty hunters on the street only recognise you up close.</p>
     ${row('Start from', OUTFITS.map((o) => `<button class="chip" data-preset="${o.id}" title="${o.text}">${o.name}</button>`).join(''))}
     ${row('Face', chips('face', FACES, look.face))}
+    ${look.face === 'bandana' ? row('Bandana colour', COVER_COLOURS.map((c) => swatch('cover', c, (look.cover ?? 0xc0283a) === c, hex(c), 'Bandana colour')).join('')) : ''}
     ${row('Skin', SKINS.map((c) => swatch('skin', c, look.skin === c, hex(c), 'Skin tone')).join(''))}
     ${row('Hair', chips('hair', HAIRS, look.hair))}
     ${row('Hair colour', HAIR_COLOURS.map((c) => swatch('hair-colour', c, look.hairColour === c, hex(c), 'Hair colour')).join(''))}
@@ -74,6 +75,7 @@ export function showLookEditor(game, onBack, onChange = () => {}) {
   });
   bind('face', (v) => set('face', v));
   bind('skin', (v) => set('skin', Number(v)));
+  bind('cover', (v) => set('cover', Number(v)));
   bind('hair', (v) => set('hair', v));
   bind('hair-colour', (v) => set('hairColour', Number(v)));
   bind('beard', (v) => set('beard', v === 'none' ? null : v));

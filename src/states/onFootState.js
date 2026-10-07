@@ -224,6 +224,7 @@ export class OnFootState extends PlayState {
     if (input.wasPressed('view')) this.toggleView();
     if (input.wasPressed('respawn')) this.respawnKey();
     if (input.wasPressed('gadget')) this.gadgets.use();
+    for (let i = 0; i < 3; i++) if (input.wasPressed(`gadget${i + 1}`)) this.gadgets.use(i);
 
     // Scroll wheel / pinch: move the camera closer or further away (remembered).
     const zoom = input.consumeZoom();
