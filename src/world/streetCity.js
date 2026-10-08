@@ -70,6 +70,8 @@ const LANDMARKS = {
   arcade: { height: 12, tint: 0x2a1e3a, door: 0xff4dd2, sign: 'ARCADE', signColor: '#ff4dd2', windows: true },
   ramen: { height: 7, tint: 0x5a2a20, door: 0xffd040, sign: 'RAMEN', signColor: '#ffd040' },
   capsule: { height: 14, tint: 0x2a3a4a, door: 0x39e6ff, sign: 'CAPSULE HOTEL', signColor: '#39e6ff', windows: true },
+  dragons: { height: 10, tint: 0x2a2c36, door: 0xd8dcec, sign: 'SILVER DRAGONS', signColor: '#d8dcec' },
+  airport: { height: 12, tint: 0x3a3e48, door: 0x39e6ff, sign: 'AIRPORT CARGO', signColor: '#39e6ff', windows: true },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)

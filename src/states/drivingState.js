@@ -313,12 +313,13 @@ export class DrivingState extends PlayState {
     if (this.mode.stolen) return stolenSpecs();
     if (this.mode.vehicle === 'snowmobile') return CAR_SPECS.snowmobile;
     if (this.mode.vehicle === 'dirtbike') return { ...CAR_SPECS.player, ...CAR_BODIES.find((b) => b.id === 'dirt').specs };
+    if (this.mode.storyCar) return { ...CAR_SPECS.player, ...(CAR_BODIES.find((b) => b.id === this.mode.storyCar.body)?.specs || {}) };
     return playerCarSpecs(CAR_SPECS.player);
   }
 
   /** Are you on the Dirt Bike? (Space is then the wheelie; the phone's Nitro button says so.) */
   _setDirt() {
-    this.dirt = this.mode.vehicle === 'dirtbike' || (!this.mode.stolen && this.mode.vehicle !== 'snowmobile' && !!playerCarBody().dirt);
+    this.dirt = this.mode.vehicle === 'dirtbike' || this.mode.storyCar?.body === 'dirt' || (!this.mode.stolen && !this.mode.storyCar && this.mode.vehicle !== 'snowmobile' && !!playerCarBody().dirt);
     this.game.touch?.setLabel?.('b', this.dirt ? 'Wheelie' : null);
   }
 
@@ -452,6 +453,7 @@ export class DrivingState extends PlayState {
     if (this.mode.stolen) return makeCarMesh({ kind: this.mode.stolen.kind, color: this.mode.stolen.color }); // (Free Run: a car you stole)
     const color = playerCarColour(), style = playerCarStyle();
     if (this.mode.vehicle === 'dirtbike') return makeCarMesh({ kind: 'player', color, style: { ...style, body: 'dirt' } }); // (the story puts you on the Dirt Bike)
+    if (this.mode.storyCar) return makeCarMesh({ kind: 'player', color: this.mode.storyCar.color ?? color, style: { ...style, body: this.mode.storyCar.body } }); // (e.g. the gold car)
     return this.mode.vehicle === 'snowmobile'
       ? makeSnowmobileMesh({ color, style, look: currentLook(this.game.settings) })
       : makeCarMesh({ kind: 'player', color, style });

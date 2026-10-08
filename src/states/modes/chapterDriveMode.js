@@ -56,8 +56,11 @@ export class ChapterDriveMode {
     this.fugitive = null;
   }
 
-  /** 'car' or 'snowmobile' (the part decides). */
+  /** 'car', 'snowmobile' or 'dirtbike' (the part decides). */
   get vehicle() { return this.part.vehicle || 'car'; }
+
+  /** A particular car the story puts you in ({ body, color }), instead of your own. */
+  get storyCar() { return this.part.car || null; }
 
   cityOptions() {
     // Harbor City's or Frostvale's streets (the same as Free Run): the part
@@ -126,7 +129,7 @@ export class ChapterDriveMode {
     const f = part.fugitive;
     if (f) {
       const dest = s.city.landmarks[part.goal.block].node;
-      this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color, f.kind);
+      this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color, f.kind, f.style);
       const fn = g.node(f.startNode[0], f.startNode[1]);
       this.fugitive.place(fn, f.heading ?? Math.PI);
       this.fugitiveSpeed = diff().fugitive * (f.speed ?? (this.race ? 0.92 : this.tail ? 0.7 : 0.9));

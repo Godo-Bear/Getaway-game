@@ -33,6 +33,7 @@ import { FunicularMode } from './modes/funicularMode.js';
 import { BulletMode } from './modes/bulletMode.js';
 import { SkyDropMode } from './modes/skyDropMode.js';
 import { SkyVaultMode } from './modes/skyVaultMode.js';
+import { HighwayMode } from './modes/highwayMode.js';
 import { PrisonMode } from './modes/prisonMode.js';
 import { setShopDaylight } from '../world/shopfronts.js';
 import { rumble } from '../core/haptics.js';
@@ -60,7 +61,7 @@ import { GlacierMode } from './modes/glacierMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode, highway: HighwayMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {

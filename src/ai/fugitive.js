@@ -103,11 +103,11 @@ export class FugitiveCar {
    * @param {Function} rng
    * @param {number} color - paint colour (Vince's brown sedan by default)
    */
-  constructor(scene, city, dest, rng, color = 0x5a3a22, kind = 'civilian') {
+  constructor(scene, city, dest, rng, color = 0x5a3a22, kind = 'civilian', style = null) {
     this.city = city;
     this.dest = dest;
     this.rng = rng;
-    this.mesh = makeCarMesh({ kind, color });
+    this.mesh = makeCarMesh({ kind, color, style }); // (style: a rival's sports car looks like the player's)
     scene.add(this.mesh);
     this.scene = scene;
     this.car = new Car({ ...CAR_SPECS.police, maxSpeed: 36 }, this.mesh);
