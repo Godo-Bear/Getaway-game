@@ -100,6 +100,7 @@ export class Traffic {
     for (let tries = 0; tries < 30; tries++) {
       const a = graph.nodes[Math.floor(this.rng() * graph.nodes.length)];
       const b = a.neighbours[Math.floor(this.rng() * a.neighbours.length)];
+      if (!b) continue; // (a corner with no roads left: two blocks were joined round it)
       const t = 0.3 + this.rng() * 0.4;
       const p = graph.lanePoint(a, b, t, c.lane, _v);
       const d = Math.hypot(p.x - player.pos.x, p.z - player.pos.z);
@@ -161,6 +162,7 @@ export class Traffic {
       }
 
       const a = c.from, b = c.to;
+      if (!a || !b) { this.respawn(c, player, camera, 40, 400); continue; } // (never found a road to start on: try again)
       const len = Math.hypot(b.x - a.x, b.z - a.z);
       const fx = (b.x - a.x) / len, fz = (b.z - a.z) / len;
       // How far along the edge are we? (0 = at a, len = at b)
@@ -169,7 +171,7 @@ export class Traffic {
       // Reached the end of this road: pick a new direction.
       if (along > len - 6) {
         c.from = b;
-        c.to = graph.randomNeighbour(b, this.rng, a);
+        c.to = graph.randomNeighbour(b, this.rng, a) || a; // (a dead end: turn round)
         continue;
       }
 

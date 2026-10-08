@@ -18,6 +18,17 @@ import { FXAAPass } from 'three/examples/jsm/postprocessing/FXAAPass.js';
 // older laptops keep their frame rate. States call post.render(scene, camera)
 // instead of renderer.render(scene, camera).
 
+// A pixel too bright for the half-float buffer (a headlight glinting off wet
+// paint or water at just the wrong angle) comes out infinite, or NaN. The
+// bloom would smear that one pixel over the whole screen and the frame would
+// flash black. So before the bloom (and again in the grade) every pixel is
+// capped, and broken ones are dropped.
+const SANITIZE_GLSL = /* glsl */`
+  vec3 SANITIZE(vec3 c) {
+    if (any(isnan(c))) return vec3(0.0);
+    return clamp(c, vec3(0.0), vec3(64.0));
+  }`;
+
 const GradeShader = {
   uniforms: {
     tDiffuse: { value: null },
@@ -36,8 +47,10 @@ const GradeShader = {
     uniform vec3 tint;
     uniform float lift;
     varying vec2 vUv;
+    ${SANITIZE_GLSL}
     void main() {
       vec4 c = texture2D(tDiffuse, vUv);
+      c.rgb = SANITIZE(c.rgb);
       // Split-tone: shadows lean blue, highlights lean warm (the "neon noir" look).
       float l = dot(c.rgb, vec3(0.2126, 0.7152, 0.0722));
       c.rgb *= mix(vec3(0.92, 0.97, 1.08), vec3(1.06, 1.0, 0.94), smoothstep(0.05, 0.6, l));
@@ -86,6 +99,12 @@ export class PostFx {
     this.composer = new EffectComposer(r, target);
     this.renderPass = new RenderPass(null, null);
     this.bloom = new UnrealBloomPass(new THREE.Vector2(size.x * cfg.scale, size.y * cfg.scale), ...cfg.bloom);
+    // (cap every pixel before the bloom picks out the bright ones: see SANITIZE_GLSL)
+    const hp = this.bloom.materialHighPassFilter, read = 'vec4 texel = texture2D( tDiffuse, vUv );';
+    if (hp.fragmentShader.includes(read)) {
+      hp.fragmentShader = hp.fragmentShader.replace('void main() {', `${SANITIZE_GLSL}\nvoid main() {`).replace(read, `${read}\ntexel.rgb = SANITIZE( texel.rgb );`);
+      hp.needsUpdate = true;
+    } else console.warn('PostFx: bloom shader changed, pixels are not capped before the bloom');
     this.grade = new ShaderPass(GradeShader);
     this.composer.addPass(this.renderPass);
     this.composer.addPass(this.bloom);

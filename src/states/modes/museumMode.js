@@ -208,9 +208,11 @@ export class MuseumMode {
     const s = this.state, hud = s.game.hud;
     this.rope = { len: LEN_MIN, dx: 0, dz: 0 };
     s.model.flying = 'rope';
+    this.camD ??= s.cam.distance;
+    s.cam.distance = Math.max(this.camD, 6.5); // (pulled back a bit: you can see the layers of lasers below)
     this.ropeMesh.visible = true;
     s.setAction(null);
-    s.cam.pitch = -0.55;
+    s.cam.pitch = -0.95; // (looking down past you at the lasers and the Star)
     audio.sfx('clang', { vol: 0.5 });
     hud.setObjective('Down through the lasers to the Star');
     hud.toast('Clipped on', 'Hold Jump to let the rope out, hold Crouch to climb, move to swing. Don\'t touch a beam!', 'var(--cyan)', 5);
@@ -220,6 +222,8 @@ export class MuseumMode {
     const s = this.state;
     this.rope = null;
     if (s.model) s.model.flying = null;
+    if (this.camD != null && s.cam) { s.cam.distance = this.camD; this.camD = null; }
+    if (s.cam) s.cam.noCollide = false;
     if (this.ropeMesh) this.ropeMesh.visible = false;
   }
 
@@ -239,6 +243,9 @@ export class MuseumMode {
     // place yourself on the end of the rope
     const feet = ANCHOR.y - r.len - 2.2;
     p.teleport(ANCHOR.x + r.dx, feet, ANCHOR.z + r.dz, p.facing);
+    // (inside the rotunda the camera can't hit anything: its dome is solid only from
+    // the outside. Up by the oculus it can: the gantry and the catwalk are real)
+    s.cam.noCollide = feet < 19;
     const handY = feet + 2.15;
     this.ropeMesh.position.set((ANCHOR.x + p.pos.x) / 2, (ANCHOR.y + handY) / 2, (ANCHOR.z + p.pos.z) / 2);
     this.ropeMesh.scale.y = Math.max(0.01, ANCHOR.y - handY);

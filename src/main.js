@@ -179,6 +179,7 @@ function start(renderer) {
   let last = performance.now();
   let fitTick = 0, fitState = null;
   function frame(now) {
+    requestAnimationFrame(frame); // (first: one error in a frame must never stop the game for good)
     // (keep the picture fitted to the screen: twice a second, and whenever the state changes)
     if (++fitTick >= 30 || game.sm.current !== fitState) {
       const changed = game.sm.current !== fitState;
@@ -199,7 +200,6 @@ function start(renderer) {
     game.sm.render(renderer);
     autoQuality.update(dt);
     game.input.endFrame();
-    requestAnimationFrame(frame);
   }
   requestAnimationFrame(frame);
 }

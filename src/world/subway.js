@@ -431,7 +431,10 @@ class SubwayTrain {
 
 /** One flat four-sided face (corners in order round it), facing `want`. */
 function quadTo(batch, key, [A, B, Cc, D], want, color, uv) {
-  let nrm = cross(sub(B, A), sub(D, A));
+  // (the normal from the two diagonals: still right when two corners are the
+  // same point, as on the sloping ramp walls; a zero normal draws as NaN pixels)
+  let nrm = cross(sub(Cc, A), sub(D, B));
+  if (Math.hypot(...nrm) < 1e-9) return; // (no area at all: nothing to draw)
   if (dot(nrm, want) < 0) { nrm = nrm.map((v) => -v); batch.addPoly(key, A, D, Cc, B, norm(nrm), color, uv); return; }
   batch.addPoly(key, A, B, Cc, D, norm(nrm), color, uv);
 }

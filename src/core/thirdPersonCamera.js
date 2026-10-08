@@ -119,7 +119,11 @@ export class ThirdPersonCamera {
     this._dir.set(Math.sin(this.yaw) * cp, -Math.sin(this.pitch), Math.cos(this.yaw) * cp);
 
     // --- Wall collision: shorten the boom if something is in the way.
-    const hit = this.world.raycast(this.pivot, this._dir, this.distance + WALL_PADDING);
+    let hit = this.world.raycast(this.pivot, this._dir, this.distance + WALL_PADDING);
+    // (starting inside something solid, say hanging on a rope inside the museum's
+    // dome, which is solid from the outside: no wall to keep out of, so don't
+    // squash the camera onto your head)
+    if (hit < 0.05 || this.noCollide) hit = Infinity; // (noCollide: a mode knows the space round you is open)
     const allowed = clamp(hit - WALL_PADDING, MIN_DISTANCE, this.distance);
     // Pull in instantly (never show the inside of a wall), ease back out slowly.
     this.currentDistance = allowed < this.currentDistance

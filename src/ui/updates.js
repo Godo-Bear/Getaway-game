@@ -5,6 +5,11 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Fixes: black flashes and a close-up camera', items: [
+    'No more black flashes while driving. A single pixel that came out too bright (or broken), like a glint off a shiny surface or the side wall of a subway ramp, could make the glow effect black out the whole screen for a moment. The broken walls are fixed, and the glow now ignores any bad pixel',
+    'Fixed a rare freeze in the city traffic, when a car couldn\'t find a road to start on',
+    'Chapter 19, the dome: on the rope the camera no longer squashes up against your head. It stays back so you can see yourself, the lasers below and the Star',
+  ] },
   { date: '2026-10-08', title: 'Chapter 20: Lights Out', items: [
     'Chapter 20 (three parts) in Lumière: the buyer, Valcourt, will only pay for the Star at the Opéra at midnight, and Inspector Delacroix has every camera in the city watching for you. So you switch the city off',
     'Part 1: down into the catacombs under Lumière, tunnels lined with bones and pitch dark. Your torch (E or L) runs on batteries, so pick up spare ones. Night guards walk the tunnels with torches: with YOUR torch on they see its light even from behind, so switch it off when they\'re near and feel your way. Cut the three big cables in the vault and the whole city goes dark',
