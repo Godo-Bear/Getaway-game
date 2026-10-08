@@ -20,7 +20,8 @@ export const FREE_MAPS = {
   oldtown: {
     name: 'Old Town', where: 'Harbor City', unlock: 4, icon: '🌳',
     sub: 'Lower, greener streets: more parks, more little shops, easy roofs.',
-    foot: { seed: 4321, blocks: 7, parks: 0.3, shopBlocks: 0.4, lowRise: true }, car: { seed: 4242, blocks: 8, parkShare: 0.26 },
+    foot: { seed: 4321, blocks: 8, block: 34, parks: 0.3, shopBlocks: 0.4, lowRise: true }, // (lots of small blocks)
+    car: { seed: 4242, blocks: 8, parkShare: 0.26, layout: { x: [38, 70, 40, 60, 76, 36, 52, 48], z: [52, 46, 66, 44, 60, 48, 64, 46], merge: [[1, 1, 'z', 'park'], [4, 4, 'x'], [6, 1, 'z', 'park']] } },
   },
   frostvale: {
     name: 'Frostvale', where: 'the mountains', unlock: 8, icon: '🏔️', snow: true,

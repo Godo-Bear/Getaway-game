@@ -5,6 +5,12 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Every city has its own streets', items: [
+    'The cities are laid out differently now, not just painted differently. Each place has its own street plan: some blocks long and some short, and here and there two blocks joined into one big block or park where a road used to be',
+    'Frostvale is a village of odd-sized blocks with a market park and no elevated railway. Porto Sereno\'s blocks get smaller towards the sea, and it has trams instead of the railway. Neon Kōji has narrow streets between huge mega-blocks. Lumière has the river and a great park in the middle where the Iron Tower stands',
+    'On foot (Free Run) too: Neon Kōji is a bigger city of bigger blocks and more towers, Lumière has the river running through it (fall in and it\'s a splash!) and a long park, and Old Town is lots of little blocks',
+    'Each place\'s map is still the same in the story and in Free Run. Harbor City keeps the streets where it all started',
+  ] },
   { date: '2026-10-08', title: 'Chapter 19: The Star of Lumière, and a new city', items: [
     'The crew moves to Lumière, a grand old city: cream stone buildings, grey zinc roofs with little windows, iron balconies, cafés, a river with stone bridges and boats through the middle, and the Iron Tower over it all. It\'s a new Free Run map too (on foot and driving)',
     'Chapter 19 (three parts): swap the most famous diamond in the city for a glass copy',

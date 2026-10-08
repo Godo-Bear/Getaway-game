@@ -69,7 +69,7 @@ export class ChapterDriveMode {
     // Harbor City's or Frostvale's streets (the same as Free Run): the part
     // only adds its own landmarks (forceKinds) on top
     const base = this.part.city.classic ? LUMIERE_CAR : this.part.city.neon ? NEON_CAR : this.part.city.coastal ? PORTO_CAR : this.part.city.alpine ? FROSTVALE_CAR : DOWNTOWN_CAR;
-    return { ...this.part.city, seed: base.seed, blocks: base.blocks };
+    return { ...this.part.city, seed: base.seed, blocks: base.blocks, layout: base.layout, el: base.el }; // (the place's own street plan)
   }
 
   build() {

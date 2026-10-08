@@ -11,6 +11,7 @@ import { BigMap } from './bigMap.js';
 export function footMapCity(city) {
   const shapes = [];
   for (const p of city.parks || []) shapes.push({ type: 'park', x0: p.x0, z0: p.z0, x1: p.x1, z1: p.z1 });
+  for (const w of city.water || []) shapes.push({ type: 'water', ...w });
   for (const b of city.buildings) shapes.push({ type: b.shop ? 'shop' : 'building', x0: b.minX, z0: b.minZ, x1: b.maxX, z1: b.maxZ });
   for (const L of city.ladders || []) shapes.push({ type: 'ladder', x0: L.x - 1.1, z0: L.z - 1.1, x1: L.x + 1.1, z1: L.z + 1.1 });
   const e = city.bounds + 10;

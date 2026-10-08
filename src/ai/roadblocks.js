@@ -100,14 +100,15 @@ export class Roadblocks {
     if (Math.abs(v) < 5) return false;
     const dir = Math.sign(v);
     const along = road.axis === 'x' ? player.pos.x : player.pos.z;
-    const pitch = graph.pitch;
     // Next intersection ahead (at least 40 m away), then the middle of the block after it.
-    const k = (along - graph.roadC(0)) / pitch;
-    let idx = dir > 0 ? Math.floor(k) + 1 : Math.ceil(k) - 1;
-    if ((graph.roadC(idx) - along) * dir < 40) idx += dir;
-    const at = graph.roadC(idx) + dir * pitch * 0.5;
-    const min = graph.roadC(0), max = graph.roadC(graph.n - 1);
-    if (at < min || at > max) return false;
+    // (the crossing roads along this road: x = roadX(k) for a road running along X)
+    const R = road.axis === 'x' ? graph.roadX : graph.roadZ;
+    let idx = 0;
+    while (idx < graph.n && R(idx) <= along) idx++;  // (the first crossing road past us, going +)
+    if (dir < 0) idx -= 1;                              // (going -: the last one behind that point)
+    if ((R(idx) - along) * dir < 40) idx += dir;
+    if (idx < 0 || idx >= graph.n || idx + dir < 0 || idx + dir >= graph.n) return false;
+    const at = (R(idx) + R(idx + dir)) / 2;
     const line = road.axis === 'x' ? road.lineZ : road.lineX;
     // Don't stack two things on the same spot
     const px = road.axis === 'x' ? at : line, pz = road.axis === 'x' ? line : at;

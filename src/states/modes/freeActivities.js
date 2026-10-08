@@ -245,7 +245,7 @@ export class Challenges {
       for (const bl of blocks) {
         if (this.courses.length >= 3) break;
         if (this.courses.some((c) => Math.hypot(c.cx - bl.cx, c.cz - bl.cz) < 60)) continue;
-        const bs = city.buildings.filter((b) => !b.tower && !b.shop && Math.abs((b.minX + b.maxX) / 2 - bl.cx) < 21 && Math.abs((b.minZ + b.maxZ) / 2 - bl.cz) < 21)
+        const bs = city.buildings.filter((b) => !b.tower && !b.shop && Math.abs((b.minX + b.maxX) / 2 - bl.cx) < (city.block ?? 42) / 2 && Math.abs((b.minZ + b.maxZ) / 2 - bl.cz) < (city.block ?? 42) / 2)
           .sort((a, b) => Math.atan2((a.minZ + a.maxZ) / 2 - bl.cz, (a.minX + a.maxX) / 2 - bl.cx) - Math.atan2((b.minZ + b.maxZ) / 2 - bl.cz, (b.minX + b.maxX) / 2 - bl.cx));
         const pts = bs.map((b) => findClearRoofSpot(city.world, b, rng)).filter(Boolean);
         if (pts.length < 4) continue;
@@ -256,7 +256,7 @@ export class Challenges {
       // Frostvale: a sprint round the streets of a block
       for (let k = 0; k < 3; k++) {
         const i = [1, 3, 2][k], j = [2, 2, 4][k];
-        const cx = i * city.pitch - half, cz = j * city.pitch - half, r = 22.5;
+        const cx = i * city.pitch - half, cz = j * city.pitch - half, r = (city.block ?? 42) / 2 + 1.5;
         const pts = [[-r, -r], [r, -r], [r, r], [-r, r], [-r, -r]].map(([x, z]) => new THREE.Vector3(cx + x, 0.05, cz + z));
         this.courses.push({ cx, cz, pts });
       }

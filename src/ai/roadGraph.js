@@ -11,17 +11,21 @@ import * as THREE from 'three';
 export class RoadGraph {
   /**
    * @param {number} n - number of roads in each direction (nodes = n * n)
-   * @param {(k:number)=>number} roadC - centre coordinate of road k
+   * @param {(k:number)=>number} roadX - x of road k (the roads running along Z)
+   * @param {(k:number)=>number} [roadZ] - z of road k (the roads running along X); the same as roadX if not given
+   *   (each place's streets have their own block sizes, so the roads aren't evenly spaced)
    */
-  constructor(n, roadC) {
+  constructor(n, roadX, roadZ = roadX) {
     this.n = n;
-    this.roadC = roadC;
+    this.roadX = roadX;
+    this.roadZ = roadZ;
+    this.roadC = roadX; // (old name)
     this.nodes = [];
     for (let i = 0; i < n; i++) {
       for (let j = 0; j < n; j++) {
         this.nodes.push({
           id: i * n + j, i, j,
-          x: roadC(i), z: roadC(j),
+          x: roadX(i), z: roadZ(j),
           neighbours: [],
           // Offset for traffic light timing so the city doesn't flip all at once
           phaseOffset: ((i + j) % 3) * 1.5,
@@ -35,19 +39,30 @@ export class RoadGraph {
         node.neighbours.push(this.nodes[ni * n + nj]);
       }
     }
-    this.pitch = roadC(1) - roadC(0);
+    this.pitch = (roadX(n - 1) - roadX(0)) / (n - 1); // (the average distance between roads)
+  }
+
+  /** Index of the road nearest to v along one axis ('x': the roads at x = roadX(k)). */
+  nearestRoad(axis, v) {
+    const f = axis === 'x' ? this.roadX : this.roadZ;
+    let best = 0, bd = Infinity;
+    for (let k = 0; k < this.n; k++) { const d = Math.abs(f(k) - v); if (d < bd) { bd = d; best = k; } }
+    return best;
   }
 
   node(i, j) {
     return this.nodes[i * this.n + j];
   }
 
+  /** Take out the road between two neighbouring junctions (two blocks joined into one). */
+  removeEdge(a, b) {
+    a.neighbours = a.neighbours.filter((x) => x !== b);
+    b.neighbours = b.neighbours.filter((x) => x !== a);
+  }
+
   /** Closest intersection to a world position. */
   nearestNode(x, z) {
-    const clampI = (v) => Math.max(0, Math.min(this.n - 1, v));
-    const i = clampI(Math.round((x - this.roadC(0)) / this.pitch));
-    const j = clampI(Math.round((z - this.roadC(0)) / this.pitch));
-    return this.node(i, j);
+    return this.node(this.nearestRoad('x', x), this.nearestRoad('z', z));
   }
 
   /**
@@ -57,8 +72,8 @@ export class RoadGraph {
    *  - offset = distance from the centre line
    */
   roadAt(x, z, halfWidth) {
-    const nearZ = this.roadC(0) + Math.round((z - this.roadC(0)) / this.pitch) * this.pitch;
-    const nearX = this.roadC(0) + Math.round((x - this.roadC(0)) / this.pitch) * this.pitch;
+    const nearZ = this.roadZ(this.nearestRoad('z', z));
+    const nearX = this.roadX(this.nearestRoad('x', x));
     const onX = Math.abs(z - nearZ) < halfWidth; // on a road running along X
     const onZ = Math.abs(x - nearX) < halfWidth;
     if (onX && onZ) return { axis: 'both', lineX: nearX, lineZ: nearZ };

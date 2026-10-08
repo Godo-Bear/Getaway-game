@@ -46,7 +46,7 @@ export class ParkedCars {
   constructor(mode, { pool = 8 } = {}) {
     this.mode = mode;
     const city = mode.city, rng = makeRng(mode.map.foot.seed * 13 + 3);
-    const half = ((city.blockCenters.length - 1) / 2) * city.pitch, B = 42;
+    const half = ((city.blockCenters.length - 1) / 2) * city.pitch, B = city.block ?? 42;
     // Spots along the kerbs (3.5 m out from the block: at the kerb, clear of the traffic lane)
     this.spots = [];
     for (const cx of city.blockCenters) {

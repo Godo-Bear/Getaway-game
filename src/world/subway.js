@@ -36,17 +36,17 @@ export const ease = (t) => 0.5 * t + 0.5 * t * t * (3 - 2 * t);
  * are built (an entrance block gets buildings either side of its ramp).
  * forced: block keys ('i,j') a story chapter has fixed: never used.
  */
-export function planSubway({ n, roadC, road, forced }) {
+export function planSubway({ n, roadC, roadX = roadC, roadZ = roadX, road, forced }) {
   const blocks = n - 1;
   if (blocks < 5) return { lines: [], ramps: [], rampBlocks: new Map() };
   const jA = Math.min(n - 3, Math.max(2, n - 4)); // line A: under an east-west road
   const iB = 2;                                   // line B: under a north-south road
   const lines = [
-    { id: 'A', axis: 'x', c: roadC(jA), a0: roadC(0) - 2, a1: roadC(n - 1) + 2, k: jA },
-    { id: 'B', axis: 'z', c: roadC(iB), a0: roadC(0) - 2, a1: roadC(n - 1) + 2, k: iB },
+    { id: 'A', axis: 'x', c: roadZ(jA), a0: roadX(0) - 2, a1: roadX(n - 1) + 2, k: jA },
+    { id: 'B', axis: 'z', c: roadX(iB), a0: roadZ(0) - 2, a1: roadZ(n - 1) + 2, k: iB },
   ];
   const free = (i, j) => i >= 0 && j >= 0 && i < blocks && j < blocks && !forced.has(`${i},${j}`);
-  const blockOf = (i, j) => ({ x0: roadC(i) + road / 2, x1: roadC(i + 1) - road / 2, z0: roadC(j) + road / 2, z1: roadC(j + 1) - road / 2 });
+  const blockOf = (i, j) => ({ x0: roadX(i) + road / 2, x1: roadX(i + 1) - road / 2, z0: roadZ(j) + road / 2, z1: roadZ(j + 1) - road / 2 });
   const ramps = [];
   const taken = new Set();
   const add = (line, i, j, side) => {
@@ -91,7 +91,7 @@ export function rampHole(r) {
 /**
  * Build the tunnels, stations, ramps and trains (after the blocks).
  */
-export function buildSubway({ plan, batch, world, graph, roadC, alpine }) {
+export function buildSubway({ plan, batch, world, graph, roadC, roadX = roadC, roadZ = roadX, alpine }) {
   const group = new THREE.Group();
   const surfaces = [];
   const shapes = [];
@@ -125,7 +125,8 @@ export function buildSubway({ plan, batch, world, graph, roadC, alpine }) {
       const other = lines.find((o) => o !== L);
       const want = L.id === 'A' ? 2 : 1;
       const cands = [];
-      for (let k = 0; k < graph.n - 1; k++) cands.push((roadC(k) + roadC(k + 1)) / 2);
+      const R = L.axis === 'x' ? roadX : roadZ; // (positions along this line)
+      for (let k = 0; k < graph.n - 1; k++) cands.push((R(k) + R(k + 1)) / 2);
       const ok = cands.filter((a) => Math.abs(a - other.c) > 40 && !ramps.some((r) => r.line === L.id && Math.abs(r.cx - a) < ST_LEN / 2 + RW))
         .sort((p, q) => Math.abs(p) - Math.abs(q));
       const picked = [];

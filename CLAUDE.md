@@ -40,6 +40,11 @@ end). From now on:
   steal the Star of Lumière diamond from the Grand Musée).
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
+- **Each place has its own map layout** (not just its own look): its own
+  street plan in `src/world/maps.js` (driving: `layout` block sizes and
+  joined blocks, `el`; on foot: `blocks`, `block`, hand `kinds`). Within a
+  place, the story and Free Run use the SAME map. A new place gets a new
+  layout, and its story drive parts must start on its roads (check them).
 
 Chapters 1-5 keep their existing mole stories and deductions as they are.
 

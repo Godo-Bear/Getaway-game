@@ -295,7 +295,12 @@ export class OnFootState extends PlayState {
     if (!frozen) {
       this.time += dt;
       this._trackSafety(dt);
-      if (p.pos.y < (this.mode.fallY ?? -1.5)) { // (a mode can allow a long drop, e.g. gliding off a mountain)
+      // In the river (Lumière): splash, back to safety
+      const water = this.mode.city?.water;
+      if (water?.length && p.pos.y < 0.6 && water.some((w) => p.pos.x > w.x0 + 0.5 && p.pos.x < w.x1 - 0.5 && p.pos.z > w.z0 + 0.5 && p.pos.z < w.z1 - 0.5)) {
+        audio.sfx('splash');
+        this.respawnToSafety('Splash! You fell in the river.');
+      } else if (p.pos.y < (this.mode.fallY ?? -1.5)) { // (a mode can allow a long drop, e.g. gliding off a mountain)
         // In the water (or off the edge of the world): back to safety.
         this.falls++;
         if (this.mode.onFall) this.mode.onFall();

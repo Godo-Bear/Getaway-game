@@ -36,7 +36,6 @@ import { CLASSIC_TINTS, CLASSIC_WORDS, ZINC, riverMaterial, buildIronTower, buil
 
 const ROAD = 18;           // road width (two lanes each way)
 const BLOCK = 50;          // block size between roads
-const PITCH = ROAD + BLOCK;
 export const LANE_OFFSETS = [2.3, 6.2]; // lane centres, measured from the road centre line
 const SIDEWALK = 3;
 
@@ -94,7 +93,7 @@ const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 
  * @param {boolean} [opts.alpine] - a snowy mountain town (see above)
  * @param {number} [opts.parkShare] - share of the blocks that are parks
  */
-export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, neon = false, classic = false, parkShare = 0.14 } = {}) {
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, neon = false, classic = false, parkShare = 0.14, layout = null, el = undefined } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
@@ -103,9 +102,22 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const group = new THREE.Group();
 
   const n = blocks + 1;                // roads per direction
-  const half = (blocks * PITCH) / 2;
-  const roadC = (k) => k * PITCH - half; // centre line of road k
-  const graph = new RoadGraph(n, roadC);
+  // Where the roads run. Each place has its own block sizes along x and
+  // along z (layout.x / layout.z: scaled to the usual overall size, so story
+  // distances stay fair), and some pairs of blocks joined into one big block
+  // where a road is left out (layout.merge), so no two places have the same
+  // streets. No layout: the even grid (Harbor City).
+  const span = (ws) => {
+    const w = ws && ws.length === blocks ? ws : Array(blocks).fill(BLOCK);
+    const k = (blocks * BLOCK) / w.reduce((a, b) => a + b, 0);
+    const c = [0];
+    for (const v of w) c.push(c[c.length - 1] + v * k + ROAD);
+    return c.map((v) => v - c[c.length - 1] / 2);
+  };
+  const RX = span(layout?.x), RZ = span(layout?.z);
+  const roadX = (k) => RX[k], roadZ = (k) => RZ[k]; // x of the k-th road running along Z; z of the k-th road running along X
+  const half = RX[n - 1];
+  const graph = new RoadGraph(n, roadX, roadZ);
 
   const ramps = [];     // { x0,x1,z0,z1, axis:'x'|'z', dir:+1|-1, height }
   const alleys = [];    // rectangles where you're "hidden"
@@ -127,15 +139,34 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const riverMeshes = []; // (Lumière: the river's water and boats)
   let ironTower = null;
 
-  const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
+  const outer = roadX(0) - ROAD / 2, outerMax = roadX(n - 1) + ROAD / 2; // (the same both ways: the city is square)
 
   // --- Lumière: a river across the city, one row of blocks of water ---------
   const RIVER_J = Math.floor(blocks / 2) + 1;
   const riverKeys = classic ? Array.from({ length: blocks }, (_, i) => `${i},${RIVER_J}`).filter((k) => !(k in forceKinds)) : [];
-  const riverZ0 = roadC(RIVER_J) + ROAD / 2, riverZ1 = roadC(RIVER_J + 1) - ROAD / 2;
+  const riverZ0 = roadZ(RIVER_J) + ROAD / 2, riverZ1 = roadZ(RIVER_J + 1) - ROAD / 2;
+
+  // --- Joined blocks (a road left out between two blocks) -----------------
+  // Never on the roads the subway, the El or the trams run along, nor on a
+  // block a story uses or the river.
+  const elK = el !== undefined ? el : Math.floor(n / 2) - 1;     // (the avenue under the El: null = no El)
+  const SUB_J = Math.min(n - 3, Math.max(2, n - 4)), SUB_I = 2;  // (the roads the subway lines run under: see subway.js)
+  const merges = [], mergedKeys = [], cutX = new Set(), cutZ = new Set();
+  for (const [i, j, axis, kind = 'buildings'] of layout?.merge || []) {
+    const a = `${i},${j}`, b = axis === 'x' ? `${i + 1},${j}` : `${i},${j + 1}`;
+    const road = axis === 'x' ? i + 1 : j + 1;
+    if (axis === 'x' ? (i + 1 >= blocks || road === SUB_I || (coastal && road === n - 2)) : (j + 1 >= blocks || road === SUB_J || road === elK || (coastal && road === 1))) continue;
+    if ([a, b].some((k) => k in forceKinds || riverKeys.includes(k) || mergedKeys.includes(k))) continue;
+    const ends = axis === 'x' ? [graph.node(road, j), graph.node(road, j + 1)] : [graph.node(i, road), graph.node(i + 1, road)];
+    if (ends.some((e) => e.neighbours.length <= 2)) continue; // (never leave a dead end with no way on)
+    merges.push({ i, j, axis, kind });
+    mergedKeys.push(a, b);
+    if (axis === 'x') { cutZ.add(`${road},${j}`); graph.removeEdge(graph.node(road, j), graph.node(road, j + 1)); }
+    else { cutX.add(`${road},${i}`); graph.removeEdge(graph.node(i, road), graph.node(i + 1, road)); }
+  }
 
   // --- The subway's plan (which blocks get an entrance ramp) ----------------
-  const subwayPlan = planSubway({ n, roadC, road: ROAD, forced: new Set([...Object.keys(forceKinds), ...riverKeys]) });
+  const subwayPlan = planSubway({ n, roadX, roadZ, road: ROAD, forced: new Set([...Object.keys(forceKinds), ...riverKeys, ...mergedKeys]) });
   const holes = subwayPlan.ramps.map(rampHole);
 
   // --- Ground (asphalt everywhere, open where the subway ramps go down) ---
@@ -228,6 +259,10 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     const [i, j] = key.split(',').map(Number);
     blockKinds[i * blocks + j] = 'river';
   }
+  for (const M of merges) {
+    blockKinds[M.i * blocks + M.j] = 'merged';
+    blockKinds[(M.axis === 'x' ? M.i + 1 : M.i) * blocks + (M.axis === 'x' ? M.j : M.j + 1)] = 'merged-part';
+  }
   for (const key of subwayPlan.rampBlocks.keys()) {
     const [i, j] = key.split(',').map(Number);
     blockKinds[i * blocks + j] = 'subway';
@@ -237,9 +272,17 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
 
   for (let i = 0; i < blocks; i++) {
     for (let j = 0; j < blocks; j++) {
-      const x0 = roadC(i) + ROAD / 2, x1 = roadC(i + 1) - ROAD / 2;
-      const z0 = roadC(j) + ROAD / 2, z1 = roadC(j + 1) - ROAD / 2;
-      const kind = blockKinds[i * blocks + j];
+      let x0 = roadX(i) + ROAD / 2, x1 = roadX(i + 1) - ROAD / 2;
+      let z0 = roadZ(j) + ROAD / 2, z1 = roadZ(j + 1) - ROAD / 2;
+      let kind = blockKinds[i * blocks + j];
+      if (kind === 'merged-part') continue; // (built with the block it's joined to)
+      if (kind === 'merged') {
+        // two blocks joined: one big park or one big block of buildings (across where the road would be)
+        const M = merges.find((mm) => mm.i === i && mm.j === j);
+        if (M.axis === 'x') x1 = roadX(i + 2) - ROAD / 2; else z1 = roadZ(j + 2) - ROAD / 2;
+        kind = M.kind;
+        if (kind === 'park') { landmarks[`${i},${j}`] = makePark(x0, z0, x1, z1); continue; }
+      }
 
       if (kind === 'park') {
         landmarks[`${i},${j}`] = makePark(x0, z0, x1, z1);
@@ -570,7 +613,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     }
     minimapShapes.push({ type: 'water', x0, z0, x1, z1 });
     // the bridges: a stone balustrade along both sides of each road crossing the river
-    for (const xr of [roadC(i), ...(i === blocks - 1 ? [roadC(i + 1)] : [])]) {
+    for (const xr of [roadX(i), ...(i === blocks - 1 ? [roadX(i + 1)] : [])]) {
       for (const side of [-1, 1]) {
         const bx = xr + side * (ROAD / 2 - 0.25);
         batch.addBox({ x: bx - 0.25, y: 0, z: z0 }, { x: bx + 0.25, y: 1.1, z: z1 }, stone);
@@ -653,18 +696,21 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const dashes = []; // [x, z, rotY, length, width, color]
   for (let k = 0; k < n; k++) {
     for (let s = 0; s < blocks; s++) {
-      const a = roadC(s) + ROAD / 2 + 2, b = roadC(s + 1) - ROAD / 2 - 2;
-      for (let t = a; t < b; t += 6) {
-        const len = Math.min(3, b - t);
-        const mid = t + len / 2;
-        // Roads along X (at z = roadC(k)): centre line (yellow) and lane dividers (white)
-        dashes.push([mid, roadC(k), 0, len, 0.25, 0xd9a520]);
-        dashes.push([mid, roadC(k) + 4.3, 0, len, 0.18, 0xd8d8d8]);
-        dashes.push([mid, roadC(k) - 4.3, 0, len, 0.18, 0xd8d8d8]);
-        // Roads along Z
-        dashes.push([roadC(k), mid, Math.PI / 2, len, 0.25, 0xd9a520]);
-        dashes.push([roadC(k) + 4.3, mid, Math.PI / 2, len, 0.18, 0xd8d8d8]);
-        dashes.push([roadC(k) - 4.3, mid, Math.PI / 2, len, 0.18, 0xd8d8d8]);
+      // Roads along X (at z = roadZ(k)): centre line (yellow) and lane dividers (white)
+      if (!cutX.has(`${k},${s}`)) {
+        const a = roadX(s) + ROAD / 2 + 2, b = roadX(s + 1) - ROAD / 2 - 2;
+        for (let t = a; t < b; t += 6) {
+          const len = Math.min(3, b - t), mid = t + len / 2;
+          dashes.push([mid, roadZ(k), 0, len, 0.25, 0xd9a520], [mid, roadZ(k) + 4.3, 0, len, 0.18, 0xd8d8d8], [mid, roadZ(k) - 4.3, 0, len, 0.18, 0xd8d8d8]);
+        }
+      }
+      // Roads along Z (at x = roadX(k))
+      if (!cutZ.has(`${k},${s}`)) {
+        const a = roadZ(s) + ROAD / 2 + 2, b = roadZ(s + 1) - ROAD / 2 - 2;
+        for (let t = a; t < b; t += 6) {
+          const len = Math.min(3, b - t), mid = t + len / 2;
+          dashes.push([roadX(k), mid, Math.PI / 2, len, 0.25, 0xd9a520], [roadX(k) + 4.3, mid, Math.PI / 2, len, 0.18, 0xd8d8d8], [roadX(k) - 4.3, mid, Math.PI / 2, len, 0.18, 0xd8d8d8]);
+        }
       }
     }
   }
@@ -684,10 +730,14 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   }
 
   // Street lamps along every road (both sides), skipping intersections
+  // ([x, z, turn]: each lamp leans out over its road)
   for (let k = 0; k < n; k++) {
     for (let s = 0; s < blocks; s++) {
-      for (let t = roadC(s) + ROAD / 2 + 8; t < roadC(s + 1) - ROAD / 2 - 4; t += 22) {
-        lamps.push([t, roadC(k) - ROAD / 2 - 0.8, 1], [t, roadC(k) + ROAD / 2 + 0.8, -1]);
+      if (!cutX.has(`${k},${s}`)) {
+        for (let t = roadX(s) + ROAD / 2 + 8; t < roadX(s + 1) - ROAD / 2 - 4; t += 22) lamps.push([t, roadZ(k) - ROAD / 2 - 0.8, 0], [t, roadZ(k) + ROAD / 2 + 0.8, Math.PI]);
+      }
+      if (!cutZ.has(`${k},${s}`)) {
+        for (let t = roadZ(s) + ROAD / 2 + 8; t < roadZ(s + 1) - ROAD / 2 - 4; t += 22) lamps.push([roadX(k) - ROAD / 2 - 0.8, t, Math.PI / 2], [roadX(k) + ROAD / 2 + 0.8, t, -Math.PI / 2]);
       }
     }
   }
@@ -695,13 +745,12 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   // --- Elevated railway ("the El") over one avenue -------------------------
   // Pillars stand along both kerbs, the deck runs 8 m up. Driving underneath
   // helps you lose the police, like alleys and parks.
-  const elK = Math.floor(n / 2) - 1;
-  const elZ = alpine ? 1e6 : roadC(elK); // (no railway in the mountains)
+  const elZ = alpine || elK == null ? 1e6 : roadZ(elK); // (no railway in the mountains, or where a place has none)
   const EL_HALF = 6.5, EL_Y = 8;
-  if (!alpine) {
+  if (!alpine && elK != null) {
   const pillarLook = { side: 'plain', top: 'plain', color: 0x3b4048 };
   for (let x = outer + 6; x < outerMax - 6; x += 17) {
-    const nearNode = Math.abs(x - roadC(Math.round((x - roadC(0)) / PITCH))) < ROAD / 2 + 3;
+    const nearNode = Math.abs(x - roadX(graph.nearestRoad('x', x))) < ROAD / 2 + 3;
     if (nearNode) continue;
     for (const side of [-1, 1]) {
       const pz = elZ + side * (ROAD / 2 - 0.55);
@@ -724,9 +773,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   }
 
   // Where the street lamps stand (world x, z), so nothing is parked on them.
-  // The lamps on the Z roads are the same set turned 90 degrees (buildLamps).
-  const lampSpots = [];
-  for (const [x, z] of lamps) lampSpots.push([x, z], [z, -x]);
+  const lampSpots = lamps.map(([x, z]) => [x, z]);
 
   // --- Shop fronts with rooms behind the glass, on the street faces ----------
   const _q = [];
@@ -782,7 +829,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   }
 
   // --- The subway (before the meshes are built) ---------------------------------------------------------
-  const subway = buildSubway({ plan: subwayPlan, batch, world, graph, roadC, alpine });
+  const subway = buildSubway({ plan: subwayPlan, batch, world, graph, roadX, roadZ, alpine });
   group.add(subway.group);
   minimapShapes.push(...subway.shapes);
 
@@ -821,7 +868,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   }
   // (no street lamp standing in a subway entrance)
   const inHole = (x, z) => holes.some((h) => x > h.x0 - 1 && x < h.x1 + 1 && z > h.z0 - 1 && z < h.z1 + 1);
-  for (let k = lamps.length - 1; k >= 0; k--) { const [x, z] = lamps[k]; if (inHole(x, z) || inHole(z, -x)) lamps.splice(k, 1); }
+  for (let k = lamps.length - 1; k >= 0; k--) { const [x, z] = lamps[k]; if (inHole(x, z)) lamps.splice(k, 1); }
   group.add(buildLamps(lamps));
 
   const trafficLights = new TrafficLights(graph, ROAD);
@@ -875,8 +922,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
 
   // Porto Sereno: trams up and down two avenues
   const trams = coastal ? new Trams([
-    { axis: 'x', c: roadC(1), a0: roadC(0), a1: roadC(n - 1) },
-    { axis: 'z', c: roadC(n - 2), a0: roadC(0), a1: roadC(n - 1) },
+    { axis: 'x', c: roadZ(1), a0: roadX(0), a1: roadX(n - 1) },
+    { axis: 'z', c: roadX(n - 2), a0: roadZ(0), a1: roadZ(n - 1) },
   ]) : null;
   if (trams) group.add(trams.group);
 
@@ -900,6 +947,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     chimneys,
     kerbs, lampSpots, alpine, coastal, neon, classic, elZ, sidewalk: SIDEWALK,
     river: classic ? { z0: riverZ0, z1: riverZ1 } : null, ironTower,
+    merges, roadX, roadZ,
     trams,
   };
 }
@@ -1004,9 +1052,8 @@ function buildLamps(lamps) {
   shaftGeo.translate(0, 6.8, 2.0);
   const shafts = new THREE.InstancedMesh(shaftGeo, makeShaftMaterial(0xffb060, 0.32), n);
   const m = new THREE.Matrix4();
-  lamps.forEach(([x, z, facing], i) => {
-    // Lamps along X-roads lean over the road toward +Z or -Z
-    m.makeRotationY(facing > 0 ? 0 : Math.PI).setPosition(x, 0, z);
+  lamps.forEach(([x, z, turn], i) => {
+    m.makeRotationY(turn).setPosition(x, 0, z); // (turned to lean out over its road)
     poles.setMatrixAt(i, m);
     arms.setMatrixAt(i, m);
     heads.setMatrixAt(i, m);
@@ -1014,13 +1061,7 @@ function buildLamps(lamps) {
     shafts.setMatrixAt(i, m);
   });
   g.add(poles, arms, heads, pools, shafts);
-  // Lamps along Z-roads: same set rotated 90 degrees around the city centre
-  // (the grid is square and symmetric, so this lines up exactly).
-  const g2 = g.clone();
-  g2.rotation.y = Math.PI / 2;
-  const out = new THREE.Group();
-  out.add(g, g2);
-  return out;
+  return g;
 }
 
 // ----------------------------------------------------------------------

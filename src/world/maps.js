@@ -13,6 +13,7 @@ const layout = (rows) => {
   rows.forEach((row, bi) => [...row].forEach((ch, bj) => {
     if (ch === 'P') kinds[`${bi},${bj}`] = 'park';
     else if (ch === 'S') kinds[`${bi},${bj}`] = 'shops';
+    else if (ch === 'W') kinds[`${bi},${bj}`] = 'water';
   }));
   return kinds;
 };
@@ -59,22 +60,55 @@ export const FROSTVALE_FOOT = {
   ]),
 };
 
-/** The streets you drive (story chases add their landmarks on top). */
+/**
+ * The streets you drive (story chases add their landmarks on top). Every
+ * place has its own street plan: block sizes along x and along z, and a few
+ * pairs of blocks joined into one big block or park where a road is left out
+ * (layout.merge: [i, j, 'x' | 'z', kind]: block i,j and the next one along).
+ * The joins never touch a block or a starting road a story part uses there.
+ * Harbor City keeps the even grid where it all started.
+ */
 export const DOWNTOWN_CAR = { seed: 777, blocks: 8 };
-export const FROSTVALE_CAR = { seed: 1313, blocks: 8, alpine: true };
+// Frostvale: a mountain village, blocks every which size, a market park; no El
+export const FROSTVALE_CAR = { seed: 1313, blocks: 8, alpine: true, el: null, layout: {
+  x: [36, 72, 40, 64, 36, 78, 42, 52], z: [56, 46, 70, 46, 60, 44, 66, 48],
+  merge: [[2, 3, 'z', 'park'], [6, 3, 'z'], [0, 2, 'z'], [4, 0, 'x'], [7, 2, 'z']],
+} };
 
 // Porto Sereno (Chapters 13-15): a sunny harbour town abroad. Low pastel and
 // whitewashed buildings, terracotta roofs, palm trees, trams, the sea to the south.
 export const PORTO_FOOT = { seed: 1717, blocks: 6, coastal: true, parks: 0.2, shopBlocks: 0.42 };
-export const PORTO_CAR = { seed: 1919, blocks: 8, coastal: true, parkShare: 0.16 };
+// (smaller blocks down towards the sea; trams instead of the El)
+export const PORTO_CAR = { seed: 1919, blocks: 8, coastal: true, parkShare: 0.16, el: null, layout: {
+  x: [70, 38, 52, 40, 74, 36, 60, 50], z: [72, 64, 58, 50, 46, 44, 44, 44],
+  merge: [[0, 2, 'z', 'park'], [4, 1, 'x'], [2, 6, 'z'], [4, 3, 'z', 'park']],
+} };
 
 // Neon Kōji (Chapters 16-18): a huge city on the other side of the world.
 // Dark towers covered in neon, giant billboards, cherry trees, rain.
-export const NEON_FOOT = { seed: 1616, blocks: 6, neon: true, parks: 0.12, shopBlocks: 0.45 };
-export const NEON_CAR = { seed: 2626, blocks: 8, neon: true, parkShare: 0.1 };
+// (a bigger city on foot: 8 x 8 bigger blocks, lots of towers)
+export const NEON_FOOT = { seed: 1616, blocks: 8, block: 48, towers: 0.22, neon: true, parks: 0.1, shopBlocks: 0.42 };
+// (narrow streets between mega-blocks)
+export const NEON_CAR = { seed: 2626, blocks: 8, neon: true, parkShare: 0.1, layout: {
+  x: [36, 36, 80, 36, 40, 80, 46, 46], z: [74, 44, 44, 46, 74, 44, 44, 46],
+  merge: [[5, 0, 'x'], [3, 5, 'z'], [6, 3, 'z'], [0, 3, 'x'], [4, 6, 'x']],
+} };
 
 // Lumière (Chapters 19-21): a grand old European capital. Cream stone
 // buildings with zinc mansard roofs, cafés, plane trees, a river with
 // bridges through the middle, and the Iron Tower.
-export const LUMIERE_FOOT = { seed: 1919, blocks: 6, classic: true, parks: 0.18, shopBlocks: 0.5 };
-export const LUMIERE_CAR = { seed: 2929, blocks: 8, classic: true, parkShare: 0.14 };
+// (on foot: 7 x 7 grand blocks, the river through the middle (W), a long park down the middle (the esplanade))
+export const LUMIERE_FOOT = { seed: 1919, blocks: 7, block: 46, classic: true, kinds: layout([
+  'S..P.WS',
+  '.S...WP',
+  'P.S..W.',
+  '.PPP.W.',
+  'S....WP',
+  '.P.S.W.',
+  'S...SW.',
+]) };
+// (grand blocks, the river (row 5), a great park in the middle where the Iron Tower stands; the El crosses further north)
+export const LUMIERE_CAR = { seed: 2929, blocks: 8, classic: true, parkShare: 0.14, el: 2, layout: {
+  x: [64, 44, 40, 72, 72, 40, 44, 64], z: [48, 52, 46, 56, 50, 70, 48, 52],
+  merge: [[3, 3, 'z', 'park'], [5, 1, 'x'], [0, 3, 'z'], [6, 3, 'z'], [3, 6, 'x']],
+} };

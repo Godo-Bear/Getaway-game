@@ -5,7 +5,7 @@ import { CityDresser, SHOP_H } from './cityBlocks.js';
 import { RooftopKit, LIP } from './rooftopKit.js';
 import { COASTAL_TINTS } from './palms.js';
 import { NEON_TINTS, buildNeonDressing } from './neon.js';
-import { CLASSIC_TINTS, buildIronTower } from './lumiere.js';
+import { CLASSIC_TINTS, buildIronTower, riverMaterial, buildRiverBoat } from './lumiere.js';
 
 // Procedural rooftop city for Free Run and Rooftop Run.
 //
@@ -32,7 +32,9 @@ const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4
  * @param {boolean} [o.lowRise] - an old town: lower apartments, no towers
  * @param {number[][]} [o.treeAvoid] - [x, z, radius]: no street trees here (where a story level puts its own things)
  */
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, neon = false, classic = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [] } = {}) {
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, neon = false, classic = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [], block = 42, towers = 0.09 } = {}) {
+  // (each map has its own block size: the streets between stay the same, too far to jump)
+  const BLOCK = block, PITCH = BLOCK + STREET;
   if (coastal || classic) lowRise = true; // (Porto Sereno: low, sunny, no towers; Lumière: six storeys, all much the same)
   const tintRng = makeRng(seed * 23 + 5);
   const tint = () => (coastal ? tintRng.pick(COASTAL_TINTS) : neon ? tintRng.pick(NEON_TINTS) : classic ? tintRng.pick(CLASSIC_TINTS) : undefined);
@@ -79,6 +81,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
     }
   }
 
+  const waterMeshes = [], waterRects = [];
   // --- Blocks and buildings
   for (let bi = 0; bi < blocks; bi++) {
     for (let bj = 0; bj < blocks; bj++) {
@@ -91,6 +94,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
         kit.lamps.push([x0 + t, z0 - 2], [x0 + t, z0 + BLOCK + 2], [x0 - 2, z0 + t], [x0 + BLOCK + 2, z0 + t]);
       }
       if (kind === 'park') { dress.park(x0, z0, x0 + BLOCK, z0 + BLOCK); continue; }
+      if (kind === 'water') { waterBlock(x0, z0, bi); continue; }
       if (kind === 'shops') {
         // Small shops round the edge, a block of flats in the middle (climb its
         // fire escape from the shop roofs)
@@ -115,7 +119,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
             kit.building(lx0, lz0, lx1, lz1, Math.round(rng.range(7, 10.5) * 2) / 2, { lips: false, tint: rng.pick(ALPINE_TINTS) });
             continue;
           }
-          const tower = rng() < 0.09 && !lowRise;
+          const tower = rng() < towers && !lowRise;
           // Normal roofs stay within a 4.5 m band so routes are always climbable.
           const h = tower ? rng.range(28, 36) : lowRise ? Math.round(rng.range(9.5, 13) * 2) / 2 : Math.round(rng.range(15, 19.5) * 2) / 2;
           const b = kit.building(lx0, lz0, lx1, lz1, h, { tower, lips: !tower, tint: tint() });
@@ -133,6 +137,27 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
         if (dress.rng() < 0.2) dress.roofGarden(b);
       }
     }
+  }
+
+  /**
+   * A block of water (Lumière's river): water filling the block, a stone
+   * parapet round it (the streets round it are the quays and bridges), and
+   * now and then a boat. Climb over the parapet and you fall in: splash,
+   * back to safety (see city.water, the on-foot state).
+   */
+  function waterBlock(x0, z0, bi) {
+    const stone = { side: 'concrete', top: 'concrete', color: 0xc8bca4 }, T = 0.45, H = 1.1, x1 = x0 + BLOCK, z1 = z0 + BLOCK;
+    for (const [a, b, c, d] of [[x0, z0, x1, z0 + T], [x0, z1 - T, x1, z1], [x0, z0, x0 + T, z1], [x1 - T, z0, x1, z1]]) kit.solid(a, 0, b, c, H, d, stone);
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(BLOCK - T * 2, BLOCK - T * 2), riverMaterial());
+    w.rotation.x = -Math.PI / 2;
+    w.position.set((x0 + x1) / 2, 0.06, (z0 + z1) / 2);
+    waterMeshes.push(w);
+    if (bi % 2 === 0) {
+      const boat = buildRiverBoat(bi % 4 ? 0xf2f2ee : 0xe8d8b0);
+      boat.position.set((x0 + x1) / 2 + (bi % 4 ? 6 : -6), 0.1, (z0 + z1) / 2);
+      waterMeshes.push(boat);
+    }
+    waterRects.push({ x0, z0, x1, z1 });
   }
 
   // --- Bridges across the streets
@@ -182,6 +207,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
   }
 
   const group = kit.finish();
+  for (const w of waterMeshes) group.add(w);
   // Neon Kōji: neon signs, roof outlines and billboards (own random numbers)
   if (neon) group.add(buildNeonDressing(kit.buildings.filter((b) => !b.shop).map((b) => ({ x0: b.minX, x1: b.maxX, z0: b.minZ, z1: b.maxZ, h: b.h })), makeRng(seed * 41 + 3), { signChance: 0.3, minY: 5 }));
 
@@ -223,7 +249,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
 
   // Street centre lines (for parking the Free Run car at street level)
   const blockCenters = Array.from({ length: blocks }, (_, i) => blockCenter(i));
-  return { coastal, neon, classic, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
+  return { coastal, neon, classic, block: BLOCK, water: waterRects, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
     shops: dress.shops, parks: dress.parks, walks: dress.walks, blockKinds: kindOf,
     // (spots for hidden collectibles: the tops of towers, huts, upper roof levels, fire escapes, gazebos)
     perches: [...kit.perches, ...dress.perches, ...kit.buildings.filter((b) => b.tower).map((b) => new THREE.Vector3((b.minX + b.maxX) / 2, b.h, (b.minZ + b.maxZ) / 2))] };
