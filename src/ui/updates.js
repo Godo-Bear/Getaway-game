@@ -5,6 +5,13 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Chapter 18: Silver Dragons', items: [
+    'Chapter 18 (three parts), the last job in Neon Kōji: Ryu and her street-racing crew, the Silver Dragons, want Kurogane\'s gold',
+    'Part 1: a race across the rainy neon city against Ryu\'s white car. No police, just the two of you. It shows who\'s ahead and by how much',
+    'Part 2: while you raced, her crew stole the gold. Jump from truck roof to truck roof along a convoy on the expressway at 94 km/h. The gaps open and close, and when a LOW BRIDGE comes, crouch flat or it sweeps you off!',
+    'Part 3: drive the gold car (a yellow muscle car) to Juno\'s cargo plane at the airport before it leaves, with Kurogane\'s black cars everywhere',
+    'The crew leaves Neon Kōji. Next stop: Lumière, a grand old city of boulevards, bridges and museums (Chapters 19 to 21)',
+  ] },
   { date: '2026-10-08', title: 'Longer chapters: a new part in Chapters 12 to 16', items: [
     'Chapter 12, new Part 2 "The decoy": Sentinel\'s trucks block the lake road, so drive round town past their office, the hotel and the church to pull them all after you, then lose them and get back to the snowmobiles',
     'Chapter 13, new Part 3 "The photos": the customs officer took photos of you. Catch his car before he gets them to the police station',

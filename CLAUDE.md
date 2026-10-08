@@ -19,7 +19,12 @@ end). From now on:
   prison break for a crew member, a race against a rival crew, a blackout
   across the city. Mix on-foot, driving and new vehicle/traversal ideas.
 - Keep the crew from Chapter 5 (Mags, Theo, Ricky) as the loyal core team;
-  new members can join, and they should stay loyal.
+  new members can join, and they should stay loyal. (Juno, Paz and Kitsu
+  have joined since.)
+- **Chapters have at least three parts.** Story drive parts are cheap to add
+  (`ChapterDriveMode` goal types: reach, safehouse, chase, stops, tail,
+  race; `noPolice`, `vehicle: 'dirtbike'`, `car: { body, color }`), but each
+  chapter should also have at least one part with its own new mechanic.
 
 - **The crew moves every few chapters.** About every 3 chapters they leave
   for a new city or country, and the chapters in between happen there (new
@@ -28,7 +33,11 @@ end). From now on:
   the mountains: their new home for Chapters 8-12 (use the alpine street
   city `generateStreetCity({ alpine: true })` and the alpine rooftop town
   `ch8Town` with its `levelOpts` for it). At the end of Chapter 12 they fly
-  abroad (Chapters 13-15), and so on.
+  abroad (Chapters 13-15), and so on. So far: Porto Sereno (13-15, the
+  `coastal` city style), Neon Kōji (16-18, the `neon` style), then Lumière
+  (19-21: a grand old European-style capital of boulevards, a river with
+  bridges and famous museums; Chapter 18 ends with the crew flying there to
+  steal the Star of Lumière diamond from the Grand Musée).
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
 
