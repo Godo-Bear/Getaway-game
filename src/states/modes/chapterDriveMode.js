@@ -17,6 +17,14 @@ import { diff } from '../../core/difficulty.js';
 //   goal.type 'safehouse' - get to a door, but lose the police first
 //             'reach'     - get to a place (optionally before a timer runs out)
 //             'chase'     - catch a fleeing car before it reaches its destination
+//             'stops'     - pull up at each of goal.stops in turn ({ block,
+//                           label, title, text, heat }), then the goal
+//                           (goal.driveBy: just drive past them, no stopping)
+//             'race'      - beat a rival car (part.fugitive) to the goal
+//             'tail'      - follow a car (part.fugitive) to wherever it's
+//                           going without being seen: not closer than
+//                           goal.near, not further than goal.far
+//   noPolice   - no police cars at all (a quiet errand, or a tail)
 //   clue       - one clue hidden in a park (amber dot on the minimap)
 //   heat       - { start, max, riseEvery }: police pressure over time
 //   roadblocks - { fromHeat, every, spikes }: roadblocks / spike strips ahead
@@ -63,6 +71,9 @@ export class ChapterDriveMode {
     const lm = s.city.landmarks;
     const goal = this.part.goal;
     this.goalPos = goal.block ? lm[goal.block].door : null;
+    this.stops = (goal.stops || []).map((st) => ({ ...st, pos: lm[st.block].door }));
+    this.race = goal.type === 'race';
+    this.tail = goal.type === 'tail';
     // Clue in a park
     const c = this.part.clue;
     if (c) {
@@ -102,6 +113,9 @@ export class ChapterDriveMode {
     this.done = false;
     this.catchMeter = 0;
     this.timeLeft = part.goal.timer != null ? part.goal.timer * diff().timer : null;
+    this.stopIndex = 0;
+    this.suspicion = 0;
+    this.lost = 0;
     s.player.gripFactor = part.ice ? (part.vehicle === 'snowmobile' ? 0.9 : playerCarBody().iceGrip ?? 0.62) : 1; // (snow and ice on the roads: the car slides; skis and the Rally Hatch grip)
     this.clueFound = part.clue ? this.run.clues.has(part.clue.id) : true;
     if (this.clue) this.clue.group.visible = !this.clueFound;
@@ -115,12 +129,11 @@ export class ChapterDriveMode {
       this.fugitive = new FugitiveCar(s.scene, s.city, dest, s.rng, f.color, f.kind);
       const fn = g.node(f.startNode[0], f.startNode[1]);
       this.fugitive.place(fn, f.heading ?? Math.PI);
-      this.fugitiveSpeed = diff().fugitive * 0.9;
+      this.fugitiveSpeed = diff().fugitive * (f.speed ?? (this.race ? 0.92 : this.tail ? 0.7 : 0.9));
       this.fugitive.car.speedFactor = this.fugitiveSpeed;
     }
 
-    if (this.goalPos) s.beacon.set(this.goalPos.x, this.goalPos.z, part.goal.label, part.goal.color ?? 0x4dffa6);
-    else s.beacon.hide();
+    this._setBeacon();
 
     const hud = s.game.hud;
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${part.title}`);
@@ -129,6 +142,25 @@ export class ChapterDriveMode {
 
     if (first && !s.game.speedrun) s.showStoryCards(part.intro, part.startLabel || 'Drive', () => { if (this.startGhost) this.setGhost(true); });
     else hud.toast('Go!', part.objective, 'var(--amber)');
+  }
+
+  /** The light you drive to: the next stop, or the goal. */
+  _setBeacon() {
+    const s = this.state, goal = this.part.goal, st = this.stops[this.stopIndex];
+    if (this.tail) s.beacon.hide(); // (you don't know where they're going: that's why you're following)
+    else if (st) s.beacon.set(st.pos.x, st.pos.z, `${st.label} (${this.stopIndex + 1}/${this.stops.length})`, st.color ?? 0xffb020);
+    else if (this.goalPos) s.beacon.set(this.goalPos.x, this.goalPos.z, goal.label, goal.color ?? 0x4dffa6);
+    else s.beacon.hide();
+  }
+
+  /** Reached a stop: the next one (or the goal) lights up. */
+  _reachStop(st) {
+    const s = this.state, hud = s.game.hud;
+    this.stopIndex++;
+    audio.sfx('checkpoint');
+    if (st.heat) { this.heat = Math.max(this.heat, st.heat); this.heatTimer = 0; }
+    hud.toast(st.title || st.label, st.text || '', 'var(--amber)', st.text ? 5 : 2);
+    this._setBeacon();
   }
 
   /**
@@ -173,7 +205,7 @@ export class ChapterDriveMode {
 
   // --- hooks the driving state calls ------------------------------------
   copCount() {
-    return this.ghost ? 0 : null; // null = use the heat level's normal count
+    return this.ghost || this.part.noPolice ? 0 : null; // null = use the heat level's normal count
   }
 
   /** The drive state skips losing/finding the cops while in ghost mode. */
@@ -193,7 +225,10 @@ export class ChapterDriveMode {
 
   simulate(dt) {
     if (!this.fugitive || this.done || this.ghost) return;
-    if (this.fugitive.update(dt) === 'escaped') this._failed(this.part.fugitive.escapeTitle, this.part.fugitive.escapeText);
+    if (this.fugitive.update(dt) === 'escaped') {
+      if (this.tail) this._complete(); // (you followed them all the way)
+      else this._failed(this.part.fugitive.escapeTitle, this.part.fugitive.escapeText);
+    }
   }
 
   syncMeshes() {
@@ -280,8 +315,30 @@ export class ChapterDriveMode {
       if (this.timeLeft <= 0) { this._failed(part.goal.timeoutTitle, part.goal.timeoutText); return; }
     }
 
+    // Race: the rival is a little quicker when you're ahead, a little slower when you're far behind
+    if (this.race && this.fugitive && !this.ghost && this.goalPos) {
+      const fc = this.fugitive.car, G = this.goalPos;
+      const lead = Math.hypot(fc.pos.x - G.x, fc.pos.z - G.z) - Math.hypot(p.pos.x - G.x, p.pos.z - G.z);
+      this.raceLead = lead;
+      fc.speedFactor = this.fugitiveSpeed * (lead < -90 ? 0.8 : lead < -40 ? 0.9 : lead > 60 ? 1.08 : 1);
+    }
+    // Tail: keep them in sight, but don't get close enough for them to notice you
+    if (this.tail && this.fugitive && !this.ghost) {
+      const fc = this.fugitive.car, g = part.goal;
+      const d = Math.hypot(fc.pos.x - p.pos.x, fc.pos.z - p.pos.z);
+      const near = g.near ?? 14, far = g.far ?? 75;
+      this.suspicion = clamp(this.suspicion + (d < near ? dt / (2.6 / diff().fill) : -dt * 0.25), 0, 1);
+      this.lost = clamp(this.lost + (d > far ? dt / 7 : -dt * 0.5), 0, 1);
+      if (fc.lastImpact > 2 && d < 8) this.suspicion = 1; // (you hit them!)
+      fc.lastImpact = 0;
+      if (this.suspicion > 0.01 && this.suspicion >= this.lost) hud.setMeter(this.suspicion, 'TOO CLOSE! Drop back', 'var(--red)');
+      else if (this.lost > 0.01) hud.setMeter(this.lost, `Losing ${part.fugitive.name}! Catch up`, 'var(--amber)');
+      else hud.setMeter(0, d < near * 1.6 ? 'Careful: not too close' : '', 'var(--amber)');
+      if (this.suspicion >= 1) { this._failed(g.spottedTitle || 'Spotted', g.spottedText || 'They saw you following them. Hang back further.'); return; }
+      if (this.lost >= 1) { this._failed(g.lostTitle || 'Lost them', g.lostText || 'They got away. Keep them in sight.'); return; }
+    }
     // Chase: stay close to the fugitive (or ram them) to fill the catch meter.
-    if (this.fugitive && !this.ghost) {
+    if (this.fugitive && !this.ghost && !this.race && !this.tail) {
       const fc = this.fugitive.car;
       const d = Math.hypot(fc.pos.x - p.pos.x, fc.pos.z - p.pos.z);
       if (fc.lastImpact > 3 && d < 8) this.catchMeter += 0.25; // a good ram counts for a lot
@@ -297,7 +354,12 @@ export class ChapterDriveMode {
 
     // Arrival
     this.warnTimer -= dt;
-    if (this.goalPos && !this.fugitive) {
+    const stop = this.stops[this.stopIndex];
+    if (stop && !this.ghost) {
+      const d = Math.hypot(p.pos.x - stop.pos.x, p.pos.z - stop.pos.z);
+      if (d < ARRIVE_RADIUS && (part.goal.driveBy || p.speed < ARRIVE_SPEED)) this._reachStop(stop);
+      else if (d < ARRIVE_RADIUS && this.warnTimer <= 0) { this.warnTimer = 3; hud.toast('Slow down', 'Pull up at the light.', 'var(--amber)'); }
+    } else if (this.goalPos && (!this.fugitive || this.race) && !this.tail) {
       const d = Math.hypot(p.pos.x - this.goalPos.x, p.pos.z - this.goalPos.z);
       if (d < ARRIVE_RADIUS && this.ghost) {
         this._ghostNotice('Turn ghost mode off to finish this part.');
@@ -319,7 +381,8 @@ export class ChapterDriveMode {
       }
     }
 
-    if (!this.ghost) hud.setObjective(part.goal.loseCops && this.copsOnYou ? 'Lose the cops' : part.objective);
+    const next = this.stops[this.stopIndex];
+    if (!this.ghost) hud.setObjective(next ? next.objective || part.objective : part.goal.loseCops && this.copsOnYou ? 'Lose the cops' : part.goal.finalObjective || part.objective);
     this._updateStats();
   }
 
@@ -345,7 +408,7 @@ export class ChapterDriveMode {
   markerTarget() {
     if (!this.fugitive || this.ghost) return null;
     const fc = this.fugitive.car;
-    return { pos: fc.pos.clone().setY(3), label: this.part.fugitive.name, color: SUSPECTS[this.part.fugitive.who].color };
+    return { pos: fc.pos.clone().setY(3), label: this.part.fugitive.name, color: SUSPECTS[this.part.fugitive.who]?.color || '#ff4050' };
   }
 
   _updateStats() {
@@ -359,15 +422,19 @@ export class ChapterDriveMode {
         : '<span class="warn"><b>PURSUIT</b></span>';
     const timer = this.timeLeft != null && !this.ghost
       ? `<span class="${this.timeLeft < 30 ? 'warn' : ''}">${this.part.goal.timerLabel || 'Time left'} <b>${formatTime(Math.max(0, this.timeLeft))}</b></span>` : '';
-    s.game.hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span>` + timer +
+    const stops = this.stops.length ? `<span>Stops <b>${Math.min(this.stopIndex, this.stops.length)}/${this.stops.length}</b></span>` : '';
+    const race = this.race && this.raceLead != null && !this.ghost
+      ? `<span class="${this.raceLead < 0 ? 'warn' : ''}">${this.raceLead >= 0 ? 'You\'re ahead' : `${this.part.fugitive.name} is ahead`} <b>${Math.round(Math.abs(this.raceLead))} m</b></span>` : '';
+    s.game.hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span>` + timer + stops + race +
       (total ? `<span>Clues <b>${found}/${total}</b></span>` : '') +
       (this.ghost ? '' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>` +
-      `<span>Heat <b style="color:var(--red)">${'★'.repeat(this.heat)}</b></span>`) + status);
+      (this.part.noPolice ? '' : `<span>Heat <b style="color:var(--red)">${'★'.repeat(this.heat)}</b></span>`)) + status);
   }
 
   _complete() {
     this.done = true;
-    audio.sfx(this.fugitive ? 'crash' : 'door');
+    audio.sfx(this.fugitive && !this.race && !this.tail ? 'crash' : 'door');
+    this.state.game.hud.setMeter(0, '');
     finishPart(this.state, this);
   }
 

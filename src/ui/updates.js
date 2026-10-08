@@ -5,6 +5,14 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Longer chapters: a new part in Chapters 12 to 16', items: [
+    'Chapter 12, new Part 2 "The decoy": Sentinel\'s trucks block the lake road, so drive round town past their office, the hotel and the church to pull them all after you, then lose them and get back to the snowmobiles',
+    'Chapter 13, new Part 3 "The photos": the customs officer took photos of you. Catch his car before he gets them to the police station',
+    'Chapter 14, new Part 1 "The shopping list": a daytime run round Porto Sereno for a rope ladder, wetsuits and a speedboat, before the shops close. No police, just the clock and the trams',
+    'Chapter 15, new Part 1 "Follow the money": tail Varga\'s van on Paz\'s Dirt Bike to find out which float the money goes on. Keep it in sight, but don\'t get too close or he\'ll see you',
+    'Chapter 16, new Part 3 "Dead drops": split the stolen bonds between three hiding places round Neon Kōji, then lose the black cars and get to Kitsu\'s garage, the Fox Den',
+    'New kinds of driving: stops in order, tailing a car, races against a rival (coming in Chapter 18), and parts where you ride the Dirt Bike',
+  ] },
   { date: '2026-10-08', title: 'Chapter 17: Kurogane Tower', items: [
     'Chapter 17 (three parts): rob the gold from the sky vault at the top of Neon Kōji\'s tallest tower, from above',
     'Part 1: jump from Juno\'s helicopter in a wingsuit and fly down a canyon of skyscrapers. A / D steer, W dives, S flares. Ride the steam updrafts, fly through the boost rings, keep out of the drones\' searchlights, and land on the roof',

@@ -71,9 +71,9 @@ export const CHAPTER17 = {
       intro: [
         { kicker: 'An alley, 2:30 a.m.', who: 'ricky',
           lines: ['Two streets later you jump from the van into Ricky\'s car. Behind you, black cars with red lights pour out of Kurogane\'s garage. "The van\'s too slow," Ricky says, and slides over. "You drive."',
-            '"Kurogane pays half the police in this city," Kitsu says. "They\'ll all be looking for us. Lose them, then come to the Fox Den: my garage. Orange door, neon fox."'] },
+            '"Kurogane pays half the police in this city," Kitsu says. "They\'ll all be looking for us. Lose them, then home to the Fox Den. They must never find it."'] },
         { kicker: 'How to play', title: 'Lose them',
-          lines: ['Lose the black cars and the police (get far away and out of sight), then drive into the Fox Den (the orange light). Hack junctions (E) to turn the lights red behind you, and watch out for roadblocks.'] },
+          lines: ['Lose the black cars and the police (get far away and out of sight), then drive into the Fox Den, Kitsu\'s garage (the orange light). Hack junctions (E) to turn the lights red behind you, and watch out for roadblocks.'] },
       ],
       startLabel: 'Drive',
       objective: 'Lose Kurogane\'s cars, then get to the Fox Den',

@@ -9,9 +9,16 @@
 // Part 2: aboard at 300 km/h. Sit down to hide among the passengers, swap the
 // case in the dark of a tunnel, then get back to the luggage car before the
 // courier opens it: Kitsu uncouples your carriage and the train rushes on.
+// Part 3: back in the city, split the bonds between three dead drops, then
+// lose the black cars and get to the Fox Den, Kitsu's garage.
 // No mole, no detective work (see CLAUDE.md): the crew is loyal (Kitsu joins
 // it and stays loyal); the trouble is the courier's bodyguards and the
 // railway police.
+
+const DROPS_CITY = {
+  neon: true,
+  forceKinds: { '4,1': 'arcade', '2,4': 'ramen', '5,4': 'capsule', '1,6': 'foxden', '3,2': 'park' },
+};
 
 const STATION_CITY = {
   neon: true,
@@ -29,7 +36,7 @@ export const CHAPTER16 = {
   clues: {},
   verdicts: {},
   nextChapter: 'chapter17',
-  rating: { gold: 420, silver: 700 },
+  rating: { gold: 600, silver: 960 },
 
   parts: [
     {
@@ -70,14 +77,43 @@ export const CHAPTER16 = {
       doneTitle: 'Uncoupled',
       doneText: 'Your carriage rolls to a stop in the dark fields, all alone. Far ahead, the Silver Arrow\'s lights disappear into the mountains with a courier screaming at a case of comics.',
     },
+    {
+      id: 'drops', kind: 'drive', title: 'Dead drops',
+      time: 'night', weather: 'rain',
+      intro: [
+        { kicker: 'A field, 1 a.m.', who: 'kitsu',
+          lines: ['Headlights bounce across the field: Juno, with your car on a trailer. Kitsu clicks the silver case open. Forty million in bearer bonds, fanned out like a deck of cards.',
+            '"The courier\'s bosses will have every car in the city looking for this case. So we split it up: three dead drops, and if they catch us, they only get a third. Then we go to my place."'] },
+        { kicker: 'How to play', title: 'Dead drops',
+          lines: ['Pull up at each dead drop in turn (the orange light): a locker in an arcade, a ramen stall, a capsule hotel. Black cars are out hunting: lose them before you pull into the Fox Den, Kitsu\'s garage (the orange door). Hack junctions (E) to turn the lights red behind you.'] },
+      ],
+      startLabel: 'Drive',
+      objective: 'Leave the first bundle at the arcade',
+      city: DROPS_CITY,
+      start: { node: [7, 2], offset: [-2.3, 24], heading: Math.PI },
+      goal: {
+        type: 'stops', block: '1,6', label: 'The Fox Den', color: 0xff7a2a, loseCops: true,
+        finalObjective: 'Lose the black cars, then get to the Fox Den',
+        stops: [
+          { block: '4,1', label: 'Arcade', objective: 'Leave the first bundle at the arcade', heat: 2,
+            title: 'Locker 77', text: 'Kitsu runs in past the claw machines and back out again. "One down." Then, in the mirror: black cars. Next: the ramen stall.' },
+          { block: '2,4', label: 'Ramen stall', objective: 'Leave the second bundle at the ramen stall', heat: 3,
+            title: 'Extra noodles', text: 'The old cook takes a bundle wrapped in newspaper and puts it under the counter without looking. Last one: the capsule hotel.' },
+          { block: '5,4', label: 'Capsule hotel', objective: 'Leave the last bundle at the capsule hotel', heat: 3,
+            title: 'Capsule 9', text: '"Done," says Kitsu. "Now lose them. They mustn\'t find my place."' },
+        ],
+      },
+      heat: { start: 1, max: 3, riseEvery: 70 },
+      doneTitle: 'The Fox Den',
+      doneText: 'A garage door in a back street rolls up by itself, and down again behind you. Inside: computers, motorbikes, fairy lights, and a sofa the size of a car. Kitsu flops onto it. "Home."',
+    },
   ],
 
   outro: [
-    { kicker: 'A field, 1 a.m.', who: 'kitsu',
-      lines: ['Headlights bounce across the field: Juno in a borrowed van. Kitsu clicks the silver case open. Forty million in bearer bonds, fanned out like a deck of cards.',
-        '"Welcome to Neon Kōji," she grins. "You\'re going to love it here."'] },
-    { kicker: 'The van', who: 'mags',
-      lines: ['Mags counts the crew in the back of the van: Theo, Ricky, Juno, Paz, and now Kitsu. "Six of us." Kitsu shrugs: "Seven, if you count my laptop."',
+    { kicker: 'The Fox Den, 3 a.m.', who: 'kitsu',
+      lines: ['Kitsu hands round bowls of instant noodles. "Welcome to Neon Kōji," she grins. "You\'re going to love it here."'] },
+    { kicker: 'The garage', who: 'mags',
+      lines: ['Mags counts the crew round the sofa: Theo, Ricky, Juno, Paz, and now Kitsu. "Six of us." Kitsu shrugs: "Seven, if you count my laptop."',
         'Then a message lights up her screen. The courier\'s bosses own the tallest tower in the city. And they want their bonds back.'] },
   ],
 

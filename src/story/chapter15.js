@@ -4,14 +4,21 @@
 // the old town's main street to the cathedral. Inspector Varga (the crooked
 // harbour cop from Chapter 14) is moving his bribe money in the chest on the
 // golden galleon float, guarded by his own men, so he can never report it
-// stolen. Part 1: in a carnival big-head costume, dance up the street with
+// stolen. Part 1: on Paz's dirt bike, tail Varga's van (not too close) to
+// find out which float the money goes on. Part 2: in a carnival big-head
+// costume, dance up the street with
 // the parade, climb onto the moving galleon and pick the chest's lock while
 // his lookouts look away; then Theo blacks out the street and you run for
-// the funicular. Part 2: ride the funicular up the hill, jump across to the
+// the funicular. Part 3: ride the funicular up the hill, jump across to the
 // other car as they pass (Varga's waiting at the top), ride down and reach
 // Juno's seaplane. The crew leaves Porto Sereno for Neon Kōji.
 // No mole, no detective work (see CLAUDE.md): the crew is loyal; the trouble
 // is a bent cop.
+
+const TAIL_CITY = {
+  coastal: true,
+  forceKinds: { '6,1': 'hq', '1,6': 'floatyard', '3,3': 'park', '4,5': 'park' },
+};
 
 export const CHAPTER15 = {
   id: 'chapter15',
@@ -24,9 +31,34 @@ export const CHAPTER15 = {
   clues: {},
   verdicts: {},
   nextChapter: 'chapter16',
-  rating: { gold: 420, silver: 700 },
+  rating: { gold: 600, silver: 960 },
 
   parts: [
+    {
+      id: 'tail', kind: 'drive', title: 'Follow the money',
+      vehicle: 'dirtbike', time: 'dusk', weather: 'clear',
+      intro: [
+        { kicker: 'Porto Sereno, 7 p.m.', who: 'paz',
+          lines: ['Paz throws you a helmet and kicks her dirt bike into life. "Varga is moving his bribe money tonight, inside the festival. But on which float? Nobody knows."',
+            '"His van is leaving the police station right now. Follow it to the float yard and we\'ll see where the money goes. Just don\'t let him see you."'] },
+        { kicker: 'How to play', title: 'Not too close',
+          lines: ['Follow Varga\'s grey van on the Dirt Bike all the way to wherever it\'s going. Keep it in sight, but not too close: when the meter goes red, drop back. Fall too far behind and you lose it. Hold Space (Wheelie on a phone) to pull a wheelie; let go to jump.'] },
+      ],
+      startLabel: 'Ride',
+      objective: 'Follow Varga\'s van without being seen',
+      city: TAIL_CITY,
+      start: { node: [6, 2], offset: [2.3, 26], heading: Math.PI },
+      noPolice: true,
+      fugitive: { startNode: [6, 2], heading: Math.PI, name: 'Varga\'s van', who: 'varga', kind: 'van', color: 0x8a8f9c },
+      goal: {
+        type: 'tail', block: '1,6', label: 'Float yard', near: 14, far: 80,
+        spottedTitle: 'He saw you', spottedText: 'Varga\'s driver spotted a dirt bike in his mirror and drove straight back to the station. Hang back further: keep the meter out of the red.',
+        lostTitle: 'Lost him', lostText: 'The van turned a corner and was gone. Keep it in sight: the marker shows where it is.',
+      },
+      heat: { start: 1, max: 1, riseEvery: 999 },
+      doneTitle: 'The golden galleon',
+      doneText: 'The van backs into the float yard. Through a gap in the fence you watch two of Varga\'s men carry a heavy chest up onto the biggest float of all: a golden galleon. Paz whistles. "Now we know."',
+    },
     {
       id: 'parade', kind: 'onFoot', mode: 'parade', title: 'The parade',
       time: 'night', weather: 'clear',

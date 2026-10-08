@@ -25,7 +25,7 @@ import { clamp, damp, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
 import { noteCaught } from '../core/jail.js';
 import { showGarage } from '../ui/customise.js';
-import { playerCarColour, playerCarStyle, playerCarSpecs, playerCarBody } from '../vehicles/carColours.js';
+import { playerCarColour, playerCarStyle, playerCarSpecs, playerCarBody, CAR_BODIES } from '../vehicles/carColours.js';
 import { StreetChaseMode } from './modes/streetChaseMode.js';
 import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 import { FreeDriveMode } from './modes/freeDriveMode.js';
@@ -98,7 +98,7 @@ export class DrivingState extends PlayState {
     // Player car + a real headlight (the only moving real light)
     this.playerMesh = this._makePlayerMesh();
     this.scene.add(this.playerMesh);
-    this.player = new Car(this.mode.stolen ? stolenSpecs() : this.mode.vehicle === 'snowmobile' ? CAR_SPECS.snowmobile : playerCarSpecs(CAR_SPECS.player), this.playerMesh); // (your car's own handling)
+    this.player = new Car(this._specs(), this.playerMesh); // (your car's own handling)
     this.player.active = true;
     this.player.isPlayer = true;
     this._setDirt();
@@ -308,9 +308,17 @@ export class DrivingState extends PlayState {
     else this.dirtAir = 0;
   }
 
+  /** How your vehicle handles: a stolen car, a snowmobile, the Dirt Bike (a part can put you on one), or your own car. */
+  _specs() {
+    if (this.mode.stolen) return stolenSpecs();
+    if (this.mode.vehicle === 'snowmobile') return CAR_SPECS.snowmobile;
+    if (this.mode.vehicle === 'dirtbike') return { ...CAR_SPECS.player, ...CAR_BODIES.find((b) => b.id === 'dirt').specs };
+    return playerCarSpecs(CAR_SPECS.player);
+  }
+
   /** Are you on the Dirt Bike? (Space is then the wheelie; the phone's Nitro button says so.) */
   _setDirt() {
-    this.dirt = !this.mode.stolen && this.mode.vehicle !== 'snowmobile' && !!playerCarBody().dirt;
+    this.dirt = this.mode.vehicle === 'dirtbike' || (!this.mode.stolen && this.mode.vehicle !== 'snowmobile' && !!playerCarBody().dirt);
     this.game.touch?.setLabel?.('b', this.dirt ? 'Wheelie' : null);
   }
 
@@ -443,6 +451,7 @@ export class DrivingState extends PlayState {
   _makePlayerMesh() {
     if (this.mode.stolen) return makeCarMesh({ kind: this.mode.stolen.kind, color: this.mode.stolen.color }); // (Free Run: a car you stole)
     const color = playerCarColour(), style = playerCarStyle();
+    if (this.mode.vehicle === 'dirtbike') return makeCarMesh({ kind: 'player', color, style: { ...style, body: 'dirt' } }); // (the story puts you on the Dirt Bike)
     return this.mode.vehicle === 'snowmobile'
       ? makeSnowmobileMesh({ color, style, look: currentLook(this.game.settings) })
       : makeCarMesh({ kind: 'player', color, style });
@@ -460,7 +469,7 @@ export class DrivingState extends PlayState {
     this.scene.add(mesh);
     this.playerMesh = mesh;
     this.player.mesh = mesh;
-    if (this.mode.vehicle !== 'snowmobile' && !this.mode.stolen) this.player.spec = playerCarSpecs(CAR_SPECS.player); // (a different car drives differently)
+    if (!this.mode.stolen) this.player.spec = this._specs(); // (a different car drives differently)
     this._setDirt();
   }
 

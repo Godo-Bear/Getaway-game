@@ -5,9 +5,16 @@
 // gear (three heavy bags) off the plane, past the customs officers at the
 // little private airstrip, and into the van of Paz, the local fixer. Part 2:
 // a customs patrol has the van's plate. Drive across town (watch the trams)
-// to the safehouse Paz has found: rooms over the fish market.
+// to the safehouse Paz has found: rooms over the fish market. Part 3: the
+// customs officer took photos; catch his car before he gets them to the
+// police station.
 // No mole, no detective work (see CLAUDE.md): the crew is loyal (Paz joins
 // it and stays loyal); the trouble is customs, the police and the clock.
+
+const PHOTO_CITY = {
+  coastal: true,
+  forceKinds: { '1,6': 'fishmarket', '7,1': 'hq', '3,3': 'park', '5,5': 'park' },
+};
 
 const MARKET_CITY = {
   coastal: true,
@@ -25,7 +32,7 @@ export const CHAPTER13 = {
   clues: {},
   verdicts: {},
   nextChapter: 'chapter14',
-  rating: { gold: 420, silver: 720 },
+  rating: { gold: 600, silver: 960 },
 
   parts: [
     {
@@ -67,6 +74,27 @@ export const CHAPTER13 = {
       heat: { start: 2, max: 3, riseEvery: 55 },
       doneTitle: 'Home, for now',
       doneText: 'The van rolls in under the fish market\'s awning and the shutter comes down behind it. Upstairs: four bare rooms, a balcony and a view of the whole harbour.',
+    },
+    {
+      id: 'photos', kind: 'drive', title: 'The photos',
+      time: 'dusk', weather: 'clear',
+      intro: [
+        { kicker: 'The fish market, 7 p.m.', who: 'paz',
+          lines: ['Paz bursts in, out of breath. "The customs officer at the airstrip took photos. Of you, the plane, the bags. He\'s driving them to the police station. Right now."',
+            '"If those photos get there, we\'re finished in Porto Sereno before we\'ve even started. Come on!"'] },
+        { kicker: 'How to play', title: 'Catch him',
+          lines: ['Catch the white customs car before it reaches the POLICE station (red light). Stay right on its bumper, or ram it, to fill the meter: then Paz leans out of the window and grabs the camera.'] },
+      ],
+      startLabel: 'Drive',
+      objective: 'Catch the customs car before it reaches the police station',
+      city: PHOTO_CITY,
+      start: { node: [1, 6], offset: [2.3, -20], heading: Math.PI },
+      fugitive: { startNode: [3, 5], heading: Math.PI / 2, name: 'The customs car', kind: 'civilian', color: 0xf2f2f2,
+        escapeTitle: 'He made it', escapeText: 'The customs officer marched into the police station with his camera. Stay on his bumper, and ram him, before he gets there.' },
+      goal: { type: 'chase', block: '7,1', label: 'Police station', color: 0xff4050 },
+      heat: { start: 1, max: 2, riseEvery: 60 },
+      doneTitle: 'Got the camera',
+      doneText: 'The customs car spins into a fruit stall in a shower of oranges. Paz leans out, grabs the camera off his passenger seat and waves it at him. "Obrigado!" By the time he climbs out, you\'re two streets away.',
     },
   ],
 

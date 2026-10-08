@@ -1,15 +1,22 @@
 // Chapter 14: "The Bella Fortuna"
 //
 // Porto Sereno. The casino ship anchored in the bay never comes into port,
-// so no police can touch it, and nobody has ever robbed it. Part 1: Paz
+// so no police can touch it, and nobody has ever robbed it. Part 1: a
+// daytime run round town for the gear (a rope ladder, wetsuits and the
+// speedboat), before the shops close. Part 2: Paz
 // rows you out at night; climb aboard, cross the decks in a heavy swell
 // (the ship rolls: crouch to hold on, and the guards grab the rail too),
-// crack the counting room and jump overboard to Paz's speedboat. Part 2:
+// crack the counting room and jump overboard to Paz's speedboat. Part 3:
 // the harbour police launches come out after you: lose them among the rocks
 // and the reef (the Teeth), then slip into a sea cave in the cliffs.
 // No mole, no detective work (see CLAUDE.md): the crew is loyal. The trouble
 // is the ship's security, the sea, and the harbour police, one of whom
 // turns out to be bent.
+
+const SHOP_CITY = {
+  coastal: true,
+  forceKinds: { '1,6': 'fishmarket', '5,2': 'chandlery', '6,6': 'diveshop', '2,1': 'boatyard', '3,4': 'park' },
+};
 
 export const CHAPTER14 = {
   id: 'chapter14',
@@ -22,9 +29,39 @@ export const CHAPTER14 = {
   clues: {},
   verdicts: {},
   nextChapter: 'chapter15',
-  rating: { gold: 480, silver: 800 },
+  rating: { gold: 660, silver: 1060 },
 
   parts: [
+    {
+      id: 'shopping', kind: 'drive', title: 'The shopping list',
+      time: 'day', weather: 'clear',
+      intro: [
+        { kicker: 'Porto Sereno, the next morning', who: 'mags',
+          lines: ['Mags unrolls a list on the balcony table. "A rope ladder with hooks, wetsuits, and the fastest boat in the harbour. All before the shops shut, and nobody notices a thing."',
+            'Paz grins. "My cousin has the boatyard. My other cousin has the dive shop. Everybody else, we pay cash."'] },
+        { kicker: 'How to play', title: 'Errands',
+          lines: ['Pull up at each shop in turn (the orange light) to pick up the gear: the chandlery, the dive shop, then the boatyard. Be done before the shops close. No police today: just keep off the tram tracks and plan your way on the map (M).'] },
+      ],
+      startLabel: 'Drive',
+      objective: 'Pick up the rope ladder at the chandlery',
+      city: SHOP_CITY,
+      start: { node: [1, 6], offset: [2.3, -20], heading: Math.PI },
+      noPolice: true,
+      goal: {
+        type: 'stops', block: '2,1', label: 'Boatyard', color: 0x4dffa6,
+        finalObjective: 'Pick up the speedboat at the boatyard',
+        timer: 240, timerLabel: 'Shops close in', timeoutTitle: 'Closed', timeoutText: 'The shutters came down before you had everything. Try again: plan your way on the map (M), and cut through the parks.',
+        stops: [
+          { block: '5,2', label: 'Chandlery', objective: 'Pick up the rope ladder at the chandlery',
+            title: 'Rope ladder', text: 'Forty metres of rope ladder with hooks on the end, and the old man doesn\'t ask a single question. Next: the dive shop.' },
+          { block: '6,6', label: 'Dive shop', objective: 'Pick up the wetsuits at the dive shop',
+            title: 'Wetsuits', text: 'Black wetsuits and waterproof bags. Paz\'s cousin winks: "Going fishing tonight?" Last stop: the boatyard.' },
+        ],
+      },
+      heat: { start: 1, max: 1, riseEvery: 999 },
+      doneTitle: 'The Lucky Sardine',
+      doneText: 'In the boatyard, under a tarpaulin: a battered red speedboat with an enormous engine. Paz pats it like a horse. "She\'s called the Lucky Sardine. Nobody catches the Lucky Sardine."',
+    },
     {
       id: 'aboard', kind: 'onFoot', mode: 'ship', title: 'Aboard',
       time: 'night', weather: 'clear',

@@ -55,13 +55,21 @@ const LANDMARKS = {
   sentinel: { height: 12, tint: 0x2a2e36, door: 0xff3040, sign: 'SENTINEL', signColor: '#ff4050' },
   church: { height: 16, tint: 0xe0d6c4, door: 0x7dff8a, sign: 'ST. ANNA', signColor: '#9fd4ff' },
   airstrip: { height: 7, tint: 0x6a7480, door: 0x39e6ff, sign: 'LAKE AIRSTRIP', signColor: '#39e6ff' },
+  hire: { height: 7, tint: 0x8a5a3a, door: 0x7dff8a, sign: 'SNOWMOBILE HIRE', signColor: '#7dff8a' },
   // Porto Sereno (Chapters 13-15)
   portair: { height: 9, tint: 0xf2ece0, door: 0x39b8ff, sign: 'AEROPORTO SERENO', signColor: '#39b8ff' },
   fishmarket: { height: 8, tint: 0xd8a868, door: 0x1f9a58, sign: 'MERCADO DO PEIXE', signColor: '#ffd070' },
+  chandlery: { height: 7, tint: 0x2a5a8a, door: 0xffd040, sign: 'CHANDLERY', signColor: '#ffd040' },
+  diveshop: { height: 7, tint: 0xf2ece0, door: 0x39b8ff, sign: 'DIVE SHOP', signColor: '#39b8ff' },
+  boatyard: { height: 9, tint: 0x8a6a48, door: 0xff8a3d, sign: 'BOATYARD', signColor: '#ff8a3d' },
+  floatyard: { height: 11, tint: 0xd8b860, door: 0xffd040, sign: 'FESTA FLOATS', signColor: '#ffd040' },
   // Neon Kōji (Chapters 16-18)
   station: { height: 16, tint: 0x3a3e48, door: 0x39e6ff, sign: 'KOJI CENTRAL', signColor: '#39e6ff', windows: true },
   kurogane: { height: 40, tint: 0x1a1c24, door: 0xff3040, sign: 'KUROGANE', signColor: '#ff3040', windows: true },
   foxden: { height: 8, tint: 0x3a2e48, door: 0xff7a2a, sign: 'FOX DEN', signColor: '#ff7a2a' },
+  arcade: { height: 12, tint: 0x2a1e3a, door: 0xff4dd2, sign: 'ARCADE', signColor: '#ff4dd2', windows: true },
+  ramen: { height: 7, tint: 0x5a2a20, door: 0xffd040, sign: 'RAMEN', signColor: '#ffd040' },
+  capsule: { height: 14, tint: 0x2a3a4a, door: 0x39e6ff, sign: 'CAPSULE HOTEL', signColor: '#39e6ff', windows: true },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)

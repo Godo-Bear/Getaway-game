@@ -83,6 +83,19 @@ export const SUSPECTS = {
     color: '#ff4050',
     bio: 'Runs the private army the Glacier Bank hired after the vault job. Thinks the town belongs to him now.',
   },
+  // ---- Porto Sereno and Neon Kōji: not crew either
+  varga: {
+    name: 'Inspector Varga',
+    role: 'A crooked harbour cop',
+    color: '#d8b070',
+    bio: 'Porto Sereno\'s harbour police inspector. Takes money from everyone, and wants the crew\'s too.',
+  },
+  ryu: {
+    name: 'Ryu',
+    role: 'The Silver Dragons',
+    color: '#c8d8ff',
+    bio: 'Runs Neon Kōji\'s fastest street-racing crew, the Silver Dragons. A white racing jacket with a silver dragon on the back.',
+  },
 };
 
 /** The old crew (and the detective): the suspects in Chapters 1-4. */

@@ -30,6 +30,12 @@ export const CREW_LOOKS = {
     style: { top: 'suit', hair: 'short', beard: 'goatee', build: 1.1 } },
   hask: { hoodie: 0x16181c, trousers: 0x16181c, hat: 0x16181c, skin: 0xe0b090, hair: 0x6a6660, shoes: 0x0a0a0a,
     style: { top: 'uniform', hat: 'guard', badge: true, beard: 'stubble', build: 1.2 } },
+  // Porto Sereno: Inspector Varga, the crooked harbour cop (Chapters 14-15)
+  varga: { hoodie: 0x6a5a40, trousers: 0x2a2b31, shirt: 0xe8e8e8, tie: 0x8a1a2a, hat: 0x3a3d45, skin: 0xd8a880, hair: 0x2a2420,
+    style: { top: 'trench', hat: 'fedora', beard: 'moustache', build: 1.1 } },
+  // Neon Kōji: Ryu, who runs the Silver Dragons street-racing crew (Chapters 17-18)
+  ryu: { hoodie: 0xf0f0f4, trousers: 0x1a1b20, shoes: 0xe8e8e8, skin: 0xe8c4a0, hair: 0xd8dcec, shirt: 0x1a1b20, gloves: 0x1a1b20,
+    style: { top: 'jacket', hair: 'long', face: 'shades', build: 0.92 } },
   dex: { hoodie: 0x2a3a5a, trousers: 0x1a1e2a, skin: 0x5a3a24, hair: 0x1a1410, style: { top: 'tee', hair: 'buzz', build: 1.15 } },
   hale: { hoodie: 0x6a5a48, trousers: 0x3a3630, skin: 0xe0b090, hair: 0x6a4422, style: { top: 'suit', hair: 'short', beard: 'moustache' } },
 };
