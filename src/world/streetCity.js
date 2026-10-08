@@ -60,6 +60,8 @@ const LANDMARKS = {
   fishmarket: { height: 8, tint: 0xd8a868, door: 0x1f9a58, sign: 'MERCADO DO PEIXE', signColor: '#ffd070' },
   // Neon Kōji (Chapters 16-18)
   station: { height: 16, tint: 0x3a3e48, door: 0x39e6ff, sign: 'KOJI CENTRAL', signColor: '#39e6ff', windows: true },
+  kurogane: { height: 40, tint: 0x1a1c24, door: 0xff3040, sign: 'KUROGANE', signColor: '#ff3040', windows: true },
+  foxden: { height: 8, tint: 0x3a2e48, door: 0xff7a2a, sign: 'FOX DEN', signColor: '#ff7a2a' },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)

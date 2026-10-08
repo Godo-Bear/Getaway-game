@@ -15,11 +15,12 @@ import { CHAPTER13 } from './chapter13.js';
 import { CHAPTER14 } from './chapter14.js';
 import { CHAPTER15 } from './chapter15.js';
 import { CHAPTER16 } from './chapter16.js';
+import { CHAPTER17 } from './chapter17.js';
 
-export const CHAPTERS = { chapter1: CHAPTER1, chapter2: CHAPTER2, chapter3: CHAPTER3, chapter4: CHAPTER4, chapter5: CHAPTER5, chapter6: CHAPTER6, chapter7: CHAPTER7, chapter8: CHAPTER8, chapter9: CHAPTER9, chapter10: CHAPTER10, chapter11: CHAPTER11, chapter12: CHAPTER12, chapter13: CHAPTER13, chapter14: CHAPTER14, chapter15: CHAPTER15, chapter16: CHAPTER16 };
+export const CHAPTERS = { chapter1: CHAPTER1, chapter2: CHAPTER2, chapter3: CHAPTER3, chapter4: CHAPTER4, chapter5: CHAPTER5, chapter6: CHAPTER6, chapter7: CHAPTER7, chapter8: CHAPTER8, chapter9: CHAPTER9, chapter10: CHAPTER10, chapter11: CHAPTER11, chapter12: CHAPTER12, chapter13: CHAPTER13, chapter14: CHAPTER14, chapter15: CHAPTER15, chapter16: CHAPTER16, chapter17: CHAPTER17 };
 
 // (the chapters themselves, in order: id, number, title, short, parts...)
-export const CHAPTER_LIST = [CHAPTER1, CHAPTER2, CHAPTER3, CHAPTER4, CHAPTER5, CHAPTER6, CHAPTER7, CHAPTER8, CHAPTER9, CHAPTER10, CHAPTER11, CHAPTER12, CHAPTER13, CHAPTER14, CHAPTER15, CHAPTER16];
+export const CHAPTER_LIST = [CHAPTER1, CHAPTER2, CHAPTER3, CHAPTER4, CHAPTER5, CHAPTER6, CHAPTER7, CHAPTER8, CHAPTER9, CHAPTER10, CHAPTER11, CHAPTER12, CHAPTER13, CHAPTER14, CHAPTER15, CHAPTER16, CHAPTER17];
 
 // Where the crew lives. Every few chapters they move on to a new city or
 // country (a new look, new places to rob, new ways to get away). The chapter

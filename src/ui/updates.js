@@ -5,6 +5,13 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Chapter 17: Kurogane Tower', items: [
+    'Chapter 17 (three parts): rob the gold from the sky vault at the top of Neon Kōji\'s tallest tower, from above',
+    'Part 1: jump from Juno\'s helicopter in a wingsuit and fly down a canyon of skyscrapers. A / D steer, W dives, S flares. Ride the steam updrafts, fly through the boost rings, keep out of the drones\' searchlights, and land on the roof',
+    'Part 2: ride the window cleaners\' gondola down the tower (crouch when the drone\'s light comes your way), cut the glass, and cross a floor of pressure tiles on the path Kitsu shows you for a few seconds. Remember it!',
+    'Grab the gold and the alarm goes: guards burst in and steel shutters start to come down. Run for the window and jump: the parachute opens by itself. Steer it down to Kitsu\'s van',
+    'Part 3: Kurogane\'s black cars chase you across the rainy neon city to Kitsu\'s garage, the Fox Den',
+  ] },
   { date: '2026-10-08', title: 'The Dirt Bike', items: [
     'A new bike in Your car / the Garage: the Dirt Bike (free from Chapter 2, or buy it early)',
     'Hold Space (the Wheelie button on a phone) to pull a wheelie: the front wheel comes up and you get a little extra speed',

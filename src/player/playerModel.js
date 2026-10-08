@@ -633,6 +633,19 @@ export class PlayerModel {
       p.lean = 0.04; p.twist = 0; p.sway = 0; p.sideLean = 0; p.bob = -0.45;
       p.shL = p.shR = -0.4; p.shLz = p.shRz = 0.05; p.elL = p.elR = -0.95; p.bagSwing = 0;
     }
+    // Flying (a mode sets this): 'wingsuit' = arms and legs spread, lying flat
+    // on the air; 'chute' = hanging under a parachute, hands up on the lines
+    if (this.flying === 'wingsuit') {
+      p.shL = p.shR = -0.15; p.shLz = -1.42; p.shRz = 1.42; p.elL = p.elR = -0.05;
+      p.hipL = p.hipR = 0.08; p.kneeL = p.kneeR = 0.06;
+      p.lean = 0; p.twist = 0; p.sway = 0; p.sideLean = 0; p.bob = 0; p.bagSwing = 0;
+      p.headPitch = -0.95; p.headYaw = 0;
+    } else if (this.flying === 'chute') {
+      p.shL = p.shR = -2.75; p.shLz = -0.32; p.shRz = 0.32; p.elL = p.elR = -0.35;
+      p.hipL = -0.25; p.hipR = 0.1; p.kneeL = 0.35; p.kneeR = 0.2;
+      p.lean = 0.05; p.twist = 0; p.sway = 0; p.sideLean = 0; p.bob = 0; p.bagSwing = 0.3;
+      p.headPitch = -0.15;
+    }
     this.hipL.rotation.x = p.hipL;
     this.hipR.rotation.x = p.hipR;
     this.kneeL.rotation.x = p.kneeL;
@@ -664,5 +677,62 @@ export class PlayerModel {
     } else {
       this.tumble.rotation.x = 0;
     }
+    // Flying: the wingsuit lies flat (banking into turns), the parachute's canopy opens overhead
+    if (this.flying === 'wingsuit' && !this.suit) this._buildSuit();
+    if (this.flying === 'chute' && !this.chute) this._buildChute();
+    if (this.suit) this.suit.visible = this.flying === 'wingsuit';
+    if (this.chute) {
+      this.chuteOpen = damp(this.chuteOpen || 0, this.flying === 'chute' ? 1 : 0, 6, 1 / 60);
+      this.chute.visible = this.chuteOpen > 0.03;
+      this.chute.scale.set(this.chuteOpen, 0.3 + this.chuteOpen * 0.7, this.chuteOpen);
+      this.chute.rotation.z = -(this.flyBank || 0) * 0.4;
+    }
+    if (this.flying === 'wingsuit') {
+      this.tumble.rotation.x = 1.3 + (this.flyPitch || 0);
+      this.tumble.rotation.y = this.flyBank || 0;
+    } else this.tumble.rotation.y = 0;
+  }
+
+  /** A wingsuit: fabric between the arms and the body and between the legs (hidden until used). */
+  _buildSuit() {
+    const mat = new THREE.MeshStandardMaterial({ color: 0x1a1b22, emissive: 0x2a0e04, roughness: 0.7, side: THREE.DoubleSide });
+    const edge = new THREE.MeshBasicMaterial({ color: 0xff7a2a, toneMapped: false, side: THREE.DoubleSide });
+    const poly = (pts, m) => {
+      const sh = new THREE.Shape();
+      sh.moveTo(pts[0][0], pts[0][1]);
+      for (const q of pts.slice(1)) sh.lineTo(q[0], q[1]);
+      sh.closePath();
+      return new THREE.Mesh(new THREE.ShapeGeometry(sh), m);
+    };
+    this.suit = new THREE.Group();
+    for (const sx of [-1, 1]) {
+      this.suit.add(poly([[0.28 * sx, 1.0], [0.92 * sx, 0.97], [0.22 * sx, -0.05], [0.16 * sx, 0.35]], mat));
+      this.suit.add(poly([[0.9 * sx, 0.99], [0.94 * sx, 0.95], [0.25 * sx, -0.07], [0.21 * sx, -0.03]], edge));
+    }
+    this.suit.add(poly([[-0.12, 0.38], [0.12, 0.38], [0.2, -0.48], [-0.2, -0.48]], mat));
+    this.suit.position.z = -0.04;
+    this.suit.visible = false;
+    this.tumble.add(this.suit);
+  }
+
+  /** A ram-air parachute canopy with its lines (hidden until used). */
+  _buildChute() {
+    const canopy = new THREE.Mesh(new THREE.CylinderGeometry(3.2, 3.2, 1.7, 18, 1, true, -0.95, 1.9).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0xff7a2a, emissive: 0x3a1404, roughness: 0.7, side: THREE.DoubleSide }));
+    canopy.position.y = 1.5;
+    const stripe = new THREE.Mesh(new THREE.CylinderGeometry(3.22, 3.22, 0.4, 18, 1, true, -0.95, 1.9).rotateX(-Math.PI / 2),
+      new THREE.MeshBasicMaterial({ color: 0x1a1b22, side: THREE.DoubleSide }));
+    stripe.position.y = 1.5;
+    this.chute = new THREE.Group();
+    this.chute.add(canopy, stripe);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0xd8d8e0 });
+    const pts = [];
+    for (const sx of [-1, 1]) for (const k of [0.25, 0.6, 0.95]) {
+      const a = k * 0.95 * sx;
+      pts.push(new THREE.Vector3(0.25 * sx, 2.05, 0), new THREE.Vector3(Math.sin(a) * 3.2, 1.5 + Math.cos(a) * 3.2 - 0.05, 0));
+    }
+    this.chute.add(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), lineMat));
+    this.chute.visible = false;
+    this.root.add(this.chute);
   }
 }
