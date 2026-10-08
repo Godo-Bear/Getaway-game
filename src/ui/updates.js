@@ -5,6 +5,12 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Phone fixes', items: [
+    'Turning your phone sideways no longer leaves the picture squashed into part of the screen: the game now keeps checking the screen size and always fills it',
+    'Phones held sideways: the three gadget buttons sit in a row on the left, above the joystick, so they don\'t cover the minimap any more',
+    'The pointer\'s label (like "Kōji Central 54 m") stays on the screen near the edges',
+    'Moved phone buttons (Settings > Touch layout) stay in the right place when you turn the phone',
+  ] },
   { date: '2026-10-08', title: 'Chapter 18: Silver Dragons', items: [
     'Chapter 18 (three parts), the last job in Neon Kōji: Ryu and her street-racing crew, the Silver Dragons, want Kurogane\'s gold',
     'Part 1: a race across the rainy neon city against Ryu\'s white car. No police, just the two of you. It shows who\'s ahead and by how much',

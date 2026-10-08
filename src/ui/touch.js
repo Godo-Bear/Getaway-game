@@ -169,7 +169,8 @@ export class TouchControls {
         el.style.transform = scale !== 1 ? `scale(${scale})` : '';
         continue;
       }
-      Object.assign(el.style, { position: 'fixed', left: `${p[0] * window.innerWidth}px`, top: `${p[1] * window.innerHeight}px`,
+      // (as a share of the screen, so it stays right when the phone turns, whatever size the browser reports)
+      Object.assign(el.style, { position: 'fixed', left: `${(p[0] * 100).toFixed(3)}%`, top: `${(p[1] * 100).toFixed(3)}%`,
         right: 'auto', bottom: 'auto', margin: '0', transform: `translate(-50%, -50%) scale(${scale})` });
     }
   }

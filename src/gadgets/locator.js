@@ -116,7 +116,7 @@ export class Locator {
       this.ring.material.opacity = 0.8 * (1 - k);
       if (k >= 1) { this.state.scene.remove(this.ring); this.ring.material.dispose(); this.ring.geometry.dispose(); this.ring = null; }
     }
-    const W = window.innerWidth, H = window.innerHeight, pad = 34;
+    const hud = this.state.game.hud, W = hud.viewW || window.innerWidth, H = hud.viewH || window.innerHeight, pad = 34; // (the fitted screen size: right just after the phone turns)
     const fade = this.t < 1.5 ? this.t / 1.5 : 1;
     for (const th of this.things) {
       const p = th.get();

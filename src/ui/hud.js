@@ -169,8 +169,15 @@ export class Hud {
       const k = Math.max(Math.abs(x) / 0.9, Math.abs(y) / 0.85);
       x /= k; y /= k;
     }
-    m.style.left = `${(x * 0.5 + 0.5) * window.innerWidth}px`;
-    m.style.top = `${(-y * 0.5 + 0.5) * window.innerHeight}px`;
+    // (as a share of the screen: right even just after the phone turns)
+    m.style.left = `${((x * 0.5 + 0.5) * 100).toFixed(2)}%`;
+    m.style.top = `${((-y * 0.5 + 0.5) * 100).toFixed(2)}%`;
+    // keep the label on the screen near the edges (the pointer itself stays put)
+    const W = this.viewW || window.innerWidth, cx = (x * 0.5 + 0.5) * W, half = 74;
+    const shift = cx < half ? half - cx : cx > W - half ? W - half - cx : 0;
+    const lbl = m.querySelector('.lbl');
+    const tr = shift ? `translateX(${Math.round(shift)}px)` : '';
+    if (lbl.style.transform !== tr) lbl.style.transform = tr;
     m.classList.toggle('off', off);
     m.style.setProperty('--mc', color);
     m.style.setProperty('--ang', `${90 - (Math.atan2(y, x) * 180) / Math.PI}deg`);

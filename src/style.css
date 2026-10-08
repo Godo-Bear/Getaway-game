@@ -360,7 +360,9 @@ body.touch-mode #hud-speed { font-size: 44px; }
   #touch button.t-main { width: 76px; height: 76px; }
   #touch button.t-small { width: 48px; height: 48px; }
   #touch .t-ghost { width: 60px; height: 34px; top: 38%; }
-  #touch .t-gadgets { bottom: calc(150px + env(safe-area-inset-bottom, 0px)); right: calc(14px + env(safe-area-inset-right, 0px)); gap: 6px; }
+  /* (phones held sideways: the right side is full (the minimap, the action buttons), so the gadgets
+     go in a row on the left, just above the joystick and beside the Ghost button) */
+  #touch .t-gadgets { right: auto; left: calc(86px + env(safe-area-inset-left, 0px)); bottom: calc(142px + env(safe-area-inset-bottom, 0px)); flex-direction: row; gap: 8px; }
   #touch .t-gadgets button { width: 46px; height: 46px; font-size: 22px; }
   .btn { font-size: 16px; padding: 8px 14px; }
   .btn small { font-size: 12px; }
@@ -456,7 +458,8 @@ body.touch-mode #hud-speed { font-size: 44px; }
 body.touch-mode #hud-gadget { top: auto; left: auto; right: calc(96px + env(safe-area-inset-right, 0px)); bottom: calc(280px + env(safe-area-inset-bottom, 0px));
   transform: scale(0.8); transform-origin: right bottom; }
 @media (max-height: 520px) {
-  body.touch-mode #hud-gadget { right: calc(72px + env(safe-area-inset-right, 0px)); bottom: calc(222px + env(safe-area-inset-bottom, 0px)); }
+  /* (the effect timers sit just right of the gadget row) */
+  body.touch-mode #hud-gadget { right: auto; left: calc(250px + env(safe-area-inset-left, 0px)); bottom: calc(142px + env(safe-area-inset-bottom, 0px)); transform-origin: left bottom; }
 }
 /* Phones held upright: pause button in the corner, minimap just below it */
 @media (max-width: 600px) {

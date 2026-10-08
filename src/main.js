@@ -56,7 +56,7 @@ function start(renderer) {
   // Pixel ratio: rendering at full "retina" resolution is very expensive.
   // Cap it depending on the graphics setting.
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR[settings.graphics] ?? 1));
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(window.innerWidth, window.innerHeight, false); // (false: the stylesheet stretches the canvas over the whole screen)
   renderer.shadowMap.enabled = settings.graphics !== 'low';
   document.getElementById('game').appendChild(renderer.domElement);
 
@@ -76,10 +76,9 @@ function start(renderer) {
     applySettings: () => {
       const st = game.settings;
       renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR[st.graphics] ?? 1));
-      renderer.setSize(window.innerWidth, window.innerHeight);
       game.post.setQuality(st.graphics);
       game.post.brightness = st.brightness ?? 1;
-      game.post.setSize(window.innerWidth, window.innerHeight);
+      game.fitScreen(true);
       audio.setVolumes(st);
       game.sm.current?.applySettings?.();
     },
@@ -111,11 +110,27 @@ function start(renderer) {
     .add('driving', new DrivingState(game))
     .add('deduction', new DeductionState(game));
 
-  window.addEventListener('resize', () => {
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    game.post.setSize(window.innerWidth, window.innerHeight);
-    game.sm.resize(window.innerWidth, window.innerHeight);
-  });
+  // Fit the picture to the screen. Phones are unreliable about telling us
+  // (turning one sideways can report the old size, or nothing at all, and
+  // more so inside an embedded page), so this also runs twice a second from
+  // the game loop and simply checks the size of the game's own box.
+  let fitW = 0, fitH = 0;
+  const gameEl = document.getElementById('game');
+  game.fitScreen = (force = false) => {
+    const w = gameEl.clientWidth || window.innerWidth, h = gameEl.clientHeight || window.innerHeight;
+    if (!force && w === fitW && h === fitH) return;
+    if (!w || !h) return;
+    fitW = w; fitH = h;
+    game.hud.viewW = w; game.hud.viewH = h;
+    renderer.setSize(w, h, false);
+    game.post.setSize(w, h);
+    game.sm.resize(w, h);
+  };
+  const refit = () => { game.fitScreen(); setTimeout(() => game.fitScreen(), 250); setTimeout(() => game.fitScreen(), 800); };
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', refit);
+  window.visualViewport?.addEventListener('resize', refit);
+  game.fitScreen(true);
 
   // Handy for debugging in the browser console: window.game
   window.game = game;
@@ -162,7 +177,15 @@ function start(renderer) {
 
   // ---------------- Game loop ----------------
   let last = performance.now();
+  let fitTick = 0, fitState = null;
   function frame(now) {
+    // (keep the picture fitted to the screen: twice a second, and whenever the state changes)
+    if (++fitTick >= 30 || game.sm.current !== fitState) {
+      const changed = game.sm.current !== fitState;
+      fitTick = 0;
+      fitState = game.sm.current;
+      game.fitScreen(changed);
+    }
     // dt = seconds since last frame. Clamp it so a hiccup (tab switch,
     // slow frame) doesn't make things jump through walls.
     const dt = Math.min((now - last) / 1000, 0.1);
