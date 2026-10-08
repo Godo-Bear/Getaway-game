@@ -15,7 +15,7 @@ import { Minimap } from '../ui/minimap.js';
 import { BigMap } from '../ui/bigMap.js';
 import { save } from '../core/save.js';
 import { NitroPickups } from '../vehicles/nitroPickups.js';
-import { owns } from '../gadgets/gadgets.js';
+import { owns, earn } from '../gadgets/gadgets.js';
 import { admin } from '../core/admin.js';
 import { diff } from '../core/difficulty.js';
 import { CityHack } from '../vehicles/cityHack.js';
@@ -25,7 +25,7 @@ import { clamp, damp, makeRng } from '../core/utils.js';
 import { audio } from '../core/audio.js';
 import { noteCaught } from '../core/jail.js';
 import { showGarage } from '../ui/customise.js';
-import { playerCarColour, playerCarStyle, playerCarSpecs } from '../vehicles/carColours.js';
+import { playerCarColour, playerCarStyle, playerCarSpecs, playerCarBody } from '../vehicles/carColours.js';
 import { StreetChaseMode } from './modes/streetChaseMode.js';
 import { ChapterDriveMode } from './modes/chapterDriveMode.js';
 import { FreeDriveMode } from './modes/freeDriveMode.js';
@@ -101,6 +101,7 @@ export class DrivingState extends PlayState {
     this.player = new Car(this.mode.stolen ? stolenSpecs() : this.mode.vehicle === 'snowmobile' ? CAR_SPECS.snowmobile : playerCarSpecs(CAR_SPECS.player), this.playerMesh); // (your car's own handling)
     this.player.active = true;
     this.player.isPlayer = true;
+    this._setDirt();
     const head = new THREE.SpotLight(0xfff0d0, 120, 60, 0.55, 0.6, 1.2);
     head.position.set(0, 1.0, 2.0);
     head.target.position.set(0, 0, 14);
@@ -220,6 +221,8 @@ export class DrivingState extends PlayState {
     c.steer = input.axis('left', 'right');
     c.handbrake = input.isDown('drift');                       // Shift
     c.nitro = input.isDown('nitro') && this.nitro > 0.02;      // Space
+    // The Dirt Bike: Space is the wheelie (hold), and letting go pops it into a jump
+    if (this.dirt) { this.wheelieHeld = input.isDown('nitro'); c.nitro = false; }
     if (input.wasPressed('horn')) {
       this.traffic.honk(this.player);
       this.life.honk(this.player);
@@ -274,6 +277,52 @@ export class DrivingState extends PlayState {
     if (!w) this.game.hud.setWaypoint(null);
   }
 
+  /**
+   * The Dirt Bike (one fixed step): hold Space for a wheelie (the front lifts,
+   * a little extra pull), let go after a moment and it pops into a jump. Big
+   * air and long wheelies get a cheer (and a little cash).
+   */
+  _dirtBike(dt) {
+    const p = this.player, hud = this.game.hud;
+    const can = !p.airborne && p.speed > 2.5;
+    if (this.wheelieHeld && can) {
+      this.wheelieT = (this.wheelieT || 0) + dt;
+      p.speedFactor *= 1.05;
+      if (this.wheelieT > 3 && !this.toldWheelie) { this.toldWheelie = true; hud.toast('Wheelie!', '3 seconds on one wheel', '#ffd040', 1.5); earn(this.game, 10, '', { quiet: true }); }
+    } else {
+      // let go: POP (a bunny hop, higher the faster you go)
+      if (!this.wheelieHeld && (this.wheelieT || 0) > 0.25 && can) {
+        p.airborne = true;
+        p.airTime = 0;
+        p.vy = 6.2 + Math.min(p.speed, 32) * 0.09;
+        audio.sfx('jump', { vol: 0.9 });
+      }
+      this.wheelieT = 0;
+      this.toldWheelie = false;
+    }
+    const want = p.airborne ? 0.1 : this.wheelieHeld && can ? 0.48 + Math.sin(this.time * 4) * 0.05 : 0;
+    this.wheelieA = damp(this.wheelieA || 0, want, this.wheelieHeld ? 5 : 9, dt);
+    // big air: a cheer when you land
+    if (p.airborne) this.dirtAir = Math.max(this.dirtAir || 0, p.airTime);
+    else if (this.dirtAir > 0.9) { hud.toast('Big air!', `${this.dirtAir.toFixed(1)} s off the ground`, '#ffd040', 1.5); earn(this.game, Math.round(this.dirtAir * 10), '', { quiet: true }); this.dirtAir = 0; }
+    else this.dirtAir = 0;
+  }
+
+  /** Are you on the Dirt Bike? (Space is then the wheelie; the phone's Nitro button says so.) */
+  _setDirt() {
+    this.dirt = !this.mode.stolen && this.mode.vehicle !== 'snowmobile' && !!playerCarBody().dirt;
+    this.game.touch?.setLabel?.('b', this.dirt ? 'Wheelie' : null);
+  }
+
+  /** Tip the Dirt Bike up round its back axle (the wheelie), after the physics placed it. */
+  _dirtPose() {
+    const w = this.playerMesh.userData.wheelie;
+    if (!w) return;
+    const a = this.dirt ? (this.wheelieA || 0) : 0, th = -a, P = w.pivot;
+    w.group.rotation.x = th;
+    w.group.position.set(0, P.y - (P.y * Math.cos(th) - P.z * Math.sin(th)), P.z - (P.y * Math.sin(th) + P.z * Math.cos(th)));
+  }
+
   _unstick() {
     if (this.player.speed > 4) return;
     const n = this.city.graph.nearestNode(this.player.pos.x, this.player.pos.z);
@@ -304,6 +353,9 @@ export class DrivingState extends PlayState {
     // --- Admin: super speed and infinite nitro
     if (!(this.flatTyres > 0)) p.speedFactor = admin.flag('superSpeed') ? 1.35 : 1;
     if (admin.flag('infiniteNitro')) this.nitro = 1;
+
+    // --- The Dirt Bike: wheelies and jumps
+    if (this.dirt) this._dirtBike(dt);
 
     // --- Physics
     for (const car of all) car.step(dt, ground);
@@ -409,6 +461,7 @@ export class DrivingState extends PlayState {
     this.playerMesh = mesh;
     this.player.mesh = mesh;
     if (this.mode.vehicle !== 'snowmobile' && !this.mode.stolen) this.player.spec = playerCarSpecs(CAR_SPECS.player); // (a different car drives differently)
+    this._setDirt();
   }
 
   /** Crashes: a bang (and a message for big ones), but no damage: the car has no health. */
@@ -463,6 +516,7 @@ export class DrivingState extends PlayState {
     this.city.subway?.update(frozen ? 0 : dt);
     this.city.trams?.update(frozen ? 0 : dt);
     if (this.playerMesh.userData.flames) this.playerMesh.userData.flames.visible = p.boosting;
+    this._dirtPose();
     updateUnderglow(this.playerMesh, this.time, p.airborne);
     this.playerMesh.userData.tailMat.color.setHex(p.controls.throttle < 0 ? 0xff2030 : 0x881018);
     this.beacon.ring.rotation.z += dt;
@@ -477,7 +531,8 @@ export class DrivingState extends PlayState {
     if (this.chimneySmoke) { this.chimneySmoke.update(frozen ? 0 : dt); this.chimneySmoke.setDaylight(this.lighting.daylight); }
 
     // HUD: speedometer, minimap, beacon marker
-    hud.setSpeedo(p.speed * 3.6, this.nitro);
+    if (this.dirt) hud.setSpeedo(p.speed * 3.6, clamp((this.wheelieA || 0) / 0.5, 0, 1), 'Wheelie'); // (the Dirt Bike: how far up the front wheel is)
+    else hud.setSpeedo(p.speed * 3.6, this.nitro);
     const dots = this.police.units.map((u) => ({
       x: u.car.pos.x, z: u.car.pos.z,
       color: Math.floor(this.time * 4 + u.car.pos.x) % 2 ? '#ff3346' : '#3d7bff',

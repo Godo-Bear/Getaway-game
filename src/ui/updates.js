@@ -5,6 +5,12 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'The Dirt Bike', items: [
+    'A new bike in Your car / the Garage: the Dirt Bike (free from Chapter 2, or buy it early)',
+    'Hold Space (the Wheelie button on a phone) to pull a wheelie: the front wheel comes up and you get a little extra speed',
+    'Let go and it pops into a jump. It flies off the ramps too. Long wheelies and big air earn a bit of cash',
+    'The controls help in the corner is shorter (the full list is on the Controls screen)',
+  ] },
   { date: '2026-10-08', title: 'Chapter 16: The Silver Arrow, and Neon Kōji', items: [
     'The crew moves to Neon Kōji: a huge city of dark towers covered in neon signs, giant billboards, cherry trees and rain. It\'s a new Free Run map too',
     'A new crew member: Kitsu, the hacker who signs with a neon fox',

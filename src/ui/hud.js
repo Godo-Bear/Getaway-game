@@ -86,8 +86,9 @@ export class Hud {
     this.el.cross.classList.toggle('sprint', on);
   }
 
-  setSpeedo(kmh, nitro) {
+  setSpeedo(kmh, nitro, label = 'Nitro') {
     this._set(this.el.speed, 'speed', String(Math.round(kmh)));
+    if (this._cache.get('nitroLabel') !== label) { this._cache.set('nitroLabel', label); const l = this.el.nitro.parentElement?.parentElement?.querySelector('.bar-label') || document.querySelector('.bar-label'); if (l) l.textContent = label; }
     const n = `${(nitro * 100).toFixed(0)}%`;
     if (this._cache.get('nitro') !== n) { this._cache.set('nitro', n); this.el.nitro.style.width = n; }
   }

@@ -78,7 +78,7 @@ export class TouchControls {
     this.root.classList.toggle('t-hidden', mode === 'none');
     for (const btn of this.root.querySelectorAll('[data-b]')) {
       if (btn.dataset.g) continue; // (the gadget buttons: setGadgets)
-      const label = LABELS[mode][btn.dataset.b];
+      const label = (mode === 'driving' && this._labels?.[btn.dataset.b]) || LABELS[mode][btn.dataset.b];
       btn.textContent = label || '';
       btn.hidden = !label || (btn.dataset.b === 'f' && !this._coinOn);
       btn.classList.remove('latched');
@@ -113,6 +113,15 @@ export class TouchControls {
       b.style.setProperty('--gc', g.color);
       b.classList.toggle('cooling', !g.ready);
     });
+  }
+
+  /** Rename a driving button (null = back to normal), e.g. Nitro -> Wheelie on the Dirt Bike. */
+  setLabel(key, text) {
+    (this._labels ||= {})[key] = text;
+    if (this.mode === 'driving' && !this.editing) {
+      const btn = this.root.querySelector(`[data-b="${key}"]`);
+      if (btn) btn.textContent = text || LABELS.driving[key] || '';
+    }
   }
 
   /** Light a button up while its action is switched on (e.g. sprint). */

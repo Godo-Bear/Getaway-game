@@ -68,30 +68,22 @@ export function isCardOpen() {
 }
 
 export const CONTROLS = {
+  // (short: the corner panel stays small. The full list is on the Controls screen.)
   boat: `
-    <kbd>W</kbd> / <kbd>S</kbd> throttle and reverse &nbsp; <kbd>A</kbd> / <kbd>D</kbd> steer &nbsp; <kbd>Space</kbd> boost &nbsp; <kbd>Shift</kbd> or <kbd>C</kbd> tight turn<br>
-    The police can only chase what they can see: rocks, islands and the reef's narrow gaps break their view &nbsp; <kbd>R</kbd> last checkpoint &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    <kbd>W</kbd>/<kbd>S</kbd> throttle &nbsp; <kbd>A</kbd>/<kbd>D</kbd> steer &nbsp; <kbd>Space</kbd> boost &nbsp; <kbd>Shift</kbd> tight turn<br>
+    <kbd>R</kbd> checkpoint &nbsp; <kbd>P</kbd> pause`,
   onFoot: `
-    <kbd>Mouse</kbd> look around &nbsp; <kbd>W A S D</kbd> move<br>
-    <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
-    Jump alongside a tall wall to wall-run; jump again to leap off. Jump into a zip line cable to ride it, either way (even uphill): hold <kbd>S</kbd> to turn round, <kbd>Space</kbd> to let go.
-    Run at low obstacles to vault them. Jump at a ledge (up to 2.7 m) to climb.
-    Hold a direction into a ledge in mid-air to grab it. Fell to the street? Walk into a yellow ladder and hold <kbd>W</kbd>.<br>
-    <kbd>Click</kbd> punch (from behind it knocks a guard out; from the front it stuns them, if they don't block: three quick punches end in an uppercut that breaks a block) &nbsp; <kbd>Right click</kbd> or <kbd>Z</kbd> throw a coin (guards go to look where it lands) &nbsp; <kbd>E</kbd> action when one shows on screen (behind someone in the street: pickpocket) &nbsp; <kbd>C</kbd> while sprinting into someone: slide tackle<br>
-    <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> gadgets &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    <kbd>WASD</kbd> move &nbsp; <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>C</kbd> slide<br>
+    <kbd>Click</kbd> punch &nbsp; <kbd>Z</kbd> coin &nbsp; <kbd>E</kbd> action &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> gadgets<br>
+    <kbd>V</kbd> view &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd> pause`,
   onFootNoLock: `
-    <kbd>W / S</kbd> move &nbsp; <kbd>A / D</kbd> turn &nbsp; drag the mouse to look<br>
-    <kbd>Shift</kbd> sprint on / off &nbsp; <kbd>Space</kbd> jump / climb &nbsp; <kbd>X</kbd> action (knock out)<br>
-    <kbd>Click</kbd> or <kbd>B</kbd> punch (3 quick = combo) &nbsp; <kbd>Z</kbd> throw a coin &nbsp; <kbd>V</kbd> first / third person &nbsp; <kbd>Scroll</kbd> zoom &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> gadgets &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>G</kbd> ghost mode &nbsp; <kbd>P</kbd> pause`,
+    <kbd>W/S</kbd> move &nbsp; <kbd>A/D</kbd> turn &nbsp; <kbd>Shift</kbd> sprint &nbsp; <kbd>Space</kbd> jump<br>
+    <kbd>B</kbd> punch &nbsp; <kbd>Z</kbd> coin &nbsp; <kbd>X</kbd> action &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> gadgets<br>
+    <kbd>V</kbd> view &nbsp; <kbd>R</kbd> back to safety &nbsp; <kbd>P</kbd> pause`,
   driving: `
-    <kbd>W</kbd> accelerate &nbsp; <kbd>S</kbd> brake / reverse &nbsp; <kbd>A D</kbd> steer<br>
-    <kbd>Shift</kbd> handbrake (drift) &nbsp; <kbd>Space</kbd> nitro<br>
-    Blue canisters on the road, drifting and near-misses refill nitro. Keep moving: stopping near cops fills the Busted meter.<br>
-    <kbd>Q</kbd> horn (traffic pulls aside) &nbsp; <kbd>C</kbd> camera &nbsp; <kbd>Scroll</kbd> zoom<br>
-    <kbd>M</kbd> big map: click to set a waypoint &nbsp; <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> gadgets<br>
-    <kbd>E</kbd> hack the junction you just drove through (red lights + bollards stop the cops behind you)<br>
-    Hide from the cops in parking garages (blue P on the minimap).<br>
-    <kbd>R</kbd> unstick (when stopped) &nbsp; <kbd>G</kbd> ghost mode (story) &nbsp; <kbd>P</kbd>/<kbd>Esc</kbd> pause`,
+    <kbd>W</kbd>/<kbd>S</kbd> gas / brake &nbsp; <kbd>A D</kbd> steer &nbsp; <kbd>Shift</kbd> drift &nbsp; <kbd>Space</kbd> nitro (wheelie on the Dirt Bike)<br>
+    <kbd>E</kbd> hack junction &nbsp; <kbd>M</kbd> map &nbsp; <kbd>Q</kbd> horn &nbsp; <kbd>1</kbd><kbd>2</kbd><kbd>3</kbd> gadgets<br>
+    <kbd>C</kbd> camera &nbsp; <kbd>R</kbd> unstick &nbsp; <kbd>P</kbd> pause`,
 };
 
 export function controlsHtml() {
@@ -117,7 +109,7 @@ export function controlsHtml() {
       <kbd>W / S</kbd><span>Accelerate / brake and reverse</span>
       <kbd>A / D</kbd><span>Steer</span>
       <kbd>Shift</kbd><span>Handbrake: drift round corners</span>
-      <kbd>Space</kbd><span>Nitro boost (refill it at the blue canisters on the road)</span>
+      <kbd>Space</kbd><span>Nitro boost (refill it at the blue canisters on the road). On the Dirt Bike: hold for a wheelie, let go to jump</span>
       <kbd>Q</kbd><span>Horn: traffic ahead pulls aside</span>
       <kbd>C</kbd><span>Change camera</span>
       <kbd>M</kbd><span>Big city map: click anywhere to set a waypoint (or tap the minimap)</span>

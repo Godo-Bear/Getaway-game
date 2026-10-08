@@ -40,6 +40,8 @@ export const CAR_BODIES = [
     specs: { maxSpeed: 46, accel: 18.5, grip: 8.6, driftGrip: 1.3, steerLow: 2.5, steerHigh: 1.05, mass: 1.15 } },
   { id: 'bike', name: 'Street Bike', note: 'Quickest off the line and slips through traffic, but it\'s light: the police can shove you about', price: 6000, chapter: 7, iceGrip: 0.55,
     specs: { maxSpeed: 44, accel: 23, grip: 11, driftGrip: 2.4, steerLow: 3.3, steerHigh: 1.4, mass: 0.6 } },
+  { id: 'dirt', name: 'Dirt Bike', note: 'Hold Space (the Wheelie button on a phone) to pull a wheelie, let go to jump. Light and twitchy: great over kerbs, parks and ramps', price: 2500, chapter: 2, iceGrip: 0.6, dirt: true,
+    specs: { maxSpeed: 40, accel: 22, grip: 10, driftGrip: 2.3, steerLow: 3.5, steerHigh: 1.5, mass: 0.55, nitroAccel: 0 } },
   { id: 'rally', name: 'Rally Hatch', note: 'Grips on snow and ice, turns on a coin', price: 5000, chapter: 9, iceGrip: 0.85,
     specs: { maxSpeed: 40, accel: 19, grip: 12.5, driftGrip: 2.1, steerLow: 3.0, steerHigh: 1.3 } },
 ];

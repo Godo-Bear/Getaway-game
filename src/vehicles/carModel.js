@@ -41,7 +41,7 @@ const trim = () => lambert(TRIM);
 const chrome = () => mat('chrome', () => addReflections(new THREE.MeshPhongMaterial({ color: 0xb8bec8, specular: 0xffffff, shininess: 120 }), 0.7));
 /** Headlight beams (only show at night in rain and snow): one shared material. */
 const headBeam = () => mat('headBeam', () => makeShaftMaterial(0xfff0d0, 0.2));
-const HEADLIGHTS = { bike: [[0, 0.98, 0.92]], muscle: [[-0.64, 0.8, 2.32], [0.64, 0.8, 2.32]], rally: [[-0.6, 0.86, 2.02], [0.6, 0.86, 2.02]], coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], bus: [[-0.9, 0.85, 5.52], [0.9, 0.85, 5.52]], truck: [[-0.85, 1.05, 4.12], [0.85, 1.05, 4.12]], sled: [[0, 0.64, 1.46]] };
+const HEADLIGHTS = { bike: [[0, 0.98, 0.92]], dirt: [[0, 1.12, 0.86]], muscle: [[-0.64, 0.8, 2.32], [0.64, 0.8, 2.32]], rally: [[-0.6, 0.86, 2.02], [0.6, 0.86, 2.02]], coupe: [[-0.62, 0.84, 2.2], [0.62, 0.84, 2.2]], sedan: [[-0.62, 0.88, 2.24], [0.62, 0.88, 2.24]], van: [[-0.72, 0.98, 2.6], [0.72, 0.98, 2.6]], bus: [[-0.9, 0.85, 5.52], [0.9, 0.85, 5.52]], truck: [[-0.85, 1.05, 4.12], [0.85, 1.05, 4.12]], sled: [[0, 0.64, 1.46]] };
 function addHeadlightBeams(g, key) {
   const geo2 = geo(`beams:${key}`, () => mergeGeometries(HEADLIGHTS[key].map(([x, y, z]) => headlightShaftGeometry(15, 0.12, 2.6).translate(x, y, z)), false)); // (keeps the uvs: the beam fades along them)
   const m = new THREE.Mesh(geo2, headBeam());
@@ -493,6 +493,7 @@ export const TRUCK_BOXES = [0xe8e6e0, 0xd8d0c0, 0x3a6aa8, 0xc8402a];
  */
 export function makeCarMesh({ kind = 'civilian', color = 0x888888, style = null, parked = false, boxColor = 0xe8e6e0 } = {}) {
   if (kind === 'player' && style?.body === 'bike') return makeBikeMesh({ color, style, parked }); // (the Street Bike)
+  if (kind === 'player' && style?.body === 'dirt') return makeDirtBikeMesh({ color, style, parked }); // (the Dirt Bike)
   const st = style || { stripe: 0x151515, rims: 0x777777, spoiler: true, tint: null, glow: null };
   const g = new THREE.Group();
   const body = new THREE.Group(); // tilts for pitch/roll without moving wheels' parent
@@ -842,6 +843,129 @@ export function makeBikeMesh({ color = 0xff9f1a, style = null, police = false, p
   mergeStatic(body, new Set([tailMat, sirens?.red, sirens?.blue].filter(Boolean)));
   g.userData = { wheels, steer, sirens, flames, body, beam, tailMat, underglow: null, paint: police ? null : bodyMat, rider, lean, bike: true };
   return g;
+}
+
+/**
+ * The Dirt Bike: tall and light, knobbly tyres, high mudguards, long forks
+ * and a race number on the front. Same rig as the Street Bike (it leans into
+ * corners and the front turns), plus a `wheelie` group that the driving state
+ * tips up round the back axle (userData.wheelie.pivot) when you hold Space.
+ */
+export function makeDirtBikeMesh({ color = 0xff6a1a, style = null, parked = false } = {}) {
+  const st = style || { stripe: 0x151515, rims: 0x777777 };
+  const g = new THREE.Group();
+  const lean = new THREE.Group();
+  g.add(lean);
+  const wheelie = new THREE.Group();
+  lean.add(wheelie);
+  const body = new THREE.Group();
+  wheelie.add(body);
+  const bodyMat = paintMat(color);
+  const dark = trim();
+  const R = 0.36; // wheel radius (bigger than the Street Bike's)
+  const parts = geo('dirtbike', () => {
+    const tank = box(0.3, 0.2, 0.5, 0, 1.08, 0.2, -0.12, 0, 0);
+    const side = merge([-1, 1].map((sx) => box(0.03, 0.22, 0.42, sx * 0.17, 0.9, -0.3, 0.1, 0, 0)));     // number boards on the sides
+    const seat = box(0.24, 0.08, 0.9, 0, 1.16, -0.32, 0.06, 0, 0);
+    const rearGuard = box(0.2, 0.04, 0.6, 0, 1.08, -0.92, -0.35, 0, 0);
+    const frame = merge([box(0.08, 0.08, 0.95, 0, 0.82, -0.2, 0.3, 0, 0), box(0.08, 0.62, 0.08, 0, 0.74, 0.46, -0.35, 0, 0), box(0.28, 0.32, 0.36, 0, 0.6, -0.04)]); // spine, head tube, engine
+    const swing = merge([-1, 1].map((sx) => box(0.05, 0.06, 0.72, sx * 0.1, 0.5, -0.42, -0.12, 0, 0)));
+    const shock = box(0.07, 0.48, 0.07, 0, 0.78, -0.42, -0.5, 0, 0);
+    const pipe = new THREE.CylinderGeometry(0.045, 0.07, 0.75, 8); pipe.rotateX(PI / 2 - 0.35); pipe.translate(0.18, 0.86, -0.62);
+    const head = box(0.16, 0.1, 0.05, 0, 1.12, 0.88, -0.3, 0, 0);
+    const tailL = box(0.12, 0.05, 0.04, 0, 1.05, -1.2);
+    const stripe = merge([-1, 1].map((sx) => box(0.012, 0.05, 0.44, sx * 0.155, 1.1, 0.2, -0.12, 0, 0)));
+    // Front: long forks, a high mudguard, wide bars and the number plate
+    const fork = merge([-1, 1].map((sx) => box(0.055, 0.9, 0.055, sx * 0.1, 0.78, 0.0, -0.32, 0, 0)));
+    const bars = merge([box(0.78, 0.04, 0.04, 0, 1.28, -0.12), box(0.05, 0.22, 0.05, 0, 1.18, -0.08)]);
+    const guard = box(0.18, 0.04, 0.55, 0, 0.88, 0.06, 0.12, 0, 0);
+    const plate = box(0.3, 0.26, 0.03, 0, 1.06, 0.2, -0.32, 0, 0);
+    // A knobbly tyre: a tyre round a spoked rim, with blocks all round the tread
+    const tyre = new THREE.TorusGeometry(R - 0.06, 0.085, 8, 24); tyre.rotateY(PI / 2);
+    const knobs = merge(Array.from({ length: 18 }, (_, i) => { const a = (i / 18) * PI * 2; return box(0.15, 0.05, 0.06, 0, Math.cos(a) * (R + 0.01), Math.sin(a) * (R + 0.01), -a, 0, 0); }));
+    const rim = merge([new THREE.CylinderGeometry(R - 0.12, R - 0.12, 0.04, 16, 1, true).rotateZ(PI / 2), ...[0, 1, 2, 3].map((i) => box(0.02, (R - 0.12) * 2, 0.02, 0, 0, 0, i * PI / 4, 0, 0))]);
+    return { tank, side, seat, rearGuard, frame, swing, shock, pipe, head, tailL, stripe, fork, bars, guard, plate, tyre, knobs, rim };
+  });
+  addMesh(body, parts.tank, bodyMat);
+  addMesh(body, parts.side, lambert(0xf0f0e8));
+  addMesh(body, parts.rearGuard, bodyMat);
+  addMesh(body, parts.frame, dark);
+  addMesh(body, parts.swing, chrome());
+  addMesh(body, parts.shock, mat('dirtShock', () => new THREE.MeshLambertMaterial({ color: 0xffc020 })));
+  addMesh(body, parts.seat, mat('bikeSeat', () => new THREE.MeshLambertMaterial({ color: 0x141416 })));
+  addMesh(body, parts.pipe, chrome());
+  addMesh(body, parts.stripe, lambert(st.stripe ?? 0x151515), { shadow: false });
+  const headMat = mat('head', () => new THREE.MeshBasicMaterial({ color: 0xfff1c4, toneMapped: false }));
+  const tailMat = new THREE.MeshBasicMaterial({ color: 0x881018, toneMapped: false });
+  addMesh(body, parts.head, headMat, { shadow: false });
+  addMesh(body, parts.tailL, tailMat, { shadow: false });
+
+  // Wheels and the steering front end
+  const wheels = [], steer = [];
+  const tyreMat = mat('bikeTyre', () => new THREE.MeshLambertMaterial({ color: 0x141416 }));
+  const rimMat = lambert(st.rims ?? 0x777777);
+  const wheel = (parent, z) => {
+    const w = new THREE.Group();
+    w.position.set(0, R, z);
+    const t = new THREE.Mesh(parts.tyre, tyreMat), k = new THREE.Mesh(parts.knobs, tyreMat), r = new THREE.Mesh(parts.rim, rimMat);
+    t.castShadow = true;
+    w.add(t, k, r);
+    parent.add(w);
+    wheels.push(w);
+  };
+  wheel(wheelie, -0.72);
+  const front = new THREE.Group();
+  front.position.set(0, 0, 0.76);
+  front.add(new THREE.Mesh(parts.fork, chrome()), new THREE.Mesh(parts.bars, dark), new THREE.Mesh(parts.guard, bodyMat), new THREE.Mesh(parts.plate, lambert(0xf0f0e8)));
+  // the race number on the front plate
+  const num = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.18), new THREE.MeshBasicMaterial({ map: numberTexture('13'), transparent: true }));
+  num.position.set(0, 1.07, 0.222);
+  num.rotation.x = -0.32;
+  front.add(num);
+  wheel(front, 0);
+  wheelie.add(front);
+  steer.push(front);
+
+  // The rider: up on the pegs, elbows out (dirt bike style)
+  let rider = null;
+  if (!parked) {
+    rider = new PlayerModel();
+    rider.setLook(currentLook(save.data.settings));
+    const p = rider.pose;
+    p.hipL = p.hipR = -0.85; p.kneeL = p.kneeR = 1.3;
+    p.shL = p.shR = -1.1; p.elL = p.elR = -0.55; p.shLz = -0.35; p.shRz = 0.35;
+    p.lean = 0.42; p.headPitch = -0.25;
+    rider._apply({ state: 'ground', gliding: false });
+    rider.root.position.set(0, 0.36, -0.36);
+    wheelie.add(rider.root);
+  }
+
+  // Headlight on the road, a nitro flame (the Dirt Bike doesn't use nitro, but the flame keeps the shared code simple)
+  const beam = new THREE.Mesh(geo('bikeBeam', () => { const pl = new THREE.PlaneGeometry(3.5, 11); pl.rotateX(-PI / 2); pl.translate(0, 0.06, 7.5); return pl; }),
+    new THREE.MeshBasicMaterial({ map: getGlowTexture(), color: 0xfff0c0, transparent: true, opacity: 0.32, blending: THREE.AdditiveBlending, depthWrite: false, toneMapped: false }));
+  beam.material.userData.nightGlow = true;
+  g.add(beam);
+  addHeadlightBeams(wheelie, 'dirt');
+  const flames = new THREE.Group();
+  flames.visible = false;
+  wheelie.add(flames);
+
+  mergeStatic(body, new Set([tailMat]));
+  g.userData = { wheels, steer, sirens: null, flames, body, beam, tailMat, underglow: null, paint: bodyMat, rider, lean, bike: true,
+    wheelie: { group: wheelie, pivot: new THREE.Vector3(0, R, -0.72) } };
+  return g;
+}
+
+/** A race number, black on white. */
+function numberTexture(text) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 64;
+  const x = c.getContext('2d');
+  x.fillStyle = '#111'; x.font = 'bold 50px "Bebas Neue", Impact, sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle';
+  x.fillText(text, 32, 36);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }
 
 export function makeSnowmobileMesh({ color = 0xff9f1a, style = null, look = null } = {}) {
