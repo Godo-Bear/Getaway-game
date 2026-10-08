@@ -5,6 +5,14 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Chapter 16: The Silver Arrow, and Neon Kōji', items: [
+    'The crew moves to Neon Kōji: a huge city of dark towers covered in neon signs, giant billboards, cherry trees and rain. It\'s a new Free Run map too',
+    'A new crew member: Kitsu, the hacker who signs with a neon fox',
+    'Part 1: race across the rainy neon city to catch the bullet train before it leaves',
+    'Part 2: aboard the Silver Arrow at 300 km/h. Sit down in an empty seat to hide among the passengers, swap the courier\'s case only while the train is in a tunnel and the lights go out, then run back and uncouple the last carriage',
+    'People can sit down now (passengers on the train)',
+    'The controls help in the corner is smaller',
+  ] },
   { date: '2026-10-07', title: 'Chapter 15: Festa', items: [
     'Chapter 15: rob the crooked inspector Varga in the middle of Porto Sereno\'s night festival, then leave town',
     'Part 1: a parade of floats, lanterns, confetti and crowds. Wear a giant carnival head and dance with the parade so the police can\'t pick you out',

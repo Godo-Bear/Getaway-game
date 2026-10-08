@@ -67,3 +67,8 @@ export const FROSTVALE_CAR = { seed: 1313, blocks: 8, alpine: true };
 // whitewashed buildings, terracotta roofs, palm trees, trams, the sea to the south.
 export const PORTO_FOOT = { seed: 1717, blocks: 6, coastal: true, parks: 0.2, shopBlocks: 0.42 };
 export const PORTO_CAR = { seed: 1919, blocks: 8, coastal: true, parkShare: 0.16 };
+
+// Neon Kōji (Chapters 16-18): a huge city on the other side of the world.
+// Dark towers covered in neon, giant billboards, cherry trees, rain.
+export const NEON_FOOT = { seed: 1616, blocks: 6, neon: true, parks: 0.12, shopBlocks: 0.45 };
+export const NEON_CAR = { seed: 2626, blocks: 8, neon: true, parkShare: 0.1 };

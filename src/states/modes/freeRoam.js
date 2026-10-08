@@ -4,7 +4,7 @@
 
 import { earn } from '../../gadgets/gadgets.js';
 import { audio } from '../../core/audio.js';
-import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR, PORTO_FOOT, PORTO_CAR } from '../../world/maps.js';
+import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR, PORTO_FOOT, PORTO_CAR, NEON_FOOT, NEON_CAR } from '../../world/maps.js';
 import { save } from '../../core/save.js';
 
 /**
@@ -32,6 +32,11 @@ export const FREE_MAPS = {
     sub: 'A sunny harbour town: whitewashed streets, palm trees, trams and the sea.',
     foot: PORTO_FOOT, car: PORTO_CAR, // (the story's Porto Sereno)
   },
+  neon: {
+    name: 'Neon Kōji', where: 'the other side of the world', unlock: 16, icon: '🏮', rainy: true,
+    sub: 'A huge city of dark towers and neon signs, giant billboards and cherry trees, usually in the rain.',
+    foot: NEON_FOOT, car: NEON_CAR, // (the story's Neon Kōji)
+  },
 };
 
 export function mapUnlocked(id) {
@@ -54,7 +59,7 @@ export function applyFreeSky(mode, game, map) {
     mode.timeCycle = true;
   } else mode.time = ses.time;
   const w = ses.weather || 'auto';
-  if (w === 'auto') mode.weather = map.snow ? 'snow' : undefined;
+  if (w === 'auto') mode.weather = map.snow ? 'snow' : map.rainy ? 'rain' : undefined; // (Neon Kōji: usually raining)
   else { mode.weather = w; mode.weatherForced = true; }
 }
 

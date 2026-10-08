@@ -17,6 +17,9 @@ export const CREW_LOOKS = {
   // Paz: the fixer in Porto Sereno (linen shirt, sunglasses, panama hat)
   paz: { hoodie: 0xe8dcc0, trousers: 0x3a4a5a, shoes: 0x6a4a2a, skin: 0xb07a50, hair: 0x1a1410, shirt: 0xe8dcc0, hat: 0xd8c890,
     style: { top: 'jacket', hair: 'curly', hat: 'cap', build: 1.0 } },
+  // Kitsu: the hacker in Neon Kōji (orange tracksuit, headphones, an undercut)
+  kitsu: { hoodie: 0xff7a2a, trousers: 0x1a1b20, shoes: 0xe8e8e8, skin: 0xe8c4a0, hair: 0x1a1b20, hat: 0x1a1b20, shirt: 0xffffff,
+    style: { top: 'tracksuit', hair: 'undercut', hat: 'headphones', face: 'aviators', build: 0.9, height: 0.95 } },
   nova: { hoodie: 0x1fb8d8, trousers: 0x1a1b20, shoes: 0x1a1b20, skin: 0xf0c8a8, hair: 0xa86ae8,
     style: { top: 'hoodie', hair: 'bob', build: 0.9, height: 0.96 } },
   vince: { hoodie: 0x4a3322, trousers: 0x23201c, shoes: 0x1a1410, skin: 0xd2a27f, hair: 0x2a2420, shirt: 0xd8d0c0,

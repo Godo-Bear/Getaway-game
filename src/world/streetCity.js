@@ -9,6 +9,7 @@ import { makeShaftMaterial, lampShaftGeometry } from './atmosphere.js';
 import { Shopfronts, addShopsToBuildings } from './shopfronts.js';
 import { planSubway, rampHole, buildSubway } from './subway.js';
 import { buildPalms, COASTAL_TINTS } from './palms.js';
+import { NEON_TINTS, NEON_GLASS, NEON_WORDS, BLOSSOM, buildNeonDressing } from './neon.js';
 import { Trams } from './trams.js';
 
 // Street-level city for the driving modes.
@@ -57,6 +58,8 @@ const LANDMARKS = {
   // Porto Sereno (Chapters 13-15)
   portair: { height: 9, tint: 0xf2ece0, door: 0x39b8ff, sign: 'AEROPORTO SERENO', signColor: '#39b8ff' },
   fishmarket: { height: 8, tint: 0xd8a868, door: 0x1f9a58, sign: 'MERCADO DO PEIXE', signColor: '#ffd070' },
+  // Neon Kōji (Chapters 16-18)
+  station: { height: 16, tint: 0x3a3e48, door: 0x39e6ff, sign: 'KOJI CENTRAL', signColor: '#39e6ff', windows: true },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)
@@ -74,7 +77,7 @@ const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 
  * @param {boolean} [opts.alpine] - a snowy mountain town (see above)
  * @param {number} [opts.parkShare] - share of the blocks that are parks
  */
-export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, parkShare = 0.14 } = {}) {
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, neon = false, parkShare = 0.14 } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
@@ -143,7 +146,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     if (m < need) { x *= need / m; z *= need / m; }
     const col = rng.pick(WALL_TINTS), uo = rng();
     if (coastal && z > outerMax) continue; // (Porto Sereno: the sea's that way)
-    batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: coastal ? COASTAL_TINTS[Math.floor(uo * 8)] : col, uvScale: FACADE_UV, uvOffset: [uo, 0], topScale: [6, 6] });
+    batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: coastal ? COASTAL_TINTS[Math.floor(uo * 8)] : neon ? NEON_TINTS[Math.floor(uo * 8)] : col, uvScale: FACADE_UV, uvOffset: [uo, 0], topScale: [6, 6] });
   }
 
   // Alpine: a pine forest outside the wall and mountains all round (visual only)
@@ -330,13 +333,13 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         const bx0 = x0 + ((x1 - x0) * c) / cols, bx1 = x0 + ((x1 - x0) * (c + 1)) / cols;
         const bz0 = z0 + ((z1 - z0) * r) / rows, bz1 = z0 + ((z1 - z0) * (r + 1)) / rows;
         const h0 = alpine ? rng.range(6, 10.5) : rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
-        const h = coastal ? Math.max(8, h0 * 0.42) : h0; // (Porto Sereno: low and sunny)
+        const h = coastal ? Math.max(8, h0 * 0.42) : neon ? h0 * 1.2 : h0; // (Porto Sereno: low and sunny; Neon Kōji: taller)
         world.addBox(bx0, 0, bz0, bx1, h, bz1, { tag: 'building' });
-        const tint = coastal ? rng.pick(COASTAL_TINTS) : rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
+        const tint = coastal ? rng.pick(COASTAL_TINTS) : neon ? rng.pick(NEON_TINTS) : rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
         // (towers: about half are glass; their own random numbers, so the layout never changes)
-        const glass = !alpine && !coastal && h > 38 && drng() < 0.55;
+        const glass = !alpine && !coastal && h > (neon ? 30 : 38) && drng() < (neon ? 0.7 : 0.55);
         batch.addBox({ x: bx0, y: 0, z: bz0 }, { x: bx1, y: h, z: bz1 },
-          { side: 'wall', top: 'roof', color: glass ? drng.pick(GLASS_TINTS) : tint, uvScale: FACADE_UV, uvOffset, topScale: [6, 6] });
+          { side: 'wall', top: 'roof', color: glass ? drng.pick(neon ? NEON_GLASS : GLASS_TINTS) : tint, uvScale: FACADE_UV, uvOffset, topScale: [6, 6] });
         if (alpine) {
           roofs.push([bx0, bz0, bx1, bz1, h]);
           if (rng() < 0.5) { // a stone chimney
@@ -704,7 +707,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));
   group.add(buildRampMeshes(ramps));
-  group.add(buildTrees(trees, alpine, coastal));
+  group.add(buildTrees(trees, alpine, coastal, neon));
   if (coastal) {
     group.add(buildRoofs(roofs, true));
     group.add(buildSea(outer, outerMax));
@@ -734,7 +737,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const signGroup = new THREE.Group();
   const signTex = (alpine
     ? [['SKI HIRE', '#39e6ff'], ['HOTEL', '#ffb020'], ['CAFE', '#ff9ad5'], ['BAKERY', '#ffd070'], ['FONDUE', '#ff8a3d'], ['LIFT PASS', '#7dff8a']]
-    : [['THE ANCHOR', '#ffb020'], ['MOTEL', '#ff3fa4'], ['DINER', '#2fe0ff'], ['PAWN', '#4dffa6'], ['BAR', '#ff5a3a'], ['GARAGE', '#c070ff']])
+    : neon ? NEON_WORDS.slice(0, 6).map((t, i) => [t, ['#ff3fa4', '#2fe0ff', '#b46cff', '#ffd040', '#4dffa6', '#ff6a3a'][i]])
+      : [['THE ANCHOR', '#ffb020'], ['MOTEL', '#ff3fa4'], ['DINER', '#2fe0ff'], ['PAWN', '#4dffa6'], ['BAR', '#ff5a3a'], ['GARAGE', '#c070ff']])
     .map(([t, c]) => makeTextTexture(t, { color: c }));
   for (const b of buildingsList) {
     if (rng() > 0.12) continue;
@@ -746,6 +750,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   }
   group.add(signGroup);
   for (const sgn of extraSigns) group.add(sgn);
+  // Neon Kōji: neon everywhere (its own random numbers: the layout doesn't change)
+  if (neon) group.add(buildNeonDressing(buildingsList, makeRng(seed * 31 + 7), { signChance: 0.65, minY: 4.6 }));
 
   /** Height of the drivable surface at (x, z): 0 on roads, sloped on ramps. */
   /**
@@ -797,7 +803,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     subway,
     train,
     chimneys,
-    kerbs, lampSpots, alpine, coastal, elZ, sidewalk: SIDEWALK,
+    kerbs, lampSpots, alpine, coastal, neon, elZ, sidewalk: SIDEWALK,
     trams,
   };
 }
@@ -838,7 +844,7 @@ function buildRampMeshes(ramps) {
   return g;
 }
 
-function buildTrees(trees, alpine = false, coastal = false) {
+function buildTrees(trees, alpine = false, coastal = false, neon = false) {
   if (coastal) return buildPalms(trees.map(([x, z, s]) => [x, 0, z, s]));
   const g = new THREE.Group();
   if (!trees.length) return g;
@@ -864,7 +870,7 @@ function buildTrees(trees, alpine = false, coastal = false) {
   const leafGeo = new THREE.IcosahedronGeometry(2.2, 0);
   leafGeo.translate(0, 4.2, 0);
   const trunks = new THREE.InstancedMesh(trunkGeo, new THREE.MeshLambertMaterial({ color: 0x3a2a1c }), trees.length);
-  const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshLambertMaterial({ color: 0x1f4a2a, flatShading: true }), trees.length);
+  const leaves = new THREE.InstancedMesh(leafGeo, new THREE.MeshLambertMaterial({ color: neon ? BLOSSOM : 0x1f4a2a, flatShading: true }), trees.length); // (Neon Kōji: cherry trees)
   const m = new THREE.Matrix4();
   trees.forEach(([x, z, s], i) => {
     m.makeScale(s, s, s).setPosition(x, 0, z);

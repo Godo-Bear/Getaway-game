@@ -4,6 +4,7 @@ import { makeRng } from '../core/utils.js';
 import { CityDresser, SHOP_H } from './cityBlocks.js';
 import { RooftopKit, LIP } from './rooftopKit.js';
 import { COASTAL_TINTS } from './palms.js';
+import { NEON_TINTS, buildNeonDressing } from './neon.js';
 
 // Procedural rooftop city for Free Run and Rooftop Run.
 //
@@ -30,10 +31,10 @@ const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4
  * @param {boolean} [o.lowRise] - an old town: lower apartments, no towers
  * @param {number[][]} [o.treeAvoid] - [x, z, radius]: no street trees here (where a story level puts its own things)
  */
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [] } = {}) {
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, neon = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [] } = {}) {
   if (coastal) lowRise = true; // (Porto Sereno: low, sunny, no towers)
   const tintRng = makeRng(seed * 23 + 5);
-  const tint = () => (coastal ? tintRng.pick(COASTAL_TINTS) : undefined);
+  const tint = () => (coastal ? tintRng.pick(COASTAL_TINTS) : neon ? tintRng.pick(NEON_TINTS) : undefined);
   const kit = new RooftopKit({ seed });
   if (alpine) kit.noLadders = true;
   const rng = kit.rng;
@@ -45,7 +46,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
 
   // What goes on each block: apartments, a ring of small shops, or a park.
   // (Their own random numbers: the apartment blocks come out as before.)
-  const dress = new CityDresser(kit, { alpine, coastal, rng: makeRng(seed * 17 + 1), treeAvoid });
+  const dress = new CityDresser(kit, { alpine, coastal, neon, rng: makeRng(seed * 17 + 1), treeAvoid });
   const kindRng = makeRng(seed * 7 + 3);
   const mid = Math.floor(blocks / 2);
   const kindOf = {};
@@ -180,6 +181,8 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
   }
 
   const group = kit.finish();
+  // Neon Kōji: neon signs, roof outlines and billboards (own random numbers)
+  if (neon) group.add(buildNeonDressing(kit.buildings.filter((b) => !b.shop).map((b) => ({ x0: b.minX, x1: b.maxX, z0: b.minZ, z1: b.maxZ, h: b.h })), makeRng(seed * 41 + 3), { signChance: 0.3, minY: 5 }));
 
   // The shops, parks, trees and signs
   group.add(dress.build());
@@ -209,7 +212,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
 
   // Street centre lines (for parking the Free Run car at street level)
   const blockCenters = Array.from({ length: blocks }, (_, i) => blockCenter(i));
-  return { coastal, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
+  return { coastal, neon, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
     shops: dress.shops, parks: dress.parks, walks: dress.walks, blockKinds: kindOf,
     // (spots for hidden collectibles: the tops of towers, huts, upper roof levels, fire escapes, gazebos)
     perches: [...kit.perches, ...dress.perches, ...kit.buildings.filter((b) => b.tower).map((b) => new THREE.Vector3((b.minX + b.maxX) / 2, b.h, (b.minZ + b.maxZ) / 2))] };

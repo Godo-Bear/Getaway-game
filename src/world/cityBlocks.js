@@ -43,11 +43,12 @@ export class CityDresser {
    * @param {import('./rooftopKit.js').RooftopKit} kit
    * @param {{alpine?: boolean, rng: () => number}} opts
    */
-  constructor(kit, { alpine = false, coastal = false, rng, treeAvoid = [] }) {
+  constructor(kit, { alpine = false, coastal = false, neon = false, rng, treeAvoid = [] }) {
     this.kit = kit;
     this.treeAvoid = treeAvoid;
     this.alpine = alpine;
     this.coastal = coastal; // (Porto Sereno: palm trees)
+    this.neon = neon;       // (Neon Kōji: cherry trees)
     this.rng = rng;
     this.trees = [];     // [x, y, z, scale]
     this.glass = [];     // quads [x0,y0,z0, x1,y1,z1] (vertical, axis aligned)
@@ -432,7 +433,7 @@ export class CityDresser {
   /** Meshes for the trees, glass and signs (a handful of draw calls). */
   build() {
     const g = new THREE.Group();
-    if (this.trees.length) g.add(buildTrees(this.trees, this.alpine, this.coastal));
+    if (this.trees.length) g.add(buildTrees(this.trees, this.alpine, this.coastal, this.neon));
     if (this.glass.length) {
       const pos = [];
       for (const [x0, y0, z0, x1, y1, z1] of this.glass) {
@@ -466,7 +467,7 @@ function subtractRect([x0, z0, x1, z1], [hx0, hz0, hx1, hz1]) {
 }
 
 /** Instanced trees: round leafy ones in the city, snowy pines in the mountains. */
-export function buildTrees(trees, alpine, coastal = false) {
+export function buildTrees(trees, alpine, coastal = false, neon = false) {
   if (coastal) return buildPalms(trees);
   const g = new THREE.Group();
   const m = new THREE.Matrix4();
@@ -492,7 +493,7 @@ export function buildTrees(trees, alpine, coastal = false) {
   ], false);
   const tm = new THREE.InstancedMesh(trunk, new THREE.MeshLambertMaterial({ color: 0x4a3424 }), trees.length);
   const lm = new THREE.InstancedMesh(leaves, new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }), trees.length);
-  const greens = [0x2f6a2a, 0x3a7a30, 0x285a26, 0x4a7a2a, 0x356a3a];
+  const greens = neon ? [0xf0a0c8, 0xf4b8d4, 0xe890b8, 0xf8c8dc, 0xec98c0] : [0x2f6a2a, 0x3a7a30, 0x285a26, 0x4a7a2a, 0x356a3a]; // (Neon Kōji: cherry blossom)
   const c = new THREE.Color(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
   trees.forEach(([x, y, z, s], i) => {
     m.compose(p.set(x, y, z), q.setFromAxisAngle(up, (x * 7.13 + z * 3.7) % 6.28), sc.set(s, s, s));

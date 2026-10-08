@@ -64,6 +64,12 @@ export const SUSPECTS = {
     color: '#ffd070',
     bio: 'Knows everyone in Porto Sereno: the harbour master, the fish sellers, the customs men who look the other way. Joins the crew when it lands there.',
   },
+  kitsu: {
+    name: 'Kitsu',
+    role: 'The hacker',
+    color: '#ff7a2a',
+    bio: 'A hacker in Neon Kōji who signs everything with a neon fox. Can turn a city\'s traffic lights, cameras and trains into her toys. Invited the crew to the city, and stays with them.',
+  },
   // ---- Frostvale (Chapters 9-12): not crew, just people in the story
   lindqvist: {
     name: 'Mr. Lindqvist',

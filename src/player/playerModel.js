@@ -627,6 +627,12 @@ export class PlayerModel {
     // down and only swings a little
     if (this.carrying) { p.shR *= 0.35; p.shRz = Math.max(p.shRz || 0, 0.12); p.elR = Math.max(p.elR, -0.25); }
     this.carrying = false;
+    // Sitting down (a passenger on a train): thighs forward, knees bent, hands in the lap
+    if (this.seated) {
+      p.hipL = p.hipR = -1.45; p.kneeL = p.kneeR = 1.45;
+      p.lean = 0.04; p.twist = 0; p.sway = 0; p.sideLean = 0; p.bob = -0.45;
+      p.shL = p.shR = -0.4; p.shLz = p.shRz = 0.05; p.elL = p.elR = -0.95; p.bagSwing = 0;
+    }
     this.hipL.rotation.x = p.hipL;
     this.hipR.rotation.x = p.hipR;
     this.kneeL.rotation.x = p.kneeL;
