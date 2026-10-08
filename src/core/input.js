@@ -37,6 +37,7 @@ export const BINDINGS = {
   pause: ['KeyP', 'Escape'],
   help: ['KeyH'],
   car: ['KeyT'],            // Free Run on foot: straight into your car
+  lights: ['KeyL'],         // your torch on foot (the catacombs), your headlights in the blackout
   punch: ['Mouse0', 'KeyB'], // on foot: punch (left click)
   throw: ['Mouse2', 'KeyZ'], // on foot: throw a coin to distract guards (right click)
   debug: ['F3', 'Backquote'],

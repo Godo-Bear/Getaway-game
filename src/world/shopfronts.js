@@ -50,6 +50,7 @@ void main() {
 const FRAG = /* glsl */`
 uniform float uDay;
 uniform float uAlpine;
+uniform float uLights;
 varying vec3 vWorld;
 varying vec3 vT;
 varying vec3 vN;
@@ -197,7 +198,7 @@ void main() {
   float depth = clamp(t * r.z / D, 0.0, 1.0);
   vec3 lightC = kind == 4.0 ? vec3(1.0, 0.7, 0.45) : uAlpine > 0.5 || kind == 2.0 ? vec3(1.15, 0.95, 0.7) : vec3(1.05, 1.02, 0.95);
   float bright = kind == 4.0 ? 0.55 : 0.82;
-  col *= lightC * bright * mix(1.05, 0.55, depth);
+  col *= lightC * bright * uLights * mix(1.05, 0.55, depth);
 
   // The glass: a little sky reflection, more at a glancing angle
   float fres = 0.06 + 0.5 * pow(1.0 - r.z, 3.0);
@@ -216,7 +217,7 @@ let sharedMat = null;
 export function interiorMaterial() {
   if (sharedMat) return sharedMat;
   sharedMat = new THREE.ShaderMaterial({
-    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDay: { value: 0.5 }, uAlpine: { value: 0 } }]),
+    uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog, { uDay: { value: 0.5 }, uAlpine: { value: 0 }, uLights: { value: 1 } }]),
     vertexShader: VERT,
     fragmentShader: FRAG,
     fog: true,
@@ -227,6 +228,11 @@ export function interiorMaterial() {
 /** 0 at night, 1 in daylight: dims the glass reflections at night. */
 export function setShopDaylight(day) {
   if (sharedMat) sharedMat.uniforms.uDay.value = day;
+}
+
+/** The lights inside the shops: 1 = on, near 0 = a power cut (Chapter 20's blackout). */
+export function setShopLights(k) {
+  if (sharedMat) sharedMat.uniforms.uLights.value = k;
 }
 
 const STRIPES = [[0xc8302a, 0xf2ece0], [0x1f6a3a, 0xf2ece0], [0x2a4a9a, 0xf2ece0], [0xd89a1a, 0x3a2a1a], [0x7a2a6a, 0xf0e0f0], [0x1a7a8a, 0xf2ece0]];

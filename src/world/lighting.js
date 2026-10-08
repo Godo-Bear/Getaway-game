@@ -401,12 +401,13 @@ export class NightLighting {
     this.starMat.uniforms.time.value = this.skyMat.uniforms.time.value;
     this.skyMat.uniforms.flash.value = flash;
     // Underground (the subway): the sky's light fades out (0 = outside, 1 = down there)
-    const u = this.under || 0;
-    this.hemi.intensity = (this.hemiBase + flash * 6) * (1 - 0.45 * u);
-    if (u > 0 || this._moonDimmed) {
+    // dark: deep underground, no light at all but what you carry (0..1, the catacombs)
+    const u = this.under || 0, dk = this.dark || 0;
+    this.hemi.intensity = (this.hemiBase + flash * 6) * (1 - 0.45 * u) * (1 - 0.94 * dk);
+    if (u > 0 || dk > 0 || this._moonDimmed) {
       if (this._moonI == null) this._moonI = this.moon.intensity;
-      this.moon.intensity = this._moonI * (1 - 0.9 * u);
-      this._moonDimmed = u > 0;
+      this.moon.intensity = this._moonI * (1 - 0.9 * u) * (1 - dk);
+      this._moonDimmed = u > 0 || dk > 0;
       if (!this._moonDimmed) { this.moon.intensity = this._moonI; this._moonI = null; }
     }
   }

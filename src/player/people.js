@@ -36,6 +36,12 @@ export const CREW_LOOKS = {
   // Neon Kōji: Ryu, who runs the Silver Dragons street-racing crew (Chapters 17-18)
   ryu: { hoodie: 0xf0f0f4, trousers: 0x1a1b20, shoes: 0xe8e8e8, skin: 0xe8c4a0, hair: 0xd8dcec, shirt: 0x1a1b20, gloves: 0x1a1b20,
     style: { top: 'jacket', hair: 'long', face: 'shades', build: 0.92 } },
+  // Lumière: Valcourt, the collector who buys the Star (white dinner jacket), and
+  // Inspector Delacroix, the insurers' investigator (Chapters 19-21)
+  valcourt: { hoodie: 0xf0ece0, trousers: 0x16161a, shoes: 0x0a0a0a, skin: 0xf0c8a8, hair: 0xd8d4cc, shirt: 0xffffff, tie: 0x16161a,
+    style: { top: 'suit', hair: 'short', beard: 'goatee', build: 1.05 } },
+  delacroix: { hoodie: 0xb89a6a, trousers: 0x2a2b31, shoes: 0x2a1a10, skin: 0xd8a880, hair: 0x1a1410, shirt: 0xe8e8e8,
+    style: { top: 'trench', hair: 'bob', build: 0.94 } },
   dex: { hoodie: 0x2a3a5a, trousers: 0x1a1e2a, skin: 0x5a3a24, hair: 0x1a1410, style: { top: 'tee', hair: 'buzz', build: 1.15 } },
   hale: { hoodie: 0x6a5a48, trousers: 0x3a3630, skin: 0xe0b090, hair: 0x6a4422, style: { top: 'suit', hair: 'short', beard: 'moustache' } },
 };

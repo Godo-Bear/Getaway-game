@@ -94,7 +94,7 @@ export function buildIronTower(x, z, height = 120) {
     const cx = x + sx * 14.5, cz = z + sz * 14.5;
     return [cx - 2.5, cz - 2.5, cx + 2.5, cz + 2.5];
   });
-  return { group, legs, beacon };
+  return { group, legs, beacon, dots };
 }
 
 /** A long low tourist boat with a glass roof (a "bateau"), lit from inside. */

@@ -76,6 +76,7 @@ const LANDMARKS = {
   glassworks: { height: 9, tint: 0xd4c6a8, door: 0x9ad0ff, sign: 'VERRERIE', signColor: '#9ad0ff' },
   atelier: { height: 10, tint: 0xe0d4b8, door: 0x4dffa6, sign: 'ATELIER', signColor: '#ffd9a0' },
   musee: { height: 22, tint: 0xe8dfca, door: 0xc8a040, sign: 'GRAND MUSÉE', signColor: '#ffd070', windows: true },
+  opera: { height: 24, tint: 0xe8d8b0, door: 0xffd070, sign: 'OPÉRA', signColor: '#ffe0a0', windows: true },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)
@@ -662,6 +663,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
    * (-X), and a sign. Returns where the car should stop and the nearest junction.
    */
   function makeLandmark(x0, z0, x1, z1, L) {
+    let signFor = null;
     batch.addBox({ x: x0, y: 0, z: z0 }, { x: x1, y: 0.15, z: z1 },
       { side: 'concrete', top: 'concrete', color: 0x70707a, uvScale: [3, 3], topScale: [3, 3] });
     // Neighbouring buildings on the rest of the block
@@ -682,10 +684,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       sign.position.set(wx0 - 0.1, Math.min(L.height - 1.2, 7), cz);
       sign.rotation.y = -Math.PI / 2;
       extraSigns.push(sign);
+      signFor = sign;
     }
     minimapShapes.push({ type: 'building', x0: wx0, z0: wz0, x1: wx1, z1: wz1 });
     const door = new THREE.Vector3(x0 - 4, 0, cz);
-    return { door, node: graph.nearestNode(door.x, door.z), block: { x0, x1, z0, z1 } };
+    return { door, node: graph.nearestNode(door.x, door.z), block: { x0, x1, z0, z1 }, sign: signFor };
   }
 
   function makeRamp(x0, z0, x1, z1, axis, dir, height) {
@@ -850,7 +853,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       const tw = buildIronTower((pk.x0 + pk.x1) / 2, (pk.z0 + pk.z1) / 2);
       group.add(tw.group);
       for (const [lx0, lz0, lx1, lz1] of tw.legs) world.addBox(lx0, 0, lz0, lx1, 6, lz1, { tag: 'building' });
-      ironTower = { x: (pk.x0 + pk.x1) / 2, z: (pk.z0 + pk.z1) / 2 };
+      ironTower = { x: (pk.x0 + pk.x1) / 2, z: (pk.z0 + pk.z1) / 2, lights: [tw.beacon, tw.dots] };
     }
   }
   if (alpine) {
@@ -869,7 +872,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   // (no street lamp standing in a subway entrance)
   const inHole = (x, z) => holes.some((h) => x > h.x0 - 1 && x < h.x1 + 1 && z > h.z0 - 1 && z < h.z1 + 1);
   for (let k = lamps.length - 1; k >= 0; k--) { const [x, z] = lamps[k]; if (inHole(x, z)) lamps.splice(k, 1); }
-  group.add(buildLamps(lamps));
+  const lampGroup = buildLamps(lamps);
+  group.add(lampGroup);
 
   const trafficLights = new TrafficLights(graph, ROAD);
   group.add(trafficLights.group);
@@ -934,6 +938,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
 
   return {
     group, world, graph, ramps, parks, alleys, trafficLights, minimapShapes, landmarks,
+    lampGroup, signGroup, extraSigns, // (a blackout switches them off)
     bounds: { min: outer, max: outerMax },
     roadWidth: ROAD,
     groundHeight,

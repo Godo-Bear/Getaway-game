@@ -37,7 +37,8 @@ end). From now on:
   `coastal` city style), Neon Kōji (16-18, the `neon` style), then Lumière
   (19-21: a grand old European-style capital of boulevards, a river with
   bridges and famous museums; Chapter 18 ends with the crew flying there to
-  steal the Star of Lumière diamond from the Grand Musée).
+  steal the Star of Lumière diamond from the Grand Musée; Chapter 20
+  blacks out the city and ends with Delacroix on their trail).
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
 - **Each place has its own map layout** (not just its own look): its own

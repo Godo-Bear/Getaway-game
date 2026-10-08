@@ -5,6 +5,12 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-08', title: 'Chapter 20: Lights Out', items: [
+    'Chapter 20 (three parts) in Lumière: the buyer, Valcourt, will only pay for the Star at the Opéra at midnight, and Inspector Delacroix has every camera in the city watching for you. So you switch the city off',
+    'Part 1: down into the catacombs under Lumière, tunnels lined with bones and pitch dark. Your torch (E or L) runs on batteries, so pick up spare ones. Night guards walk the tunnels with torches: with YOUR torch on they see its light even from behind, so switch it off when they\'re near and feel your way. Cut the three big cables in the vault and the whole city goes dark',
+    'Part 2: drive across the blacked-out city to the Opéra (the only building with lights on) before the backup power comes back. No street lamps, no lit windows, no traffic lights. Switch your headlights off (L, or the Lights button on a phone) and the police can hardly see you, but you can hardly see the road either',
+    'Part 3: Valcourt takes the Star and won\'t pay. Take it back! Climb into the fly tower above the stage and cross high over the show on the flying scenery bridges, which go up and down: wait for the next one to come level and jump. Stay out of the follow spots, sneak into his box behind the bodyguard while Valcourt is watching the show, then ride the bridges up and out through the roof',
+  ] },
   { date: '2026-10-08', title: 'Every city has its own streets', items: [
     'The cities are laid out differently now, not just painted differently. Each place has its own street plan: some blocks long and some short, and here and there two blocks joined into one big block or park where a road used to be',
     'Frostvale is a village of odd-sized blocks with a market park and no elevated railway. Porto Sereno\'s blocks get smaller towards the sea, and it has trams instead of the railway. Neon Kōji has narrow streets between huge mega-blocks. Lumière has the river and a great park in the middle where the Iron Tower stands',

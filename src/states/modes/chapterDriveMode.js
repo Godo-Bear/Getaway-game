@@ -11,6 +11,8 @@ import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
 import { DOWNTOWN_CAR, FROSTVALE_CAR, PORTO_CAR, NEON_CAR, LUMIERE_CAR } from '../../world/maps.js';
 import { diff } from '../../core/difficulty.js';
+import { getMaterials } from '../../world/materials.js';
+import { setShopLights } from '../../world/shopfronts.js';
 
 // A story part played in a car (any chapter). The part's data decides:
 //
@@ -31,6 +33,11 @@ import { diff } from '../../core/difficulty.js';
 //   clue       - one clue hidden in a park (amber dot on the minimap)
 //   heat       - { start, max, riseEvery }: police pressure over time
 //   roadblocks - { fromHeat, every, spikes }: roadblocks / spike strips ahead
+//   blackout   - the city's power is cut: no street lamps, signs, lit windows
+//                or traffic lights (only the goal's sign stays lit). Your
+//                headlights are a switch (L, or the Lights button where the
+//                Horn was): off, the police only see you from close up, but
+//                you can hardly see the road either
 //
 // GHOST MODE (G, the pause menu or the ghost button on touch screens):
 // the police vanish and the clock stops, so you can drive around freely.
@@ -78,6 +85,7 @@ export class ChapterDriveMode {
     const goal = this.part.goal;
     this.goalPos = goal.block ? lm[goal.block].door : null;
     this.stops = (goal.stops || []).map((st) => ({ ...st, pos: lm[st.block].door }));
+    if (this.part.blackout) this._darkCity();
     this.race = goal.type === 'race';
     this.tail = goal.type === 'tail';
     // Clue in a park
@@ -142,6 +150,11 @@ export class ChapterDriveMode {
     }
 
     this._setBeacon();
+    if (part.blackout) {
+      this.lightsOn = true;
+      this._applyLights();
+      s.game.touch?.setLabel('d', 'Lights');
+    }
 
     const hud = s.game.hud;
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${part.title}`);
@@ -159,6 +172,42 @@ export class ChapterDriveMode {
     else if (st) s.beacon.set(st.pos.x, st.pos.z, `${st.label} (${this.stopIndex + 1}/${this.stops.length})`, st.color ?? 0xffb020);
     else if (this.goalPos) s.beacon.set(this.goalPos.x, this.goalPos.z, goal.label, goal.color ?? 0x4dffa6);
     else s.beacon.hide();
+  }
+
+  /** Blackout: the street lamps, signs, lit windows and traffic lights all go off (not the goal's sign). */
+  _darkCity() {
+    const c = this.state.city, keep = this.part.goal.block ? c.landmarks[this.part.goal.block]?.sign : null;
+    if (c.lampGroup) c.lampGroup.visible = false;
+    if (c.signGroup) c.signGroup.visible = false;
+    for (const sg of c.extraSigns || []) sg.visible = sg === keep;
+    if (c.trafficLights) c.trafficLights.heads.visible = false;
+    for (const l of c.ironTower?.lights || []) l.visible = false;
+    // every other glow (shop signs and awnings, lamp heads, doorways) goes out too
+    const shared = getMaterials().glow;
+    c.group.traverse((o) => {
+      const m = o.material;
+      if (!o.isMesh || o === keep || !m?.isMeshBasicMaterial || m.toneMapped !== false || m === shared || m.userData.blackout) return;
+      m.userData.blackout = true;
+      m.color.multiplyScalar(0.1);
+    });
+  }
+
+  /** Blackout: the Horn button (and L) switch your headlights instead. */
+  get hornIsLights() { return !!this.part.blackout && !this.done; }
+
+  toggleLights() {
+    const hud = this.state.game.hud;
+    this.lightsOn = !this.lightsOn;
+    this._applyLights();
+    audio.sfx('flick', { vol: 0.8, rate: 0.6 });
+    if (!this.lightsOn && !this.toldDark) { this.toldDark = true; hud.toast('Lights off', 'The police can\'t see you unless they\'re right on top of you. But you can hardly see the road: go carefully.', '#8aa0c8', 4); }
+    this._updateStats();
+  }
+
+  _applyLights() {
+    const m = this.state.playerMesh;
+    if (m.userData.beam) m.userData.beam.visible = this.lightsOn;
+    for (const c of m.children) if (c.isSpotLight) { c.userData.baseI ??= c.intensity; c.intensity = this.lightsOn ? c.userData.baseI * 1.8 : 0; } // (brighter than usual: there's no other light)
   }
 
   /** Something fragile on board? (from the stop it's picked up at) */
@@ -306,6 +355,24 @@ export class ChapterDriveMode {
 
     this.ghostWarn -= dt;
     if (this.crashCool > 0) this.crashCool -= dt;
+    if (part.blackout) {
+      // (every frame: the lighting puts the windows and lamp glows back otherwise)
+      const mats = getMaterials();
+      mats.wall.emissiveIntensity = 0.02;
+      mats.wall.map = mats.facade.dayMap; // (no lit windows anywhere)
+      mats.wall.reflectivity = 0.06;      // (and the glass reflects next to nothing in the dark)
+      mats.glow.color.setScalar(0.03);
+      setShopLights(0.07);
+      s.lighting._fadeNightGlows(0);
+      s.lighting.dark = 0.8;
+      if (!this.lightsOn) s.police.blackout = Math.max(s.police.blackout || 0, 0.25); // (only seen from close up)
+      // the dark closes in round you with your lights off; your headlights push it back
+      const fog = s.scene.fog, far = this.lightsOn ? 160 : 60;
+      fog.color.setRGB(0.012, 0.014, 0.026);
+      fog.far += (far - fog.far) * Math.min(1, dt * 2.5);
+      fog.near = fog.far * 0.12;
+      s.scene.background?.copy(fog.color);
+    }
     if (this.carrying && !this.ghost) hud.setMeter(this.intact, `${part.fragile.label}: ${Math.round(this.intact * 100)}%`, this.intact > 0.5 ? '#9ad0ff' : this.intact > 0.25 ? 'var(--amber)' : 'var(--red)');
     // Heat rises over time (or sooner if you ram cops), up to the part's max.
     if (!this.ghost) this.heatTimer += dt;
@@ -450,7 +517,8 @@ export class ChapterDriveMode {
     const stops = this.stops.length ? `<span>Stops <b>${Math.min(this.stopIndex, this.stops.length)}/${this.stops.length}</b></span>` : '';
     const race = this.race && this.raceLead != null && !this.ghost
       ? `<span class="${this.raceLead < 0 ? 'warn' : ''}">${this.raceLead >= 0 ? 'You\'re ahead' : `${this.part.fugitive.name} is ahead`} <b>${Math.round(Math.abs(this.raceLead))} m</b></span>` : '';
-    s.game.hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span>` + timer + stops + race +
+    const lights = this.part.blackout ? `<span>Lights <b style="color:${this.lightsOn ? '#fff2c0' : '#8aa0c8'}">${this.lightsOn ? 'ON' : 'OFF'}</b></span>` : '';
+    s.game.hud.setStats(`<span>Time <b>${formatTime(s.time)}</b></span>` + timer + stops + race + lights +
       (total ? `<span>Clues <b>${found}/${total}</b></span>` : '') +
       (this.ghost ? '' : `<span${this.run.caught ? ' class="warn"' : ''}>Caught <b>${this.run.caught}</b></span>` +
       (this.part.noPolice ? '' : `<span>Heat <b style="color:var(--red)">${'★'.repeat(this.heat)}</b></span>`)) + status);
@@ -471,5 +539,14 @@ export class ChapterDriveMode {
   teardown() {
     this.fugitive?.dispose();
     this.fugitive = null;
+    if (this.part.blackout) {
+      const mats = getMaterials();
+      mats.glow.color.setScalar(1);
+      mats.wall.map = mats.facade.map;
+      mats.wall.emissiveIntensity = 1.4;
+      mats.wall.reflectivity = 0.55;
+      setShopLights(1);
+      this.state.game.touch?.setLabel('d', null);
+    }
   }
 }

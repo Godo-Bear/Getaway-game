@@ -223,7 +223,9 @@ export class DrivingState extends PlayState {
     c.nitro = input.isDown('nitro') && this.nitro > 0.02;      // Space
     // The Dirt Bike: Space is the wheelie (hold), and letting go pops it into a jump
     if (this.dirt) { this.wheelieHeld = input.isDown('nitro'); c.nitro = false; }
-    if (input.wasPressed('horn')) {
+    if (this.mode.hornIsLights && (input.wasPressed('horn') || input.wasPressed('lights'))) {
+      this.mode.toggleLights(); // (the blackout: the Horn button switches your headlights)
+    } else if (input.wasPressed('horn')) {
       this.traffic.honk(this.player);
       this.life.honk(this.player);
       audio.sfx('horn');

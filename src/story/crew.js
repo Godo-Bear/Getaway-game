@@ -96,6 +96,19 @@ export const SUSPECTS = {
     color: '#c8d8ff',
     bio: 'Runs Neon Kōji\'s fastest street-racing crew, the Silver Dragons. A white racing jacket with a silver dragon on the back.',
   },
+  // ---- Lumière
+  valcourt: {
+    name: 'Valcourt',
+    role: 'The collector',
+    color: '#f0e6c8',
+    bio: 'The richest man in Lumière, and its biggest collector of things that were never for sale. Always in a white dinner jacket, always in Box 5 at the Opéra.',
+  },
+  delacroix: {
+    name: 'Inspector Delacroix',
+    role: 'The insurers\' investigator',
+    color: '#d8b070',
+    bio: 'Investigates thefts for the museum\'s insurers. Has never lost a case.',
+  },
 };
 
 /** The old crew (and the detective): the suspects in Chapters 1-4. */
