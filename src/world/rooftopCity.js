@@ -5,6 +5,7 @@ import { CityDresser, SHOP_H } from './cityBlocks.js';
 import { RooftopKit, LIP } from './rooftopKit.js';
 import { COASTAL_TINTS } from './palms.js';
 import { NEON_TINTS, buildNeonDressing } from './neon.js';
+import { CLASSIC_TINTS, buildIronTower } from './lumiere.js';
 
 // Procedural rooftop city for Free Run and Rooftop Run.
 //
@@ -31,10 +32,10 @@ const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4
  * @param {boolean} [o.lowRise] - an old town: lower apartments, no towers
  * @param {number[][]} [o.treeAvoid] - [x, z, radius]: no street trees here (where a story level puts its own things)
  */
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, neon = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [] } = {}) {
-  if (coastal) lowRise = true; // (Porto Sereno: low, sunny, no towers)
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, neon = false, classic = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [] } = {}) {
+  if (coastal || classic) lowRise = true; // (Porto Sereno: low, sunny, no towers; Lumière: six storeys, all much the same)
   const tintRng = makeRng(seed * 23 + 5);
-  const tint = () => (coastal ? tintRng.pick(COASTAL_TINTS) : neon ? tintRng.pick(NEON_TINTS) : undefined);
+  const tint = () => (coastal ? tintRng.pick(COASTAL_TINTS) : neon ? tintRng.pick(NEON_TINTS) : classic ? tintRng.pick(CLASSIC_TINTS) : undefined);
   const kit = new RooftopKit({ seed });
   if (alpine) kit.noLadders = true;
   const rng = kit.rng;
@@ -186,6 +187,16 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
 
   // The shops, parks, trees and signs
   group.add(dress.build());
+  // Lumière: the Iron Tower, in the park nearest the middle (its legs stand on the lawn)
+  if (classic) {
+    const pk = Object.entries(kindOf).filter(([, k]) => k === 'park').map(([key]) => key.split(',').map(Number))
+      .sort((a, b) => Math.hypot(blockCenter(a[0]), blockCenter(a[1])) - Math.hypot(blockCenter(b[0]), blockCenter(b[1])))[0];
+    if (pk) {
+      const tw = buildIronTower(blockCenter(pk[0]), blockCenter(pk[1]), 96);
+      group.add(tw.group);
+      for (const [lx0, lz0, lx1, lz1] of tw.legs) kit.world.addBox(lx0, 0, lz0, lx1, 6, lz1, { tag: 'building' });
+    }
+  }
 
   // Frostvale: shop fronts (rooms behind the glass) on the street side of
   // the chalets too, at ground level. Only faces on a block's edge (not the
@@ -212,7 +223,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
 
   // Street centre lines (for parking the Free Run car at street level)
   const blockCenters = Array.from({ length: blocks }, (_, i) => blockCenter(i));
-  return { coastal, neon, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
+  return { coastal, neon, classic, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
     shops: dress.shops, parks: dress.parks, walks: dress.walks, blockKinds: kindOf,
     // (spots for hidden collectibles: the tops of towers, huts, upper roof levels, fire escapes, gazebos)
     perches: [...kit.perches, ...dress.perches, ...kit.buildings.filter((b) => b.tower).map((b) => new THREE.Vector3((b.minX + b.maxX) / 2, b.h, (b.minZ + b.maxZ) / 2))] };

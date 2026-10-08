@@ -9,7 +9,7 @@ import { FugitiveCar } from '../../ai/fugitive.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
-import { DOWNTOWN_CAR, FROSTVALE_CAR, PORTO_CAR, NEON_CAR } from '../../world/maps.js';
+import { DOWNTOWN_CAR, FROSTVALE_CAR, PORTO_CAR, NEON_CAR, LUMIERE_CAR } from '../../world/maps.js';
 import { diff } from '../../core/difficulty.js';
 
 // A story part played in a car (any chapter). The part's data decides:
@@ -25,6 +25,9 @@ import { diff } from '../../core/difficulty.js';
 //                           going without being seen: not closer than
 //                           goal.near, not further than goal.far
 //   noPolice   - no police cars at all (a quiet errand, or a tail)
+//   fragile    - { label, after }: something breakable in the car (from the
+//                stop number `after` on): every crash chips it, a big one
+//                smashes it (and the part)
 //   clue       - one clue hidden in a park (amber dot on the minimap)
 //   heat       - { start, max, riseEvery }: police pressure over time
 //   roadblocks - { fromHeat, every, spikes }: roadblocks / spike strips ahead
@@ -65,7 +68,7 @@ export class ChapterDriveMode {
   cityOptions() {
     // Harbor City's or Frostvale's streets (the same as Free Run): the part
     // only adds its own landmarks (forceKinds) on top
-    const base = this.part.city.neon ? NEON_CAR : this.part.city.coastal ? PORTO_CAR : this.part.city.alpine ? FROSTVALE_CAR : DOWNTOWN_CAR;
+    const base = this.part.city.classic ? LUMIERE_CAR : this.part.city.neon ? NEON_CAR : this.part.city.coastal ? PORTO_CAR : this.part.city.alpine ? FROSTVALE_CAR : DOWNTOWN_CAR;
     return { ...this.part.city, seed: base.seed, blocks: base.blocks };
   }
 
@@ -117,6 +120,8 @@ export class ChapterDriveMode {
     this.catchMeter = 0;
     this.timeLeft = part.goal.timer != null ? part.goal.timer * diff().timer : null;
     this.stopIndex = 0;
+    this.intact = 1;          // (fragile cargo: how much of it is left)
+    this.crashCool = 0;
     this.suspicion = 0;
     this.lost = 0;
     s.player.gripFactor = part.ice ? (part.vehicle === 'snowmobile' ? 0.9 : playerCarBody().iceGrip ?? 0.62) : 1; // (snow and ice on the roads: the car slides; skis and the Rally Hatch grip)
@@ -154,6 +159,21 @@ export class ChapterDriveMode {
     else if (st) s.beacon.set(st.pos.x, st.pos.z, `${st.label} (${this.stopIndex + 1}/${this.stops.length})`, st.color ?? 0xffb020);
     else if (this.goalPos) s.beacon.set(this.goalPos.x, this.goalPos.z, goal.label, goal.color ?? 0x4dffa6);
     else s.beacon.hide();
+  }
+
+  /** Something fragile on board? (from the stop it's picked up at) */
+  get carrying() { return !!this.part.fragile && this.stopIndex >= (this.part.fragile.after ?? 0); }
+
+  /** The drive state reports every crash: chip the fragile cargo. */
+  onCrash(impact) {
+    if (!this.carrying || this.done || this.ghost || impact < 4.5 || this.crashCool > 0) return;
+    this.crashCool = 0.6; // (one knock counts once, not every frame you scrape along)
+    const loss = Math.min(1, (impact - 3.5) * 0.045);
+    this.intact = Math.max(0, this.intact - loss);
+    const f = this.part.fragile, hud = this.state.game.hud;
+    audio.sfx('glass', { vol: 0.7 });
+    if (this.intact <= 0) { this._failed(f.brokenTitle || 'Smashed!', f.brokenText || `${f.label} broke. Try again: brake early, take the corners slowly and keep clear of the traffic.`); return; }
+    hud.toast(loss > 0.25 ? 'CRACK!' : 'Clink...', `${f.label}: ${Math.round(this.intact * 100)}% left`, loss > 0.25 ? 'var(--red)' : 'var(--amber)', 1.6);
   }
 
   /** Reached a stop: the next one (or the goal) lights up. */
@@ -285,6 +305,8 @@ export class ChapterDriveMode {
     const part = this.part;
 
     this.ghostWarn -= dt;
+    if (this.crashCool > 0) this.crashCool -= dt;
+    if (this.carrying && !this.ghost) hud.setMeter(this.intact, `${part.fragile.label}: ${Math.round(this.intact * 100)}%`, this.intact > 0.5 ? '#9ad0ff' : this.intact > 0.25 ? 'var(--amber)' : 'var(--red)');
     // Heat rises over time (or sooner if you ram cops), up to the part's max.
     if (!this.ghost) this.heatTimer += dt;
     const h = part.heat;

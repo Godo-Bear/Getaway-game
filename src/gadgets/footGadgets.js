@@ -46,6 +46,7 @@ export class FootGadgets {
     const pc = this.state.player;
     if (this.box && pc.horizontalSpeed < 3.6) return true;          // Cardboard Box: still, or creeping
     if (this.cham > 0 && pc.horizontalSpeed < 5.2) return true;     // Chameleon Suit: walking
+    if (this.mime > 0 && pc.horizontalSpeed < 0.4 && pc.state === 'ground') return true; // Mime Act: frozen in a pose
     const s = this.smoke;
     return !!s && s.t < s.time && (admin.flag('infiniteRange') || this.state.player.pos.distanceTo(s.pos) < s.r);
   }
@@ -72,6 +73,8 @@ export class FootGadgets {
       : id === 'siesta' ? this._siesta()
       : id === 'locator' ? this._locate()
       : id === 'holo' ? this._decoy({ time: T(14), title: 'Hologram billboard!', color: 0xff4fd8 })
+      : id === 'mime' ? this._mime()
+      : id === 'perfume' ? this._stun({ radius: 12, time: 5, heli: false, title: 'Atchoo!', color: 0xff9ad5, verb: 'sneezing' })
       : this._grapple();
     if (ok) this.slot.used();
   }
@@ -263,6 +266,15 @@ export class FootGadgets {
     });
   }
 
+  // ---------------------------------------------------------------- Mime Act (Lumière)
+  _mime() {
+    this.mime = T(15);
+    this.mimeTotal = this.mime;
+    audio.sfx('whoosh', { vol: 0.5, rate: 1.3 });
+    this.state.game.hud.toast('Mime act!', `Stand still and you freeze like a statue: nobody can see you. For ${T(15)} seconds.`, '#e8e4dc', 3);
+    return true;
+  }
+
   // ---------------------------------------------------------------- Chameleon Suit
   _chameleon() {
     this.cham = T(CHAMELEON_TIME);
@@ -447,6 +459,7 @@ export class FootGadgets {
     const fx = [];
     if (this.cloak > 0) fx.push({ name: this.cloakName || 'Invisible', left: this.cloak, total: this.cloakTotal || this.cloak });
     if (this.cham > 0) fx.push({ name: 'Chameleon suit', left: this.cham, total: this.chamTotal || this.cham });
+    if (this.mime > 0) fx.push({ name: 'Mime act', left: this.mime, total: this.mimeTotal || this.mime });
     if (this.box) fx.push({ name: 'Cardboard box', left: T(BOX_TIME) - this.box.t, total: T(BOX_TIME) });
     if (this.smoke) fx.push({ name: 'Smoke', left: this.smoke.time - this.smoke.t, total: this.smoke.time });
     if (this.decoy) fx.push({ name: 'Decoy', left: this.decoy.time - this.decoy.t, total: this.decoy.time });
@@ -485,6 +498,13 @@ export class FootGadgets {
       this.state.model.root.visible = false;
       if (pc.horizontalSpeed > 6 || pc.state !== 'ground' && pc.state !== 'air') this._clearBox('Box off!');
       else if (b.t > T(BOX_TIME)) this._clearBox('The box falls apart.');
+    }
+    // Mime Act: standing still, strike a pose (and hold it)
+    if (this.mime > 0) {
+      this.mime -= dt;
+      const pc = this.state.player, still = this.mime > 0 && pc.horizontalSpeed < 0.4 && pc.state === 'ground';
+      if (still && !this.mimePosing) { this.mimePosing = true; this.state.model.statue = Math.floor(Math.random() * 4); }
+      if (!still && this.mimePosing) { this.mimePosing = false; this.state.model.statue = null; }
     }
     if (this.cham > 0) {
       this.cham -= dt;
@@ -551,6 +571,8 @@ export class FootGadgets {
     if (this.cloak > 0 || this.cham > 0) this._setSeeThrough(false);
     this.cloak = 0;
     this.cham = 0;
+    this.mime = 0;
+    if (this.mimePosing) { this.mimePosing = false; if (this.state.model) this.state.model.statue = null; }
     this.dazed = 0;
     this._clearBox();
     this._clearSmoke();

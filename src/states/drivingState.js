@@ -477,6 +477,7 @@ export class DrivingState extends PlayState {
 
   /** Crashes: a bang (and a message for big ones), but no damage: the car has no health. */
   _damage(amount, impact) {
+    this.mode.onCrash?.(impact); // (a story part can care: something fragile in the car)
     if (impact > 5) { audio.sfx('crash', { vol: clamp(impact / 20, 0.3, 1) }); rumble(clamp(impact / 22, 0.3, 1), 90 + impact * 6); }
     if (impact > 14) this.game.hud.toast('Crash!', '', 'var(--red)');
   }

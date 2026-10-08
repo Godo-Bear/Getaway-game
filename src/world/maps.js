@@ -72,3 +72,9 @@ export const PORTO_CAR = { seed: 1919, blocks: 8, coastal: true, parkShare: 0.16
 // Dark towers covered in neon, giant billboards, cherry trees, rain.
 export const NEON_FOOT = { seed: 1616, blocks: 6, neon: true, parks: 0.12, shopBlocks: 0.45 };
 export const NEON_CAR = { seed: 2626, blocks: 8, neon: true, parkShare: 0.1 };
+
+// Lumière (Chapters 19-21): a grand old European capital. Cream stone
+// buildings with zinc mansard roofs, cafés, plane trees, a river with
+// bridges through the middle, and the Iron Tower.
+export const LUMIERE_FOOT = { seed: 1919, blocks: 6, classic: true, parks: 0.18, shopBlocks: 0.5 };
+export const LUMIERE_CAR = { seed: 2929, blocks: 8, classic: true, parkShare: 0.14 };

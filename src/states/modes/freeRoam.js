@@ -4,7 +4,7 @@
 
 import { earn } from '../../gadgets/gadgets.js';
 import { audio } from '../../core/audio.js';
-import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR, PORTO_FOOT, PORTO_CAR, NEON_FOOT, NEON_CAR } from '../../world/maps.js';
+import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR, PORTO_FOOT, PORTO_CAR, NEON_FOOT, NEON_CAR, LUMIERE_FOOT, LUMIERE_CAR } from '../../world/maps.js';
 import { save } from '../../core/save.js';
 
 /**
@@ -36,6 +36,11 @@ export const FREE_MAPS = {
     name: 'Neon Kōji', where: 'the other side of the world', unlock: 16, icon: '🏮', rainy: true,
     sub: 'A huge city of dark towers and neon signs, giant billboards and cherry trees, usually in the rain.',
     foot: NEON_FOOT, car: NEON_CAR, // (the story's Neon Kōji)
+  },
+  lumiere: {
+    name: 'Lumière', where: 'the old world', unlock: 19, icon: '🗼',
+    sub: 'A grand old city of cream stone and zinc roofs: cafés, a river with bridges, and the Iron Tower over it all.',
+    foot: LUMIERE_FOOT, car: LUMIERE_CAR, // (the story's Lumière)
   },
 };
 

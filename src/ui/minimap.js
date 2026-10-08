@@ -27,7 +27,7 @@ export class Minimap {
     g.fillRect(0, 0, off.width, off.height);
     for (const s of city.minimapShapes) {
       if (s.type === 'bridge' || s.type === 'garage' || s.type === 'tunnel' || s.type === 'station' || s.type === 'subwayRamp') continue;
-      g.fillStyle = { park: '#1f4a2a', shop: '#4a3418', ladder: '#ffd040' }[s.type] || '#12151d';
+      g.fillStyle = { park: '#1f4a2a', shop: '#4a3418', ladder: '#ffd040', water: '#1d4470' }[s.type] || '#12151d';
       g.fillRect(s.x0 - min, s.z0 - min, s.x1 - s.x0, s.z1 - s.z0);
     }
     // The subway: tunnels (dashed, see-through), stations, and the ramps down (solid blue)

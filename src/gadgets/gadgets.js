@@ -36,6 +36,7 @@ export const CATEGORIES = [
   { id: 'frost', name: 'Frostvale', blurb: 'Mountain gear from the ski town. Unlocks when the crew reaches Frostvale (Chapter 8).', area: { place: 'Frostvale', unlock: 8 } },
   { id: 'porto', name: 'Porto Sereno', blurb: 'Tricks from the harbour town. Unlocks when the crew lands in Porto Sereno (Chapter 13).', area: { place: 'Porto Sereno', unlock: 13 } },
   { id: 'neon', name: 'Neon Kōji', blurb: 'High-tech gear from the neon city. Unlocks when the crew gets to Neon Kōji (Chapter 16).', area: { place: 'Neon Kōji', unlock: 16 } },
+  { id: 'lumiere', name: 'Lumière', blurb: 'Theatre tricks and boutique gear from the old city. Unlocks when the crew gets to Lumière (Chapter 19).', area: { place: 'Lumière', unlock: 19 } },
   { id: 'admin', name: 'Admin', blurb: 'Admin-only specials. Free, and only in the Shop for admins (or players an admin shared them with).', adminOnly: true },
 ];
 
@@ -134,6 +135,13 @@ export const GADGETS = [
     desc: 'A little drone watches the guards for you and warns you early: guards and patrols spot you from 20% less far.' },
   { id: 'surge', cat: 'neon', kind: 'car', name: 'Power Surge', price: 2000, cooldown: 60, color: '#8a5cff', icon: 'ϟ',
     desc: 'Overloads the city grid round you: every police car within 80 m stalls for 4 seconds and nearby roadblocks short out.' },
+  // ---- Lumière
+  { id: 'mime', cat: 'lumiere', kind: 'foot', name: 'Mime Act', price: 1400, cooldown: 45, color: '#e8e4dc', icon: '🎭',
+    desc: 'For 15 seconds you\'re a street mime: whenever you stand still you freeze in a pose like a statue, and nobody can see you.' },
+  { id: 'perfume', cat: 'lumiere', kind: 'foot', name: 'Eau de Lumière', price: 1100, cooldown: 40, color: '#ff9ad5', icon: '❀',
+    desc: 'A cloud of very strong perfume: every officer and guard within 12 m is sneezing too hard to see anything for 5 seconds.' },
+  { id: 'paint', cat: 'lumiere', kind: 'car', name: 'Paint Bomb', price: 1600, cooldown: 50, color: '#ff6ad0', icon: '✺',
+    desc: 'Splats pink paint over the windscreen of every police car within 45 m: they can\'t see where they\'re going and crawl for 5 seconds.' },
   // ---- Admin only (see src/core/admin.js)
   { id: 'rocket', cat: 'admin', kind: 'passive', adminOnly: true, name: 'Rocket Boots', price: 0, color: '#ff4dd2', icon: '🚀',
     desc: 'Jump again in mid-air as many times as you like: climb anything, cross any gap.' },

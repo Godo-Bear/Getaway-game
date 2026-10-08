@@ -40,7 +40,15 @@ const DEFAULTS = {
   lens: 0x0c0d10, bag: 0x3b4a2a, strap: 0x1d1f16, cash: 0x5fae5a, patch: 0xe8e8e8, cover: 0xc0283a,
 };
 const PUNCH_TIME = 0.32;
-const UPPER_TIME = 0.42; // (the uppercut that ends a combo is slower and bigger)
+const UPPER_TIME = 0.42;
+/** Poses for statues (and for you, frozen on a plinth): the thinker, victory, the discus thrower, pointing the way. */
+const Z0 = { lean: 0, twist: 0, sway: 0, sideLean: 0, bob: 0, bagSwing: 0, headYaw: 0 };
+export const STATUE_POSES = [
+  { ...Z0, hipL: -1.35, hipR: -1.2, kneeL: 1.7, kneeR: 1.5, bob: -0.42, lean: 0.55, shR: -1.75, shRz: 0.05, elR: -2.3, shL: -0.7, shLz: -0.1, elL: -0.9, headPitch: 0.25 },
+  { ...Z0, hipL: -0.25, hipR: 0.2, kneeL: 0.15, kneeR: 0.05, shL: -2.75, shR: -2.75, shLz: -0.62, shRz: 0.62, elL: -0.1, elR: -0.1, headPitch: -0.35 },
+  { ...Z0, hipL: -0.55, hipR: 0.35, kneeL: 0.7, kneeR: 0.1, twist: 0.6, lean: 0.25, shR: 0.95, shRz: 0.55, elR: -0.2, shL: -1.35, shLz: -0.4, elL: -0.6, headPitch: 0.1 },
+  { ...Z0, hipL: -0.3, hipR: 0.18, kneeL: 0.12, kneeR: 0.05, shR: -1.62, shRz: 0.08, elR: -0.02, shL: 0.1, shLz: -0.18, elL: -0.35, headPitch: -0.15, headYaw: -0.2 },
+]; // (the uppercut that ends a combo is slower and bigger)
 const FALL_TIME = 0.42;  // s to topple over when knocked down
 const GETUP_TIME = 1.0;  // s to get back up
 const STYLE = { top: 'hoodie', hair: 'short', beard: null, hat: null, face: 'face', build: 1, height: 1, badge: false, tie: false };
@@ -272,7 +280,7 @@ export class PlayerModel {
     const mine = resolve(own.colors, own.style);
     const face = MASK_FACES.includes(mine.style.face) ? 'face' : mine.style.face;
     this._apply_look(resolve(
-      { ...own.colors, ...cols, skin: mine.colors.skin, gloves: cols.gloves ?? mine.colors.skin },
+      { ...own.colors, ...cols, skin: cols.skin ?? mine.colors.skin, gloves: cols.gloves ?? cols.skin ?? mine.colors.skin }, // (skin: face paint, e.g. a marble statue)
       { ...own.style, hat: null, ...style, face },
     ));
   }
@@ -640,12 +648,20 @@ export class PlayerModel {
       p.hipL = p.hipR = 0.08; p.kneeL = p.kneeR = 0.06;
       p.lean = 0; p.twist = 0; p.sway = 0; p.sideLean = 0; p.bob = 0; p.bagSwing = 0;
       p.headPitch = -0.95; p.headYaw = 0;
+    } else if (this.flying === 'rope') {
+      // hanging on a rope: both hands up on it, legs together, looking down
+      p.shL = p.shR = -2.95; p.shLz = -0.12; p.shRz = 0.12; p.elL = p.elR = -0.15;
+      p.hipL = -0.12; p.hipR = 0.08; p.kneeL = 0.25; p.kneeR = 0.12;
+      p.lean = 0; p.twist = 0; p.sway = 0; p.sideLean = 0; p.bob = 0; p.bagSwing = 0;
+      p.headPitch = 0.35;
     } else if (this.flying === 'chute') {
       p.shL = p.shR = -2.75; p.shLz = -0.32; p.shRz = 0.32; p.elL = p.elR = -0.35;
       p.hipL = -0.25; p.hipR = 0.1; p.kneeL = 0.35; p.kneeR = 0.2;
       p.lean = 0.05; p.twist = 0; p.sway = 0; p.sideLean = 0; p.bob = 0; p.bagSwing = 0.3;
       p.headPitch = -0.15;
     }
+    // A statue pose (a mode sets this.statue to 0..3; the stone statues in a museum use them too)
+    if (this.statue != null) Object.assign(p, STATUE_POSES[this.statue % STATUE_POSES.length]);
     this.hipL.rotation.x = p.hipL;
     this.hipR.rotation.x = p.hipR;
     this.kneeL.rotation.x = p.kneeL;

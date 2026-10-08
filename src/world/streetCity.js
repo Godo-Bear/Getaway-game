@@ -11,6 +11,7 @@ import { planSubway, rampHole, buildSubway } from './subway.js';
 import { buildPalms, COASTAL_TINTS } from './palms.js';
 import { NEON_TINTS, NEON_GLASS, NEON_WORDS, BLOSSOM, buildNeonDressing } from './neon.js';
 import { Trams } from './trams.js';
+import { CLASSIC_TINTS, CLASSIC_WORDS, ZINC, riverMaterial, buildIronTower, buildRiverBoat } from './lumiere.js';
 
 // Street-level city for the driving modes.
 //
@@ -72,6 +73,10 @@ const LANDMARKS = {
   capsule: { height: 14, tint: 0x2a3a4a, door: 0x39e6ff, sign: 'CAPSULE HOTEL', signColor: '#39e6ff', windows: true },
   dragons: { height: 10, tint: 0x2a2c36, door: 0xd8dcec, sign: 'SILVER DRAGONS', signColor: '#d8dcec' },
   airport: { height: 12, tint: 0x3a3e48, door: 0x39e6ff, sign: 'AIRPORT CARGO', signColor: '#39e6ff', windows: true },
+  // Lumière (Chapters 19-21)
+  glassworks: { height: 9, tint: 0xd4c6a8, door: 0x9ad0ff, sign: 'VERRERIE', signColor: '#9ad0ff' },
+  atelier: { height: 10, tint: 0xe0d4b8, door: 0x4dffa6, sign: 'ATELIER', signColor: '#ffd9a0' },
+  musee: { height: 22, tint: 0xe8dfca, door: 0xc8a040, sign: 'GRAND MUSÉE', signColor: '#ffd070', windows: true },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)
@@ -89,7 +94,7 @@ const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 
  * @param {boolean} [opts.alpine] - a snowy mountain town (see above)
  * @param {number} [opts.parkShare] - share of the blocks that are parks
  */
-export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, neon = false, parkShare = 0.14 } = {}) {
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, neon = false, classic = false, parkShare = 0.14 } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
@@ -119,11 +124,18 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const shops = new Shopfronts({ alpine });
   const tanks = [];     // water tanks on the roofs [x, y, z, scale]
   const beacons = [];   // red warning lights on the towers
+  const riverMeshes = []; // (Lumière: the river's water and boats)
+  let ironTower = null;
 
   const outer = roadC(0) - ROAD / 2, outerMax = roadC(n - 1) + ROAD / 2;
 
+  // --- Lumière: a river across the city, one row of blocks of water ---------
+  const RIVER_J = Math.floor(blocks / 2) + 1;
+  const riverKeys = classic ? Array.from({ length: blocks }, (_, i) => `${i},${RIVER_J}`).filter((k) => !(k in forceKinds)) : [];
+  const riverZ0 = roadC(RIVER_J) + ROAD / 2, riverZ1 = roadC(RIVER_J + 1) - ROAD / 2;
+
   // --- The subway's plan (which blocks get an entrance ramp) ----------------
-  const subwayPlan = planSubway({ n, roadC, road: ROAD, forced: new Set(Object.keys(forceKinds)) });
+  const subwayPlan = planSubway({ n, roadC, road: ROAD, forced: new Set([...Object.keys(forceKinds), ...riverKeys]) });
   const holes = subwayPlan.ramps.map(rampHole);
 
   // --- Ground (asphalt everywhere, open where the subway ramps go down) ---
@@ -158,7 +170,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     if (m < need) { x *= need / m; z *= need / m; }
     const col = rng.pick(WALL_TINTS), uo = rng();
     if (coastal && z > outerMax) continue; // (Porto Sereno: the sea's that way)
-    batch.addBlock(x, 0, z, w, h, d, { side: 'wall', top: 'roof', color: coastal ? COASTAL_TINTS[Math.floor(uo * 8)] : neon ? NEON_TINTS[Math.floor(uo * 8)] : col, uvScale: FACADE_UV, uvOffset: [uo, 0], topScale: [6, 6] });
+    if (classic && z > riverZ0 - d / 2 - 2 && z < riverZ1 + d / 2 + 2) continue; // (Lumière: the river runs out of the city there)
+    batch.addBlock(x, 0, z, w, classic ? Math.min(h, 26) : h, d, { side: 'wall', top: 'roof', color: coastal ? COASTAL_TINTS[Math.floor(uo * 8)] : neon ? NEON_TINTS[Math.floor(uo * 8)] : classic ? CLASSIC_TINTS[Math.floor(uo * 8)] : col, uvScale: FACADE_UV, uvOffset: [uo, 0], topScale: [6, 6] });
   }
 
   // Alpine: a pine forest outside the wall and mountains all round (visual only)
@@ -211,6 +224,10 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     const [i, j] = key.split(',').map(Number);
     blockKinds[i * blocks + j] = kind;
   }
+  for (const key of riverKeys) {
+    const [i, j] = key.split(',').map(Number);
+    blockKinds[i * blocks + j] = 'river';
+  }
   for (const key of subwayPlan.rampBlocks.keys()) {
     const [i, j] = key.split(',').map(Number);
     blockKinds[i * blocks + j] = 'subway';
@@ -226,6 +243,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
 
       if (kind === 'park') {
         landmarks[`${i},${j}`] = makePark(x0, z0, x1, z1);
+        continue;
+      }
+      if (kind === 'river') {
+        makeRiver(x0, z0, x1, z1, i);
+        addKerbs(x0, z0, x1, z1, {});
         continue;
       }
       if (kind === 'subway') {
@@ -345,11 +367,11 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         const bx0 = x0 + ((x1 - x0) * c) / cols, bx1 = x0 + ((x1 - x0) * (c + 1)) / cols;
         const bz0 = z0 + ((z1 - z0) * r) / rows, bz1 = z0 + ((z1 - z0) * (r + 1)) / rows;
         const h0 = alpine ? rng.range(6, 10.5) : rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
-        const h = coastal ? Math.max(8, h0 * 0.42) : neon ? h0 * 1.2 : h0; // (Porto Sereno: low and sunny; Neon Kōji: taller)
+        const h = coastal ? Math.max(8, h0 * 0.42) : neon ? h0 * 1.2 : classic ? Math.min(23, Math.max(14, h0 * 0.62)) : h0; // (Porto Sereno: low and sunny; Neon Kōji: taller; Lumière: six or seven storeys, all much the same)
         world.addBox(bx0, 0, bz0, bx1, h, bz1, { tag: 'building' });
-        const tint = coastal ? rng.pick(COASTAL_TINTS) : neon ? rng.pick(NEON_TINTS) : rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
+        const tint = coastal ? rng.pick(COASTAL_TINTS) : neon ? rng.pick(NEON_TINTS) : classic ? rng.pick(CLASSIC_TINTS) : rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
         // (towers: about half are glass; their own random numbers, so the layout never changes)
-        const glass = !alpine && !coastal && h > (neon ? 30 : 38) && drng() < (neon ? 0.7 : 0.55);
+        const glass = !alpine && !coastal && !classic && h > (neon ? 30 : 38) && drng() < (neon ? 0.7 : 0.55);
         batch.addBox({ x: bx0, y: 0, z: bz0 }, { x: bx1, y: h, z: bz1 },
           { side: 'wall', top: 'roof', color: glass ? drng.pick(neon ? NEON_GLASS : GLASS_TINTS) : tint, uvScale: FACADE_UV, uvOffset, topScale: [6, 6] });
         if (alpine) {
@@ -366,6 +388,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         if (rng() < (alpine ? 0.4 : 0.5)) rng.pick(alpine ? [0, 0, 0] : [0, 0, 0, 0, 0]);
         if (!alpine) dressBuilding(bx0, bz0, bx1, bz1, h, glass);
         if (coastal && h < 16 && drng() < 0.7) roofs.push([bx0, bz0, bx1, bz1, h + 0.35]); // (terracotta tiles)
+        if (classic) roofs.push([bx0, bz0, bx1, bz1, h + 0.35]); // (Lumière: a zinc mansard roof on every one)
         buildingsList.push({ x0: bx0, x1: bx1, z0: bz0, z1: bz1, h });
         minimapShapes.push({ type: 'building', x0: bx0, z0: bz0, x1: bx1, z1: bz1 });
       }
@@ -412,7 +435,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       }
     };
     const w = x1 - x0, d = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
-    const style = glass ? 'glass' : drng() < 0.35 ? 'classic' : drng() < 0.55 ? 'brick' : 'plain';
+    const style = glass ? 'glass' : classic ? (drng() < 0.55 ? 'classic' : 'brick') : drng() < 0.35 ? 'classic' : drng() < 0.55 ? 'brick' : 'plain';
 
     if (style === 'glass') {
       strips(3, 0.14, 0.08, 0, h, metal);                                         // mullions
@@ -427,7 +450,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         strips(6, 0.5, 0.14, 1.1, h - 0.5, trim);
         if (h > 18) ring(h * 0.62, h * 0.62 + 0.35, 0.18, 0.1, trim);
       }
-      if (style === 'brick' && h > 11 && drng() < 0.6) {
+      if (style === 'brick' && h > 11 && drng() < (classic ? 0.95 : 0.6)) {
         // Balconies up one side
         const face = drng.int(0, 3), [nx, nz] = [[0, -1], [0, 1], [-1, 0], [1, 0]][face];
         const a0 = nz ? x0 : z0, a1 = nz ? x1 : z1, f = nz ? (nz < 0 ? z0 : z1) : (nx < 0 ? x0 : x1), out = nz || nx;
@@ -456,6 +479,14 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
       batch.addBlock(cx, top + 4, cz, w * 0.22, 2.5, d * 0.22, { side: 'concrete', top: 'concrete', color: 0x9a968e });
       batch.addBlock(cx, top + 6.5, cz, 0.25, 9, 0.25, { side: 'plain', top: 'plain', color: 0x3a3c40 });
       beacons.push([cx, top + 15.7, cz]);
+      return;
+    }
+    // Lumière: chimney stacks with clay pots on the mansard, nothing else up there
+    if (classic) {
+      for (let k = drng.int(1, 3); k > 0; k--) {
+        const cx2 = drng.range(x0 + 4, x1 - 4), cz2 = drng.range(z0 + 4, z1 - 4);
+        batch.addBlock(cx2, h + 0.35, cz2, 0.9, 4.4, drng.range(1.8, 3.2), { side: 'concrete', top: 'concrete', color: 0xb07050, uvScale: [1, 2] });
+      }
       return;
     }
     // Roof clutter (kept away from the edges)
@@ -507,6 +538,45 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     fillBuildings(ix0, iz0, gx1, cz - half - t - 1);
     fillBuildings(ix0, cz + half + t + 1, gx1, iz1);
     fillBuildings(gx1 + 1.5, iz0, ix1, iz1);
+  }
+
+  /**
+   * Lumière: a stretch of the river. A stone promenade along the quay with
+   * a parapet (it stops cars), the quay walls down to the water, the water,
+   * and now and then a tourist boat. The roads crossing it are its bridges.
+   */
+  function makeRiver(x0, z0, x1, z1, i) {
+    const stone = { side: 'concrete', top: 'concrete', color: 0xc8bca4, uvScale: [3, 1], topScale: [3, 3] };
+    const ix0 = x0 + SIDEWALK, ix1 = x1 - SIDEWALK, iz0 = z0 + SIDEWALK, iz1 = z1 - SIDEWALK;
+    // the promenade (four strips round the edge)
+    for (const [a, b, c, d] of [[x0, z0, x1, iz0], [x0, iz1, x1, z1], [x0, iz0, ix0, iz1], [ix1, iz0, x1, iz1]]) batch.addBox({ x: a, y: 0, z: b }, { x: c, y: 0.15, z: d }, stone);
+    // the parapet (stops cars and people), the quay walls, the water
+    const T = 0.45;
+    for (const [a, b, c, d] of [[ix0, iz0, ix1, iz0 + T], [ix0, iz1 - T, ix1, iz1], [ix0, iz0, ix0 + T, iz1], [ix1 - T, iz0, ix1, iz1]]) {
+      batch.addBox({ x: a, y: 0.15, z: b }, { x: c, y: 1.05, z: d }, stone);
+      world.addBox(a, 0, b, c, 1.05, d, { tag: 'wall' });
+      batch.addBox({ x: a, y: -3, z: b }, { x: c, y: 0.15, z: d }, { side: 'concrete', top: null, color: 0x9a8e78, uvScale: [3, 1] });
+    }
+    world.addBox(ix0 + T, -6, iz0 + T, ix1 - T, -2.4, iz1 - T, { tag: 'water' });
+    const water = new THREE.Mesh(new THREE.PlaneGeometry(ix1 - ix0, iz1 - iz0), riverMaterial());
+    water.rotation.x = -Math.PI / 2;
+    water.position.set((ix0 + ix1) / 2, -2.4, (iz0 + iz1) / 2);
+    riverMeshes.push(water);
+    if (i % 2 === 0) {
+      const boat = buildRiverBoat(i % 4 ? 0xf2f2ee : 0xe8d8b0);
+      boat.position.set((ix0 + ix1) / 2 + (i % 4 ? 6 : -8), -2.3, (iz0 + iz1) / 2);
+      boat.rotation.y = Math.PI / 2;
+      riverMeshes.push(boat);
+    }
+    minimapShapes.push({ type: 'water', x0, z0, x1, z1 });
+    // the bridges: a stone balustrade along both sides of each road crossing the river
+    for (const xr of [roadC(i), ...(i === blocks - 1 ? [roadC(i + 1)] : [])]) {
+      for (const side of [-1, 1]) {
+        const bx = xr + side * (ROAD / 2 - 0.25);
+        batch.addBox({ x: bx - 0.25, y: 0, z: z0 }, { x: bx + 0.25, y: 1.1, z: z1 }, stone);
+        world.addBox(bx - 0.25, 0, z0, bx + 0.25, 1.1, z1, { tag: 'wall' });
+      }
+    }
   }
 
   function makePark(x0, z0, x1, z1) {
@@ -721,8 +791,20 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   group.add(buildRampMeshes(ramps));
   group.add(buildTrees(trees, alpine, coastal, neon));
   if (coastal) {
-    group.add(buildRoofs(roofs, true));
+    group.add(buildRoofs(roofs, 'coastal'));
     group.add(buildSea(outer, outerMax));
+  }
+  if (classic) {
+    group.add(buildRoofs(roofs, 'classic'));
+    for (const r of riverMeshes) group.add(r);
+    // the Iron Tower, in the park nearest the middle of the city
+    const pk = parks.slice().sort((a, b) => Math.hypot((a.x0 + a.x1) / 2, (a.z0 + a.z1) / 2) - Math.hypot((b.x0 + b.x1) / 2, (b.z0 + b.z1) / 2))[0];
+    if (pk) {
+      const tw = buildIronTower((pk.x0 + pk.x1) / 2, (pk.z0 + pk.z1) / 2);
+      group.add(tw.group);
+      for (const [lx0, lz0, lx1, lz1] of tw.legs) world.addBox(lx0, 0, lz0, lx1, 6, lz1, { tag: 'building' });
+      ironTower = { x: (pk.x0 + pk.x1) / 2, z: (pk.z0 + pk.z1) / 2 };
+    }
   }
   if (alpine) {
     group.add(buildTrees(forest, true));
@@ -750,6 +832,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   const signTex = (alpine
     ? [['SKI HIRE', '#39e6ff'], ['HOTEL', '#ffb020'], ['CAFE', '#ff9ad5'], ['BAKERY', '#ffd070'], ['FONDUE', '#ff8a3d'], ['LIFT PASS', '#7dff8a']]
     : neon ? NEON_WORDS.slice(0, 6).map((t, i) => [t, ['#ff3fa4', '#2fe0ff', '#b46cff', '#ffd040', '#4dffa6', '#ff6a3a'][i]])
+      : classic ? CLASSIC_WORDS
       : [['THE ANCHOR', '#ffb020'], ['MOTEL', '#ff3fa4'], ['DINER', '#2fe0ff'], ['PAWN', '#4dffa6'], ['BAR', '#ff5a3a'], ['GARAGE', '#c070ff']])
     .map(([t, c]) => makeTextTexture(t, { color: c }));
   for (const b of buildingsList) {
@@ -815,7 +898,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     subway,
     train,
     chimneys,
-    kerbs, lampSpots, alpine, coastal, neon, elZ, sidewalk: SIDEWALK,
+    kerbs, lampSpots, alpine, coastal, neon, classic, elZ, sidewalk: SIDEWALK,
+    river: classic ? { z0: riverZ0, z1: riverZ1 } : null, ironTower,
     trams,
   };
 }
@@ -1045,13 +1129,36 @@ class ElevatedTrain {
 }
 
 /** Alpine: pitched roofs with snow on them (the gable ends are wood). */
-function buildRoofs(roofs, coastal = false) {
+function buildRoofs(roofs, style = 'snow') {
   const pos = [], col = [];
-  // (Frostvale: snow on top, wooden gables. Porto Sereno: terracotta tiles, whitewashed gables.)
+  const coastal = style === 'coastal';
+  // (Frostvale: snow on top, wooden gables. Porto Sereno: terracotta tiles, whitewashed gables.
+  // Lumière: grey zinc mansards, steep all round with a flat top, and a row of lit dormer windows.)
   const snow = new THREE.Color(coastal ? 0xb8562e : 0xf2f6fa), wood = new THREE.Color(coastal ? 0xf0e8d8 : 0x5a3e28), eave = new THREE.Color(coastal ? 0x6a3a22 : 0x3a2a1c);
   const tri = (a, b, c, color) => { pos.push(...a, ...b, ...c); for (let i = 0; i < 3; i++) col.push(color.r, color.g, color.b); };
   const quad = (a, b, c, d, color) => { tri(a, b, c, color); tri(a, c, d, color); };
-  for (const [bx0, bz0, bx1, bz1, h] of roofs) {
+  if (style === 'classic') {
+    const zinc = new THREE.Color(ZINC), top = new THREE.Color(0x4a5460), lit = new THREE.Color(0xffd28a), frame = new THREE.Color(0xe8e0cc);
+    for (const [bx0, bz0, bx1, bz1, h] of roofs) {
+      const x0 = bx0 - 0.3, x1 = bx1 + 0.3, z0 = bz0 - 0.3, z1 = bz1 + 0.3, inset = Math.min(2.2, (bx1 - bx0) * 0.2, (bz1 - bz0) * 0.2), rise = 3.4;
+      // (dormers sit 22-62% of the way up the slope)
+      const a0 = x0 + inset, a1 = x1 - inset, c0 = z0 + inset, c1 = z1 - inset, y1 = h + rise;
+      quad([x0, h, z0], [a0, y1, c0], [a1, y1, c0], [x1, h, z0], zinc);
+      quad([x1, h, z1], [a1, y1, c1], [a0, y1, c1], [x0, h, z1], zinc);
+      quad([x0, h, z1], [a0, y1, c1], [a0, y1, c0], [x0, h, z0], zinc);
+      quad([x1, h, z0], [a1, y1, c0], [a1, y1, c1], [x1, h, z1], zinc);
+      quad([a0, y1, c0], [a0, y1, c1], [a1, y1, c1], [a1, y1, c0], top);
+      // dormer windows: little lit squares on the north and south slopes
+      const yd0 = h + rise * 0.22, yd1 = h + rise * 0.62;
+      for (let x = x0 + 2.2; x < x1 - 2; x += 3.2) {
+        for (const [zA, zB, s] of [[z0, c0, 1], [z1, c1, -1]]) {
+          const zb = zA + (zB - zA) * 0.22, zt = zA + (zB - zA) * 0.62, zo = s * 0.04;
+          quad([x - 0.55, yd0, zb - zo], [x - 0.55, yd1, zt - zo], [x + 0.55, yd1, zt - zo], [x + 0.55, yd0, zb - zo], frame);
+          quad([x - 0.4, yd0 + 0.12, zb - zo * 2], [x - 0.4, yd1 - 0.12, zt - zo * 2], [x + 0.4, yd1 - 0.12, zt - zo * 2], [x + 0.4, yd0 + 0.12, zb - zo * 2], (Math.round(x * 7.3 + h) % 3) ? lit : top);
+        }
+      }
+    }
+  } else for (const [bx0, bz0, bx1, bz1, h] of roofs) {
     const o = 0.7, x0 = bx0 - o, x1 = bx1 + o, z0 = bz0 - o, z1 = bz1 + o;
     const alongX = (bx1 - bx0) >= (bz1 - bz0);
     const rise = Math.min(5, Math.min(bx1 - bx0, bz1 - bz0) * 0.38);
