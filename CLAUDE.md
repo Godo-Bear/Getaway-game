@@ -21,7 +21,9 @@ end). From now on:
 - Keep the crew from Chapter 5 (Mags, Theo, Ricky) as the loyal core team;
   new members can join, and they should stay loyal. (Juno, Paz and Kitsu
   have joined since.)
-- **Chapters have at least three parts.** Story drive parts are cheap to add
+- **Chapters have about six parts (from Chapter 21 on; at least three before).**
+  Mix them: drives, on-foot, and at least two parts with a new mechanic of
+  their own. Story drive parts are cheap to add
   (`ChapterDriveMode` goal types: reach, safehouse, chase, stops, tail,
   race; `noPolice`, `vehicle: 'dirtbike'`, `car: { body, color }`), but each
   chapter should also have at least one part with its own new mechanic.
@@ -38,7 +40,10 @@ end). From now on:
   (19-21: a grand old European-style capital of boulevards, a river with
   bridges and famous museums; Chapter 18 ends with the crew flying there to
   steal the Star of Lumière diamond from the Grand Musée; Chapter 20
-  blacks out the city and ends with Delacroix on their trail).
+  blacks out the city; Chapter 21 ends with the crew flying out from under
+  Delacroix's nose). Next: Mirage Springs (22-24), a desert city of casinos
+  in the middle of the desert, where a rival crew (the Jackals) is waiting;
+  then Isla Coral (25-27), tropical islands.
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
 - **Each place has its own map layout** (not just its own look): its own

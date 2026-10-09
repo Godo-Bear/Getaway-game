@@ -41,7 +41,7 @@ const _v = new THREE.Vector3(), _d = new THREE.Vector3();
 const standing = (x, y, z, facing) => ({ pos: new THREE.Vector3(x, y, z), vel: new THREE.Vector3(), facing, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null });
 
 /** A foamy wake behind a boat: a pool of flat white patches that fade and spread. */
-class Wake {
+export class Wake {
   constructor(parent, n = 70) {
     const geo = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
     this.items = [];

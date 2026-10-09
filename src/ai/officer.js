@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { PlayerController } from '../player/playerController.js';
 import { PlayerModel } from '../player/playerModel.js';
-import { POLICE_LOOK } from '../player/people.js';
+import { POLICE_LOOK, crewLook } from '../player/people.js';
 
 // Police officers who chase you across the rooftops on foot.
 //
@@ -50,7 +50,7 @@ export class OfficerSquad {
    * @param {THREE.Vector3[]} spawns - where officers come out (stairwell huts)
    * @param {{count:number, speed?:number}} opts - speed = fraction of your speed
    */
-  constructor(scene, world, spawns, { count = 2, speed = 0.86, streets = false } = {}) {
+  constructor(scene, world, spawns, { count = 2, speed = 0.86, streets = false, lead = null, leadSpeed = 1.06 } = {}) {
     this.streets = streets;
     this.scene = scene;
     this.world = world;
@@ -58,8 +58,12 @@ export class OfficerSquad {
     this.units = [];
     for (let i = 0; i < count; i++) {
       const pc = new PlayerController(world);
-      pc.speedScale = speed;
-      const model = new PlayerModel(POLICE_LOOK, { bag: false, style: { build: 1 + i * 0.06 } });
+      // lead: someone in their own clothes runs the chase, a little quicker
+      // than the uniforms (Inspector Delacroix in Lumière)
+      const leads = lead && i === 0;
+      pc.speedScale = speed * (leads ? leadSpeed : 1);
+      const look = leads ? crewLook(lead) : POLICE_LOOK;
+      const model = new PlayerModel(look, { bag: false, style: leads ? look.style : { build: 1 + i * 0.06 } });
       scene.add(model.root);
       model.root.visible = false; // appears when the officer comes out of a stairwell
       const ctl = { moveX: 0, moveZ: 0, jumpPressed: false, jumpHeld: false, sprint: true, crouch: false,

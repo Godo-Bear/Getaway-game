@@ -455,6 +455,7 @@ export class DrivingState extends PlayState {
     if (this.mode.stolen) return makeCarMesh({ kind: this.mode.stolen.kind, color: this.mode.stolen.color }); // (Free Run: a car you stole)
     const color = playerCarColour(), style = playerCarStyle();
     if (this.mode.vehicle === 'dirtbike') return makeCarMesh({ kind: 'player', color, style: { ...style, body: 'dirt' } }); // (the story puts you on the Dirt Bike)
+    if (this.mode.storyCar?.kind) return makeCarMesh({ kind: this.mode.storyCar.kind, color: this.mode.storyCar.color ?? color }); // (e.g. the crew's van)
     if (this.mode.storyCar) return makeCarMesh({ kind: 'player', color: this.mode.storyCar.color ?? color, style: { ...style, body: this.mode.storyCar.body } }); // (e.g. the gold car)
     return this.mode.vehicle === 'snowmobile'
       ? makeSnowmobileMesh({ color, style, look: currentLook(this.game.settings) })

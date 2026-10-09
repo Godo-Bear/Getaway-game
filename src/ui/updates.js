@@ -5,6 +5,15 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-09', title: 'Chapter 21: The Last Bridge (six parts!)', items: [
+    'The last chapter in Lumière, and the first with SIX parts. Chapters from now on are longer',
+    'Part 1, Noon: Inspector Delacroix has found out the Star in the museum is glass. Follow her car through the city without being seen... she leads the police straight to your studio',
+    'Part 2, The raid: over the roofs of Lumière with Delacroix herself chasing you (she\'s faster than her officers) and a helicopter overhead, down to Paz\'s speedboat',
+    'Part 3, The river: a speedboat chase under the bridges. Your boat fits the narrow side arches, the police launches don\'t. Hold C (or Drift) to DUCK under the low iron footbridges, or bang your head! The police are too tall to follow',
+    'Part 4, The park: sneak through the park round the Iron Tower at dusk, past police patrols and a helicopter searchlight, up the stair in the west leg and onto the lift',
+    'Part 5, The Iron Tower: climb the ladders round the top of the tower in the wind. When a gust is coming, crouch or hold on, or you\'re blown off. Keep out of the police helicopter\'s light, and grab Juno\'s rope ladder at the top',
+    'Part 6, The last bridge: race the crew\'s van to the airfield before Delacroix closes the last bridge out of the city. Next stop: Mirage Springs',
+  ] },
   { date: '2026-10-08', title: 'Fixes: black flashes and a close-up camera', items: [
     'No more black flashes while driving. A single pixel that came out too bright (or broken), like a glint off a shiny surface or the side wall of a subway ramp, could make the glow effect black out the whole screen for a moment. The broken walls are fixed, and the glow now ignores any bad pixel',
     'Fixed a rare freeze in the city traffic, when a car couldn\'t find a road to start on',
