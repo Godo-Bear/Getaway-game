@@ -37,6 +37,7 @@ export const CATEGORIES = [
   { id: 'porto', name: 'Porto Sereno', blurb: 'Tricks from the harbour town. Unlocks when the crew lands in Porto Sereno (Chapter 13).', area: { place: 'Porto Sereno', unlock: 13 } },
   { id: 'neon', name: 'Neon Kōji', blurb: 'High-tech gear from the neon city. Unlocks when the crew gets to Neon Kōji (Chapter 16).', area: { place: 'Neon Kōji', unlock: 16 } },
   { id: 'lumiere', name: 'Lumière', blurb: 'Theatre tricks and boutique gear from the old city. Unlocks when the crew gets to Lumière (Chapter 19).', area: { place: 'Lumière', unlock: 19 } },
+  { id: 'mirage', name: 'Mirage Springs', blurb: 'Desert tricks and casino luck. Unlocks when the crew gets to Mirage Springs (Chapter 22).', area: { place: 'Mirage Springs', unlock: 22 } },
   { id: 'admin', name: 'Admin', blurb: 'Admin-only specials. Free, and only in the Shop for admins (or players an admin shared them with).', adminOnly: true },
 ];
 
@@ -142,6 +143,13 @@ export const GADGETS = [
     desc: 'A cloud of very strong perfume: every officer and guard within 12 m is sneezing too hard to see anything for 5 seconds.' },
   { id: 'paint', cat: 'lumiere', kind: 'car', name: 'Paint Bomb', price: 1600, cooldown: 50, color: '#ff6ad0', icon: '✺',
     desc: 'Splats pink paint over the windscreen of every police car within 45 m: they can\'t see where they\'re going and crawl for 5 seconds.' },
+  // ---- Mirage Springs
+  { id: 'dustdevil', cat: 'mirage', kind: 'foot', name: 'Dust Devil', price: 1500, cooldown: 45, color: '#d8b07a', icon: '🌪',
+    desc: 'A whirlwind of sand spins up round you: nobody can see into it for 8 seconds (bigger than a smoke bomb).' },
+  { id: 'chips', cat: 'mirage', kind: 'foot', name: 'Lucky Chips', price: 1200, cooldown: 40, color: '#ffd040', icon: '🪙',
+    desc: 'Throw a handful of casino chips in the air: every officer and guard within 15 m is down on their knees picking them up for 5 seconds.' },
+  { id: 'tumble', cat: 'mirage', kind: 'car', name: 'Tumbleweed Storm', price: 1700, cooldown: 50, color: '#c8a070', icon: '🌾',
+    desc: 'A storm of tumbleweeds bounces over every police car within 55 m: they can\'t see the road and crawl for 5 seconds.' },
   // ---- Admin only (see src/core/admin.js)
   { id: 'rocket', cat: 'admin', kind: 'passive', adminOnly: true, name: 'Rocket Boots', price: 0, color: '#ff4dd2', icon: '🚀',
     desc: 'Jump again in mid-air as many times as you like: climb anything, cross any gap.' },

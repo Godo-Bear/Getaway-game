@@ -49,6 +49,7 @@ export class CarGadgets {
     else if (id === 'net') this._spikes({ net: true });
     else if (id === 'surge') this._emp({ radius: 80, time: 4, title: 'Power surge!', color: 0x8a5cff });
     else if (id === 'paint') this._emp({ radius: 45, time: 5, title: 'Paint bomb!', color: 0xff6ad0 });
+    else if (id === 'tumble') this._emp({ radius: 55, time: 5, title: 'Tumbleweeds!', color: 0xc8a070 });
     else if (id === 'tow') { if (!this._tow()) return; }
     else if (id === 'radar') this._radar();
     else if (id === 'screen') this._screen();

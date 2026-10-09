@@ -41,9 +41,11 @@ end). From now on:
   bridges and famous museums; Chapter 18 ends with the crew flying there to
   steal the Star of Lumière diamond from the Grand Musée; Chapter 20
   blacks out the city; Chapter 21 ends with the crew flying out from under
-  Delacroix's nose). Next: Mirage Springs (22-24), a desert city of casinos
-  in the middle of the desert, where a rival crew (the Jackals) is waiting;
-  then Isla Coral (25-27), tropical islands.
+  Delacroix's nose). Then Mirage Springs (22-24, the `desert` style: a
+  city of casinos in the middle of the desert; the rival crew there is the
+  Jackals, led by Sable, and the sheriff works for her; Chapter 22 ends with
+  Lorenzo Gold of the Golden Mirage offering to buy the Star if the crew
+  robs Sable's silver mine). Then Isla Coral (25-27), tropical islands.
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
 - **Each place has its own map layout** (not just its own look): its own

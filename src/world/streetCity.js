@@ -78,6 +78,10 @@ const LANDMARKS = {
   atelier: { height: 10, tint: 0xe0d4b8, door: 0x4dffa6, sign: 'ATELIER', signColor: '#ffd9a0' },
   musee: { height: 22, tint: 0xe8dfca, door: 0xc8a040, sign: 'GRAND MUSÉE', signColor: '#ffd070', windows: true },
   opera: { height: 24, tint: 0xe8d8b0, door: 0xffd070, sign: 'OPÉRA', signColor: '#ffe0a0', windows: true },
+  // Mirage Springs (Chapters 22-24)
+  oasis: { height: 8, tint: 0xe8c89a, door: 0x4dffa6, sign: 'OASIS MOTEL', signColor: '#4dffa6' },
+  sableauto: { height: 9, tint: 0x5a4030, door: 0xff3a3a, sign: 'SABLE AUTO', signColor: '#ff5a4a' },
+  golden: { height: 48, tint: 0xd8b050, door: 0xffd040, sign: 'GOLDEN MIRAGE', signColor: '#ffd040', windows: true },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)

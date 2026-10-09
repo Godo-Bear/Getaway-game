@@ -91,8 +91,8 @@ export class HandcarMode {
     s.cam.distance = 7.5;
     s.cam.groundFn = railGround;
     const t = s.game.touch;
-    t?.setLabel?.('a', 'Pump ◀');
-    t?.setLabel?.('b', 'Pump ▶');
+    t?.setLabel?.('a', 'Pump ▶'); // (the Drift button sits on the right, Nitro to its left)
+    t?.setLabel?.('b', 'Pump ◀');
     t?.setLabel?.('d', 'Duck');
     this._camSet = true;
   }
@@ -173,8 +173,8 @@ export class HandcarMode {
     const ax = input.axis('left', 'right');
     const side = ax < -0.5 ? -1 : ax > 0.5 ? 1 : 0;
     let stroke = 0;
-    if (input.wasPressed('drift')) stroke = -1;
-    else if (input.wasPressed('nitro')) stroke = 1;
+    if (input.wasPressed('drift')) stroke = 1;
+    else if (input.wasPressed('nitro')) stroke = -1;
     else if (side && side !== this.prevSide) stroke = side;
     this.prevSide = side;
     if (stroke) {

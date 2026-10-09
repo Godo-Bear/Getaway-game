@@ -5,6 +5,17 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-09', title: 'Mirage Springs and Chapter 22: Sandstorm', items: [
+    'A new place: Mirage Springs, a city of casinos in the middle of the desert. Sandstone and adobe, gold glass towers covered in neon, palm trees, and sand, cacti and red mesas all round. Its own street plan, and a new map in Free Run (on foot and in the car)',
+    'Chapter 22 (six parts). The crew lands on a dry lake to sell the Star, and a rival crew, the Jackals, take it off them before the propellers have stopped. Their boss is Sable',
+    'Part 1, The dunes: chase Sable across the desert in a dune buggy and ram her buggy four times. Hit a crest at speed and you FLY (big air fills your boost). Uphill slows you, downhill speeds you up, and her Jackals try to knock you away',
+    'Part 2, The Strip: chase the Jackals\' van through Mirage Springs before it gets into their garage',
+    'Part 3, Dry Gulch: an old ghost town in a SANDSTORM. When a big gust blows through you can hardly see, and nor can the Jackals: move then, and hide when it clears. Open the old bank vault and take the Star back',
+    'Part 4, The handcar: out of town on an old railway handcar. Pump it by pressing left and right in turn, in rhythm. Punch the Jackals off their dirt bikes when they ride up beside you, and duck under the water-tower spouts and the bridge beams',
+    'Part 5, Back to town: the sheriff works for Sable. Lose his cars and get to the Oasis Motel, your new home',
+    'Part 6, Over the casinos: at 2 a.m. the Jackals raid the motel. Run the roofs of the Strip with Sable on your heels to the Golden Mirage, where a buyer is waiting',
+    'New Mirage Springs gadgets in the Shop: Dust Devil (a whirlwind of sand hides you), Lucky Chips (everyone nearby scrambles for them) and, for the car, Tumbleweed Storm',
+  ] },
   { date: '2026-10-09', title: 'Chapter 21: The Last Bridge (six parts!)', items: [
     'The last chapter in Lumière, and the first with SIX parts. Chapters from now on are longer',
     'Part 1, Noon: Inspector Delacroix has found out the Star in the museum is glass. Follow her car through the city without being seen... she leads the police straight to your studio',

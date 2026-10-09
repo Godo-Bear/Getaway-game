@@ -75,6 +75,8 @@ export class FootGadgets {
       : id === 'holo' ? this._decoy({ time: T(14), title: 'Hologram billboard!', color: 0xff4fd8 })
       : id === 'mime' ? this._mime()
       : id === 'perfume' ? this._stun({ radius: 12, time: 5, heli: false, title: 'Atchoo!', color: 0xff9ad5, verb: 'sneezing' })
+      : id === 'dustdevil' ? this._smoke({ r: 8, time: T(8), color: 0xd8b07a, title: 'Dust devil!', text: 'A whirlwind of sand spins up round you: nobody can see in for 8 seconds.' })
+      : id === 'chips' ? this._stun({ radius: 15, time: 5, heli: false, title: 'Jackpot!', color: 0xffd040, verb: 'scrabbling for chips' })
       : this._grapple();
     if (ok) this.slot.used();
   }

@@ -684,11 +684,12 @@ export class ChapterFootMode {
     if (this.officers && t > (part.officers.delay ?? 4)) {
       if (!this.officersAnnounced) {
         this.officersAnnounced = true;
-        hud.toast('Officers on the roof!', 'They\'re slower than you when you sprint, but they don\'t give up. Zip lines lose them.', 'var(--red)', 5);
+        const o = part.officers;
+        hud.toast(o.title || 'Officers on the roof!', o.text || 'They\'re slower than you when you sprint, but they don\'t give up. Zip lines lose them.', 'var(--red)', 5);
       }
       const lure = s.policeTarget !== p ? s.policeTarget.pos : null;
       const r = this.officers.update(dt, p, this.hidden || s.concealed || !!lure, lure);
-      if (r === 'caught') this._caught('An officer tackled you. Back to the last checkpoint.');
+      if (r === 'caught') this._caught(part.officers.caughtText || 'An officer tackled you. Back to the last checkpoint.');
     }
 
     // --- Police on the beat (and the crowd you can hide in)
