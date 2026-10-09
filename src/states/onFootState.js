@@ -41,6 +41,7 @@ import { RiverMode } from './modes/riverMode.js';
 import { TowerMode } from './modes/towerMode.js';
 import { DuneMode } from './modes/duneMode.js';
 import { SandstormMode } from './modes/sandstormMode.js';
+import { HandcarMode } from './modes/handcarMode.js';
 import { PrisonMode } from './modes/prisonMode.js';
 import { setShopDaylight } from '../world/shopfronts.js';
 import { rumble } from '../core/haptics.js';
@@ -68,7 +69,7 @@ import { GlacierMode } from './modes/glacierMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode, highway: HighwayMode, museum: MuseumMode, catacombs: CatacombMode, opera: OperaMode, river: RiverMode, tower: TowerMode, dunes: DuneMode, sandstorm: SandstormMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode, highway: HighwayMode, museum: MuseumMode, catacombs: CatacombMode, opera: OperaMode, river: RiverMode, tower: TowerMode, dunes: DuneMode, sandstorm: SandstormMode, handcar: HandcarMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {
