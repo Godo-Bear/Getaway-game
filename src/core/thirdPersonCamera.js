@@ -131,6 +131,8 @@ export class ThirdPersonCamera {
       : damp(this.currentDistance, allowed, 5, dt);
 
     this.camera.position.copy(this.pivot).addScaledVector(this._dir, this.currentDistance);
+    // (ground that isn't boxes, say sand dunes: a mode gives its height, and the camera stays above it)
+    if (this.groundFn) this.camera.position.y = Math.max(this.camera.position.y, this.groundFn(this.camera.position.x, this.camera.position.z) + 0.8);
     this.camera.lookAt(this.pivot);
     if (this.roll) this.camera.rotateZ(this.roll);
 

@@ -9,7 +9,7 @@ import { FugitiveCar } from '../../ai/fugitive.js';
 import { save } from '../../core/save.js';
 import { formatTime, clamp } from '../../core/utils.js';
 import { audio } from '../../core/audio.js';
-import { DOWNTOWN_CAR, FROSTVALE_CAR, PORTO_CAR, NEON_CAR, LUMIERE_CAR } from '../../world/maps.js';
+import { DOWNTOWN_CAR, FROSTVALE_CAR, PORTO_CAR, NEON_CAR, LUMIERE_CAR, MIRAGE_CAR } from '../../world/maps.js';
 import { diff } from '../../core/difficulty.js';
 import { getMaterials } from '../../world/materials.js';
 import { setShopLights } from '../../world/shopfronts.js';
@@ -75,7 +75,7 @@ export class ChapterDriveMode {
   cityOptions() {
     // Harbor City's or Frostvale's streets (the same as Free Run): the part
     // only adds its own landmarks (forceKinds) on top
-    const base = this.part.city.classic ? LUMIERE_CAR : this.part.city.neon ? NEON_CAR : this.part.city.coastal ? PORTO_CAR : this.part.city.alpine ? FROSTVALE_CAR : DOWNTOWN_CAR;
+    const base = this.part.city.desert ? MIRAGE_CAR : this.part.city.classic ? LUMIERE_CAR : this.part.city.neon ? NEON_CAR : this.part.city.coastal ? PORTO_CAR : this.part.city.alpine ? FROSTVALE_CAR : DOWNTOWN_CAR;
     return { ...this.part.city, seed: base.seed, blocks: base.blocks, layout: base.layout, el: base.el }; // (the place's own street plan)
   }
 

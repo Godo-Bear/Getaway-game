@@ -5,6 +5,7 @@ import { CityDresser, SHOP_H } from './cityBlocks.js';
 import { RooftopKit, LIP } from './rooftopKit.js';
 import { COASTAL_TINTS } from './palms.js';
 import { NEON_TINTS, buildNeonDressing } from './neon.js';
+import { DESERT_TINTS, DESERT_WORDS, DESERT_COLORS, DESERT_SLOGANS, buildDesertRim } from './desert.js';
 import { CLASSIC_TINTS, buildIronTower, riverMaterial, buildRiverBoat } from './lumiere.js';
 
 // Procedural rooftop city for Free Run and Rooftop Run.
@@ -32,12 +33,12 @@ const ALPINE_TINTS = [0x8a5a3a, 0x6e4a30, 0xd2c4aa, 0xc8b89a, 0x9a6a44, 0xe0d6c4
  * @param {boolean} [o.lowRise] - an old town: lower apartments, no towers
  * @param {number[][]} [o.treeAvoid] - [x, z, radius]: no street trees here (where a story level puts its own things)
  */
-export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, neon = false, classic = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [], block = 42, towers = 0.09 } = {}) {
+export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coastal = false, neon = false, classic = false, desert = false, shopAvoid = [], kinds = null, parks = 0.16, shopBlocks = 0.32, lowRise = false, treeAvoid = [], block = 42, towers = 0.09 } = {}) {
   // (each map has its own block size: the streets between stay the same, too far to jump)
   const BLOCK = block, PITCH = BLOCK + STREET;
-  if (coastal || classic) lowRise = true; // (Porto Sereno: low, sunny, no towers; Lumière: six storeys, all much the same)
+  if (coastal || classic || desert) lowRise = true; // (Porto Sereno: low, sunny, no towers; Lumière: six storeys, all much the same)
   const tintRng = makeRng(seed * 23 + 5);
-  const tint = () => (coastal ? tintRng.pick(COASTAL_TINTS) : neon ? tintRng.pick(NEON_TINTS) : classic ? tintRng.pick(CLASSIC_TINTS) : undefined);
+  const tint = () => (coastal ? tintRng.pick(COASTAL_TINTS) : neon ? tintRng.pick(NEON_TINTS) : classic ? tintRng.pick(CLASSIC_TINTS) : desert ? tintRng.pick(DESERT_TINTS) : undefined);
   const kit = new RooftopKit({ seed });
   if (alpine) kit.noLadders = true;
   const rng = kit.rng;
@@ -49,7 +50,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
 
   // What goes on each block: apartments, a ring of small shops, or a park.
   // (Their own random numbers: the apartment blocks come out as before.)
-  const dress = new CityDresser(kit, { alpine, coastal, neon, rng: makeRng(seed * 17 + 1), treeAvoid });
+  const dress = new CityDresser(kit, { alpine, coastal: coastal || desert, neon, rng: makeRng(seed * 17 + 1), treeAvoid }); // (palms in Mirage Springs too)
   const kindRng = makeRng(seed * 7 + 3);
   const mid = Math.floor(blocks / 2);
   const kindOf = {};
@@ -119,7 +120,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
             kit.building(lx0, lz0, lx1, lz1, Math.round(rng.range(7, 10.5) * 2) / 2, { lips: false, tint: rng.pick(ALPINE_TINTS) });
             continue;
           }
-          const tower = rng() < towers && !lowRise;
+          const tower = rng() < towers && (!lowRise || desert); // (Mirage Springs: low adobe, and casino towers)
           // Normal roofs stay within a 4.5 m band so routes are always climbable.
           const h = tower ? rng.range(28, 36) : lowRise ? Math.round(rng.range(9.5, 13) * 2) / 2 : Math.round(rng.range(15, 19.5) * 2) / 2;
           const b = kit.building(lx0, lz0, lx1, lz1, h, { tower, lips: !tower, tint: tint() });
@@ -210,6 +211,11 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
   for (const w of waterMeshes) group.add(w);
   // Neon Kōji: neon signs, roof outlines and billboards (own random numbers)
   if (neon) group.add(buildNeonDressing(kit.buildings.filter((b) => !b.shop).map((b) => ({ x0: b.minX, x1: b.maxX, z0: b.minZ, z1: b.maxZ, h: b.h })), makeRng(seed * 41 + 3), { signChance: 0.3, minY: 5 }));
+  // Mirage Springs: casino neon, and the desert out to the mesas
+  if (desert) {
+    group.add(buildNeonDressing(kit.buildings.filter((b) => !b.shop).map((b) => ({ x0: b.minX, x1: b.maxX, z0: b.minZ, z1: b.maxZ, h: b.h })), makeRng(seed * 41 + 3), { signChance: 0.2, minY: 5, words: DESERT_WORDS, colors: DESERT_COLORS, slogans: DESERT_SLOGANS }));
+    group.add(buildDesertRim(-extent - 200, extent + 200, seed));
+  }
 
   // The shops, parks, trees and signs
   group.add(dress.build());
@@ -249,7 +255,7 @@ export function generateRooftopCity({ seed = 1, blocks = 6, alpine = false, coas
 
   // Street centre lines (for parking the Free Run car at street level)
   const blockCenters = Array.from({ length: blocks }, (_, i) => blockCenter(i));
-  return { coastal, neon, classic, block: BLOCK, water: waterRects, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
+  return { coastal, neon, classic, desert, block: BLOCK, water: waterRects, group, world: kit.world, buildings: kit.buildings, hideSpots: kit.hideSpots, ladders: kit.ladders, spawn, bounds: extent, blockCenters, pitch: PITCH,
     shops: dress.shops, parks: dress.parks, walks: dress.walks, blockKinds: kindOf,
     // (spots for hidden collectibles: the tops of towers, huts, upper roof levels, fire escapes, gazebos)
     perches: [...kit.perches, ...dress.perches, ...kit.buildings.filter((b) => b.tower).map((b) => new THREE.Vector3((b.minX + b.maxX) / 2, b.h, (b.minZ + b.maxZ) / 2))] };

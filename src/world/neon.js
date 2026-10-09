@@ -37,8 +37,8 @@ function verticalTexture(text, color) {
 }
 
 /** A giant billboard: a bright gradient with a slogan. */
-function billboardTexture(i) {
-  const key = 'bb' + i;
+function billboardTexture(i, slogans = null) {
+  const key = 'bb' + i + (slogans ? slogans.join() : '');
   if (cache.has(key)) return cache.get(key);
   const c = document.createElement('canvas');
   c.width = 512; c.height = 288;
@@ -53,7 +53,7 @@ function billboardTexture(i) {
   g.font = 'bold 120px "Bebas Neue", Impact, sans-serif';
   g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffffff';
   g.shadowColor = 'rgba(0,0,0,0.5)'; g.shadowBlur = 12;
-  g.fillText(['KITSUNE COLA', 'NEO GAMES', 'SILVER ARROW', 'HYPER RAMEN'][i % 4], 256, 150);
+  g.fillText((slogans || ['KITSUNE COLA', 'NEO GAMES', 'SILVER ARROW', 'HYPER RAMEN'])[i % 4], 256, 150);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   cache.set(key, t);
@@ -65,15 +65,16 @@ function billboardTexture(i) {
  * @param {() => number} rng - its own random numbers (decoration only)
  * @param {{signChance?: number, minY?: number}} [opts]
  */
-export function buildNeonDressing(buildings, rng, { signChance = 0.5, minY = 3 } = {}) {
+export function buildNeonDressing(buildings, rng, { signChance = 0.5, minY = 3, words = NEON_WORDS, colors = COLORS, slogans = null } = {}) {
   const g = new THREE.Group();
   const pick = (a) => a[Math.floor(rng() * a.length)];
+  const COLORS_ = colors, WORDS = words;
   // glowing strips round the roof edges (and one band lower down on some)
   const strips = [];
   for (const b of buildings) {
-    if (rng() < 0.55) strips.push([b, b.h - 0.15, pick(COLORS)]);
-    if (rng() < 0.6) strips.push([b, minY - 0.4, pick(COLORS)]);                // over the shop fronts (eye level)
-    if (b.h > 14 && rng() < 0.35) strips.push([b, Math.round(rng() * (b.h - 8)) + 5, pick(COLORS)]);
+    if (rng() < 0.55) strips.push([b, b.h - 0.15, pick(COLORS_)]);
+    if (rng() < 0.6) strips.push([b, minY - 0.4, pick(COLORS_)]);                // over the shop fronts (eye level)
+    if (b.h > 14 && rng() < 0.35) strips.push([b, Math.round(rng() * (b.h - 8)) + 5, pick(COLORS_)]);
   }
   if (strips.length) {
     const im = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ color: 0xffffff, toneMapped: false }), strips.length * 4);
@@ -95,7 +96,7 @@ export function buildNeonDressing(buildings, rng, { signChance = 0.5, minY = 3 }
   // tall signs sticking out from the walls, and billboards on the towers
   for (const b of buildings) {
     if (rng() < signChance && b.h > minY + 6) {
-      const text = pick(NEON_WORDS), color = pick(COLORS);
+      const text = pick(WORDS), color = pick(COLORS_);
       const tex = verticalTexture(text, color);
       const hgt = Math.min(b.h - minY - 1, 1.5 * text.length + 1.2);
       const mat = new THREE.MeshBasicMaterial({ map: tex, toneMapped: false, side: THREE.DoubleSide });
@@ -110,7 +111,7 @@ export function buildNeonDressing(buildings, rng, { signChance = 0.5, minY = 3 }
     }
     if (b.h > 26 && rng() < 0.45) {
       const w = Math.min(b.x1 - b.x0, 16) * 0.8;
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.56), new THREE.MeshBasicMaterial({ map: billboardTexture(Math.floor(rng() * 4)), toneMapped: false }));
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(w, w * 0.56), new THREE.MeshBasicMaterial({ map: billboardTexture(Math.floor(rng() * 4), slogans), toneMapped: false }));
       m.position.set((b.x0 + b.x1) / 2, b.h - w * 0.4, b.z0 - 0.15);
       m.rotation.y = Math.PI;
       g.add(m);

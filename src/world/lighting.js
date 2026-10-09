@@ -308,6 +308,12 @@ export class NightLighting {
     this._apply();
   }
 
+  /** Out in the desert (Mirage Springs): the sand is bright, so less exposure and glow. */
+  setSand(on) {
+    this.sand = !!on;
+    this._apply();
+  }
+
   /** Fog (Free Run's weather): the city fades into a grey mist. */
   setMist(on) {
     this.mist = !!on;
@@ -377,8 +383,9 @@ export class NightLighting {
       mats.concrete.color.setRGB(1.55, 1.6, 1.75);
     }
     // Snow reflects a lot of light: turn the exposure and the glow down so it isn't blinding
-    this.exposure = this.snow ? L.exp * 0.8 : L.exp;
-    this.bloom = this.snow ? L.bloom * 0.3 : L.bloom;
+    // (so does a desert of pale sand)
+    this.exposure = this.snow ? L.exp * 0.8 : this.sand ? L.exp * 0.86 : L.exp;
+    this.bloom = this.snow || this.sand ? L.bloom * 0.3 : L.bloom;
     this._fadeNightGlows(L.halo);
     // Reflections in glass and paint follow the sky; light beams show in the dark
     paintEnvMap(L, { snow: this.snow, sunDir: u.moonDir.value });

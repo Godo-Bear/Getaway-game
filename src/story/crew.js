@@ -109,6 +109,18 @@ export const SUSPECTS = {
     color: '#d8b070',
     bio: 'Investigates thefts for the museum\'s insurers. Has never lost a case.',
   },
+  sable: {
+    name: 'Sable',
+    role: 'Boss of the Jackals',
+    color: '#ff5a4a',
+    bio: 'Runs the Jackals, the crew that owns the desert round Mirage Springs. Nothing comes into town without her taking a cut.',
+  },
+  lorenzo: {
+    name: 'Lorenzo Gold',
+    role: 'Owns the Golden Mirage',
+    color: '#ffd040',
+    bio: 'Owns the Golden Mirage casino and most of the Strip. Buys beautiful things, and never asks where they came from.',
+  },
 };
 
 /** The old crew (and the detective): the suspects in Chapters 1-4. */

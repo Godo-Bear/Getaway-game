@@ -40,6 +40,12 @@ export const CREW_LOOKS = {
   // Inspector Delacroix, the insurers' investigator (Chapters 19-21)
   valcourt: { hoodie: 0xf0ece0, trousers: 0x16161a, shoes: 0x0a0a0a, skin: 0xf0c8a8, hair: 0xd8d4cc, shirt: 0xffffff, tie: 0x16161a,
     style: { top: 'suit', hair: 'short', beard: 'goatee', build: 1.05 } },
+  // Sable, the Jackals' boss (Mirage Springs): dusty red leather and aviators
+  sable: { hoodie: 0x8a2a22, trousers: 0x2a2420, shoes: 0x3a2416, skin: 0xc8946a, hair: 0x2a1410, shirt: 0x1a1b20, gloves: 0x1a1410,
+    style: { top: 'jacket', hair: 'long', face: 'aviators', build: 0.95 } },
+  // Lorenzo Gold, who owns the Golden Mirage (and most of the Strip)
+  lorenzo: { hoodie: 0xf4f0e6, trousers: 0xf4f0e6, shoes: 0xc8a040, skin: 0xc8946a, hair: 0x1a1410, shirt: 0x1a1b20, tie: 0xd8b040,
+    style: { top: 'suit', hair: 'short', beard: 'moustache', face: 'shades', build: 1.08 } },
   delacroix: { hoodie: 0xb89a6a, trousers: 0x2a2b31, shoes: 0x2a1a10, skin: 0xd8a880, hair: 0x1a1410, shirt: 0xe8e8e8,
     style: { top: 'trench', hair: 'bob', build: 0.94 } },
   dex: { hoodie: 0x2a3a5a, trousers: 0x1a1e2a, skin: 0x5a3a24, hair: 0x1a1410, style: { top: 'tee', hair: 'buzz', build: 1.15 } },
@@ -66,6 +72,9 @@ export const SENTINEL_LOOK = { hoodie: 0x1a1c22, trousers: 0x14161a, hat: 0x1011
 // Porto Sereno customs officers: white short-sleeved shirts, navy trousers and caps
 export const CUSTOMS_LOOK = { hoodie: 0xf2f2ee, trousers: 0x1a2440, hat: 0x1a2440, shoes: 0x0a0a0a, tie: 0x1a2440,
   style: { top: 'uniform', hat: 'police', badge: true, tie: true } };
+// The Jackals (Mirage Springs' rival crew): black, with red, caps and shades
+export const JACKAL_LOOK = { hoodie: 0x1a1b20, trousers: 0x3a3630, hat: 0xc8202a, shoes: 0x2a1a10, shirt: 0xc8202a, gloves: 0x1a1a1a,
+  style: { top: 'jacket', hat: 'cap', face: 'shades', beard: 'stubble', build: 1.08 } };
 export const JUMPSUIT_LOOK = { hoodie: 0xe0701c, trousers: 0xe0701c, shoes: 0x222222, style: { top: 'jumpsuit', hair: 'buzz' } };
 
 // ---- People on the street

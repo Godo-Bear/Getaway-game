@@ -4,7 +4,7 @@
 
 import { earn } from '../../gadgets/gadgets.js';
 import { audio } from '../../core/audio.js';
-import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR, PORTO_FOOT, PORTO_CAR, NEON_FOOT, NEON_CAR, LUMIERE_FOOT, LUMIERE_CAR } from '../../world/maps.js';
+import { DOWNTOWN_FOOT, DOWNTOWN_CAR, FROSTVALE_FOOT, FROSTVALE_CAR, PORTO_FOOT, PORTO_CAR, NEON_FOOT, NEON_CAR, LUMIERE_FOOT, LUMIERE_CAR, MIRAGE_FOOT, MIRAGE_CAR } from '../../world/maps.js';
 import { save } from '../../core/save.js';
 
 /**
@@ -42,6 +42,11 @@ export const FREE_MAPS = {
     name: 'Lumière', where: 'the old world', unlock: 19, icon: '🗼',
     sub: 'A grand old city of cream stone and zinc roofs: cafés, a river with bridges, and the Iron Tower over it all.',
     foot: LUMIERE_FOOT, car: LUMIERE_CAR, // (the story's Lumière)
+  },
+  mirage: {
+    name: 'Mirage Springs', where: 'the desert', unlock: 22, icon: '🌵', sunny: true,
+    sub: 'A city of casinos in the middle of the desert: gold-glass towers, neon, palm trees, motels, and sand all the way to the mesas.',
+    foot: MIRAGE_FOOT, car: MIRAGE_CAR, // (the story's Mirage Springs)
   },
 };
 

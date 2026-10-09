@@ -112,3 +112,22 @@ export const LUMIERE_CAR = { seed: 2929, blocks: 8, classic: true, parkShare: 0.
   x: [64, 44, 40, 72, 72, 40, 44, 64], z: [48, 52, 46, 56, 50, 70, 48, 52],
   merge: [[3, 3, 'z', 'park'], [5, 1, 'x'], [0, 3, 'z'], [6, 3, 'z'], [3, 6, 'x']],
 } };
+
+// Mirage Springs (Chapters 22-24): a desert city of casinos.
+// (on foot: 7 x 7 big blocks, an oasis park in the middle, the casino row of shops)
+export const MIRAGE_FOOT = { seed: 2222, blocks: 7, block: 52, desert: true, towers: 0.16, kinds: layout([
+  '..S...P',
+  'P..S...',
+  '.S.SS..',
+  '..SPS..',
+  '...S..S',
+  '.P.S.P.',
+  'S......',
+]) };
+// (the Strip: a row of wide casino blocks, where the roads between them are
+// joined; motels and small blocks round the edges; no elevated railway)
+export const MIRAGE_CAR = { seed: 2222, blocks: 8, desert: true, parkShare: 0.08, el: null, layout: {
+  x: [40, 56, 68, 44, 68, 56, 40, 62], z: [44, 58, 40, 78, 40, 58, 44, 52],
+  merge: [[1, 3, 'x'], [4, 3, 'x'], [6, 3, 'x'], [2, 5, 'z', 'park']],
+} };
+

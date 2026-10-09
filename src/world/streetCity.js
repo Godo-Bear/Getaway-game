@@ -10,6 +10,7 @@ import { Shopfronts, addShopsToBuildings } from './shopfronts.js';
 import { planSubway, rampHole, buildSubway } from './subway.js';
 import { buildPalms, COASTAL_TINTS } from './palms.js';
 import { NEON_TINTS, NEON_GLASS, NEON_WORDS, BLOSSOM, buildNeonDressing } from './neon.js';
+import { DESERT_TINTS, DESERT_GLASS, DESERT_WORDS, DESERT_COLORS, DESERT_SLOGANS, DESERT_SIGNS, buildDesertRim } from './desert.js';
 import { Trams } from './trams.js';
 import { CLASSIC_TINTS, CLASSIC_WORDS, ZINC, riverMaterial, buildIronTower, buildRiverBoat } from './lumiere.js';
 
@@ -94,7 +95,7 @@ const SHOP_TINTS = [0xc8b49a, 0xa8584a, 0x6a8a8a, 0xd8cfc0, 0x8a6a9a, 0x5a7a5a, 
  * @param {boolean} [opts.alpine] - a snowy mountain town (see above)
  * @param {number} [opts.parkShare] - share of the blocks that are parks
  */
-export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, neon = false, classic = false, parkShare = 0.14, layout = null, el = undefined } = {}) {
+export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpine = false, coastal = false, neon = false, classic = false, desert = false, parkShare = 0.14, layout = null, el = undefined } = {}) {
   const rng = makeRng(seed);
   const world = new CollisionWorld(16);
   const batch = new MeshBatcher();
@@ -203,7 +204,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     const col = rng.pick(WALL_TINTS), uo = rng();
     if (coastal && z > outerMax) continue; // (Porto Sereno: the sea's that way)
     if (classic && z > riverZ0 - d / 2 - 2 && z < riverZ1 + d / 2 + 2) continue; // (Lumière: the river runs out of the city there)
-    batch.addBlock(x, 0, z, w, classic ? Math.min(h, 26) : h, d, { side: 'wall', top: 'roof', color: coastal ? COASTAL_TINTS[Math.floor(uo * 8)] : neon ? NEON_TINTS[Math.floor(uo * 8)] : classic ? CLASSIC_TINTS[Math.floor(uo * 8)] : col, uvScale: FACADE_UV, uvOffset: [uo, 0], topScale: [6, 6] });
+    batch.addBlock(x, 0, z, w, classic ? Math.min(h, 26) : h, d, { side: 'wall', top: 'roof', color: coastal ? COASTAL_TINTS[Math.floor(uo * 8)] : neon ? NEON_TINTS[Math.floor(uo * 8)] : classic ? CLASSIC_TINTS[Math.floor(uo * 8)] : desert ? DESERT_TINTS[Math.floor(uo * 8)] : col, uvScale: FACADE_UV, uvOffset: [uo, 0], topScale: [6, 6] });
   }
 
   // Alpine: a pine forest outside the wall and mountains all round (visual only)
@@ -411,13 +412,13 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
         const bx0 = x0 + ((x1 - x0) * c) / cols, bx1 = x0 + ((x1 - x0) * (c + 1)) / cols;
         const bz0 = z0 + ((z1 - z0) * r) / rows, bz1 = z0 + ((z1 - z0) * (r + 1)) / rows;
         const h0 = alpine ? rng.range(6, 10.5) : rng() < 0.15 ? rng.range(40, 75) : rng.range(12, 34);
-        const h = coastal ? Math.max(8, h0 * 0.42) : neon ? h0 * 1.2 : classic ? Math.min(23, Math.max(14, h0 * 0.62)) : h0; // (Porto Sereno: low and sunny; Neon Kōji: taller; Lumière: six or seven storeys, all much the same)
+        const h = coastal ? Math.max(8, h0 * 0.42) : neon ? h0 * 1.2 : classic ? Math.min(23, Math.max(14, h0 * 0.62)) : desert ? (h0 > 40 ? h0 * 1.15 : Math.max(7, h0 * 0.38)) : h0; // (Porto Sereno: low and sunny; Neon Kōji: taller; Lumière: six or seven storeys, all much the same)
         world.addBox(bx0, 0, bz0, bx1, h, bz1, { tag: 'building' });
-        const tint = coastal ? rng.pick(COASTAL_TINTS) : neon ? rng.pick(NEON_TINTS) : classic ? rng.pick(CLASSIC_TINTS) : rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
+        const tint = coastal ? rng.pick(COASTAL_TINTS) : neon ? rng.pick(NEON_TINTS) : classic ? rng.pick(CLASSIC_TINTS) : desert ? rng.pick(DESERT_TINTS) : rng.pick(alpine ? ALPINE_TINTS : WALL_TINTS), uvOffset = [rng(), Math.floor(rng() * 8) / 8];
         // (towers: about half are glass; their own random numbers, so the layout never changes)
-        const glass = !alpine && !coastal && !classic && h > (neon ? 30 : 38) && drng() < (neon ? 0.7 : 0.55);
+        const glass = !alpine && !coastal && !classic && h > (neon || desert ? 30 : 38) && drng() < (neon ? 0.7 : desert ? 0.85 : 0.55); // (Mirage Springs: the casino towers are gold glass)
         batch.addBox({ x: bx0, y: 0, z: bz0 }, { x: bx1, y: h, z: bz1 },
-          { side: 'wall', top: 'roof', color: glass ? drng.pick(neon ? NEON_GLASS : GLASS_TINTS) : tint, uvScale: FACADE_UV, uvOffset, topScale: [6, 6] });
+          { side: 'wall', top: 'roof', color: glass ? drng.pick(neon ? NEON_GLASS : desert ? DESERT_GLASS : GLASS_TINTS) : tint, uvScale: FACADE_UV, uvOffset, topScale: [6, 6] });
         if (alpine) {
           roofs.push([bx0, bz0, bx1, bz1, h]);
           if (rng() < 0.5) { // a stone chimney
@@ -839,7 +840,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   // --- Build batched meshes ------------------------------------------------
   group.add(batch.build(mats));
   group.add(buildRampMeshes(ramps));
-  group.add(buildTrees(trees, alpine, coastal, neon));
+  group.add(buildTrees(trees, alpine, coastal || desert, neon)); // (Porto Sereno and Mirage Springs: palms)
+  if (desert) group.add(buildDesertRim(outer, outerMax, seed));
   if (coastal) {
     group.add(buildRoofs(roofs, 'coastal'));
     group.add(buildSea(outer, outerMax));
@@ -884,6 +886,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     ? [['SKI HIRE', '#39e6ff'], ['HOTEL', '#ffb020'], ['CAFE', '#ff9ad5'], ['BAKERY', '#ffd070'], ['FONDUE', '#ff8a3d'], ['LIFT PASS', '#7dff8a']]
     : neon ? NEON_WORDS.slice(0, 6).map((t, i) => [t, ['#ff3fa4', '#2fe0ff', '#b46cff', '#ffd040', '#4dffa6', '#ff6a3a'][i]])
       : classic ? CLASSIC_WORDS
+      : desert ? DESERT_SIGNS
       : [['THE ANCHOR', '#ffb020'], ['MOTEL', '#ff3fa4'], ['DINER', '#2fe0ff'], ['PAWN', '#4dffa6'], ['BAR', '#ff5a3a'], ['GARAGE', '#c070ff']])
     .map(([t, c]) => makeTextTexture(t, { color: c }));
   for (const b of buildingsList) {
@@ -898,6 +901,8 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
   for (const sgn of extraSigns) group.add(sgn);
   // Neon Kōji: neon everywhere (its own random numbers: the layout doesn't change)
   if (neon) group.add(buildNeonDressing(buildingsList, makeRng(seed * 31 + 7), { signChance: 0.65, minY: 4.6 }));
+  // Mirage Springs: the casinos' neon (fewer signs, warmer colours)
+  if (desert) group.add(buildNeonDressing(buildingsList, makeRng(seed * 31 + 7), { signChance: 0.35, minY: 4.6, words: DESERT_WORDS, colors: DESERT_COLORS, slogans: DESERT_SLOGANS }));
 
   /** Height of the drivable surface at (x, z): 0 on roads, sloped on ramps. */
   /**
@@ -950,7 +955,7 @@ export function generateStreetCity({ seed = 7, blocks = 8, forceKinds = {}, alpi
     subway,
     train,
     chimneys,
-    kerbs, lampSpots, alpine, coastal, neon, classic, elZ, sidewalk: SIDEWALK,
+    kerbs, lampSpots, alpine, coastal, neon, classic, desert, elZ, sidewalk: SIDEWALK,
     river: classic ? { z0: riverZ0, z1: riverZ1 } : null, ironTower,
     merges, roadX, roadZ,
     trams,
