@@ -278,7 +278,7 @@ export class SandstormMode {
     L.ring.visible = true;
     this.cp = 1;
     this.guards.setAlert(true);
-    audio.sfx('pickup');
+    audio.sfx('coin');
     hud.setObjective('Get to the handcar at the station');
     hud.toast('The Star!', 'Sable, on a Jackal\'s radio, somewhere out in the storm: "Somebody\'s in the bank! Find them!"', 'var(--red)', 4);
   }
