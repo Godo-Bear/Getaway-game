@@ -42,6 +42,7 @@ import { TowerMode } from './modes/towerMode.js';
 import { DuneMode } from './modes/duneMode.js';
 import { SandstormMode } from './modes/sandstormMode.js';
 import { HandcarMode } from './modes/handcarMode.js';
+import { BalloonMode } from './modes/balloonMode.js';
 import { PrisonMode } from './modes/prisonMode.js';
 import { setShopDaylight } from '../world/shopfronts.js';
 import { rumble } from '../core/haptics.js';
@@ -69,7 +70,7 @@ import { GlacierMode } from './modes/glacierMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode, highway: HighwayMode, museum: MuseumMode, catacombs: CatacombMode, opera: OperaMode, river: RiverMode, tower: TowerMode, dunes: DuneMode, sandstorm: SandstormMode, handcar: HandcarMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode, highway: HighwayMode, museum: MuseumMode, catacombs: CatacombMode, opera: OperaMode, river: RiverMode, tower: TowerMode, dunes: DuneMode, sandstorm: SandstormMode, handcar: HandcarMode, balloon: BalloonMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {
@@ -339,6 +340,7 @@ export class OnFootState extends PlayState {
     const bobTarget = running ? Math.abs(Math.sin(this.model.runPhase)) * 0.06 * Math.min(1, p.horizontalSpeed / 8) - 0.03 : 0;
     this.cam.bob = damp(this.cam.bob, bobTarget, 20, dt);
     this.cam.update(dt, p.pos, p.horizontalSpeed);
+    this.mode.cameraUpdate?.(frozen ? 0 : dt, this.camera); // (a mode can place the camera itself: down a mine shaft, in an ore cart)
     this.arms.update(frozen ? 0 : dt, p, this.model.runPhase);
     this.lighting.follow(p.pos);
     if (!frozen) this.tickTimeOfDay(dt);
