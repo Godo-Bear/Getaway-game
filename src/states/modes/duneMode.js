@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { carTarget } from '../../gadgets/vehicleGadgets.js';
 import { buildChapter22Dunes, duneHeight, routeX, CHECKPOINTS, END_Z } from '../../world/levels/chapter22Dunes.js';
 import { Car, collideCarWithWorld, collideCars } from '../../vehicles/car.js';
 import { buildBuggy, BUGGY_SPEC } from '../../vehicles/buggy.js';
@@ -51,6 +52,10 @@ export class DuneMode {
   }
 
   get touchMode() { return 'driving'; }
+  /** A vehicle: your car gadgets work here, on Sable's buggy and the Jackals'. */
+  get vehicle() { return true; }
+  gadgetVehicle() { return this.you.car; }
+  gadgetTargets() { return [this.sable, ...this.escorts].map((B) => carTarget(B.car)); }
   get inputLocked() { return true; }
   get fallY() { return -60; }
 

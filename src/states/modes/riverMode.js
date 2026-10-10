@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { carTarget } from '../../gadgets/vehicleGadgets.js';
 import { buildChapter21River, HALF, GOAL, LOW_BRIDGES, BRIDGES, START_Z, END_Z } from '../../world/levels/chapter21River.js';
 import { Car, collideCarWithWorld, collideCars } from '../../vehicles/car.js';
 import { buildSpeedboat, buildPoliceBoat } from '../../vehicles/boats.js';
@@ -65,6 +66,11 @@ export class RiverMode {
   }
 
   get touchMode() { return 'driving'; }
+  /** A vehicle: your car gadgets work here (see vehicleGadgets.js), on the police launches. */
+  get vehicle() { return true; }
+  gadgetVehicle() { return this.boat; }
+  gadgetTargets() { return this.police.filter((P) => P.on).map((P) => carTarget(P.car)); }
+  gadgetHide(t) { this.hideT = t; return true; }
   get inputLocked() { return true; }
   get fallY() { return -60; }
 
@@ -245,7 +251,8 @@ export class RiverMode {
     });
     let close = Infinity;
     for (const P of this.police) if (P.on) close = Math.min(close, P.car.pos.distanceTo(boat.pos));
-    if (close < CLOSE) {
+    this.hideT = Math.max(0, (this.hideT || 0) - dt);
+    if (close < CLOSE && !(this.hideT > 0)) {
       this.busted += dt * (boat.speed < 9 ? 0.5 : 0.17) * diff().fill;
       this._tell('megaphone', 'Delacroix', 'Through a megaphone: "Stop the boat! There is nowhere to go!"', '#d8b070', 3);
     } else this.busted = Math.max(0, this.busted - dt * 0.3);

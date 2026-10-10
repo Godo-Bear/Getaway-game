@@ -40,6 +40,7 @@ import { OperaMode } from './modes/operaMode.js';
 import { RiverMode } from './modes/riverMode.js';
 import { TowerMode } from './modes/towerMode.js';
 import { DuneMode } from './modes/duneMode.js';
+import { VehicleGadgets } from '../gadgets/vehicleGadgets.js';
 import { SandstormMode } from './modes/sandstormMode.js';
 import { HandcarMode } from './modes/handcarMode.js';
 import { BalloonMode } from './modes/balloonMode.js';
@@ -106,7 +107,8 @@ export class OnFootState extends PlayState {
     this.model.setLook(currentLook(game.settings));
     this.scene.add(this.model.root);
     this.mode.afterBuild?.();
-    this.gadgets = new FootGadgets(this); // shop gadgets (F)
+    // shop gadgets (F): in a vehicle (a speedboat, a buggy, a balloon...) your CAR gadgets, otherwise the on-foot ones
+    this.gadgets = this.mode.vehicle ? new VehicleGadgets(this) : new FootGadgets(this);
     // Time of day (the story part decides; otherwise the Time of day setting)
     const tod = pickTime(game.settings, this.mode.time);
     this.lighting.setTime(tod.hour);

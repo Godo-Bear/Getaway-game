@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { carTarget } from '../../gadgets/vehicleGadgets.js';
 import { buildChapter14Bay, BAY } from '../../world/levels/chapter14Bay.js';
 import { Car, collideCarWithWorld, collideCars } from '../../vehicles/car.js';
 import { buildSpeedboat, buildPoliceBoat } from '../../vehicles/boats.js';
@@ -97,6 +98,11 @@ export class BayMode {
 
   /** Phone buttons: the driving ones (Drift, Nitro). */
   get touchMode() { return 'driving'; }
+  /** A vehicle: your car gadgets work here (see vehicleGadgets.js), on the police launches. */
+  get vehicle() { return true; }
+  gadgetVehicle() { return this.boat; }
+  gadgetTargets() { return this.police.filter((P) => P.on).map((P) => carTarget(P.car)); }
+  gadgetHide(t) { this.hideT = t; return true; }
   /** Your hands are on the wheel: the on-foot controls don't move you. */
   get inputLocked() { return true; }
   get fallY() { return -60; }
@@ -263,7 +269,8 @@ export class BayMode {
     // caught: a launch right on you (much quicker if you're slow)
     let close = Infinity;
     for (const P of this.police) if (P.on) close = Math.min(close, P.car.pos.distanceTo(boat.pos));
-    if (close < 11) this.busted += dt * (boat.speed < 9 ? 0.55 : 0.2) * diff().fill;
+    this.hideT = Math.max(0, (this.hideT || 0) - dt);
+    if (close < 11 && !(this.hideT > 0)) this.busted += dt * (boat.speed < 9 ? 0.55 : 0.2) * diff().fill;
     else this.busted = Math.max(0, this.busted - dt * 0.35);
     if (this.busted >= 1) {
       this._caught('Caught!', 'A police launch pulled alongside. Keep your speed up (Jump = boost), and use the rocks: the police can only chase what they can see.');

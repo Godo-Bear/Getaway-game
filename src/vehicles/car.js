@@ -120,8 +120,14 @@ export class Car {
     let vL = this.vel.x * rx + this.vel.z * rz;
 
     this.boosting = false;
+    // (a gadget hit it, in the on-foot vehicle chases: held = stalled, no throttle and the brakes on;
+    // slowT = burst tyres or tangled in a net; regrip = spun out on oil, grip comes back after)
+    if (this.held > 0) { this.held -= dt; c.throttle = 0; c.nitro = false; c.handbrake = true; }
+    if (this.regrip > 0 && (this.regrip -= dt) <= 0) this.gripFactor = 1;
+    let slowK = 1;
+    if (this.slowT > 0) { this.slowT -= dt; slowK = 0.5; }
     if (!this.airborne) {
-      const maxF = s.maxSpeed * this.speedFactor * (c.nitro ? s.nitroMaxFactor : 1);
+      const maxF = s.maxSpeed * this.speedFactor * slowK * (c.nitro ? s.nitroMaxFactor : 1);
 
       // --- Throttle / brake / reverse
       if (c.throttle > 0) {

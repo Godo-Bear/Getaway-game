@@ -55,6 +55,18 @@ export class HandcarMode {
   }
 
   get touchMode() { return 'driving'; }
+  /** A vehicle: your car gadgets work here, on the Jackals' bikes (a spin knocks a rider off; a stall drops him behind). */
+  get vehicle() { return true; }
+  gadgetVehicle() { return { pos: this.car.position, fwdX: Math.sin(this.heading), fwdZ: Math.cos(this.heading) }; }
+  gadgetTargets() {
+    return this.bikes.filter((b) => b.state === 'ride').map((b) => ({
+      pos: b.mesh.position,
+      hit: (t, how) => {
+        if (how === 'spin') { b.state = 'down'; b.lean = 0; b.drift = 0; this.downed++; return; }
+        b.held = Math.max(b.held || 0, t);
+      },
+    }));
+  }
   get inputLocked() { return true; }
   get fallY() { return -60; }
 
@@ -284,7 +296,8 @@ export class HandcarMode {
     for (const b of this.bikes) {
       if (b.state === 'ride') {
         const gap = this.s + 0.4 - b.s; // (how far behind your end of the handle it is)
-        b.v = damp(b.v, clamp(this.v + gap * 1.6, 0, 24) * (diff().fugitive || 1), 3, dt);
+        if (b.held > 0) { b.held -= dt; b.v = damp(b.v, 0, 1.5, dt); } // (a gadget got him: he drops back)
+        else b.v = damp(b.v, clamp(this.v + gap * 1.6, 0, 24) * (diff().fugitive || 1), 3, dt);
         b.s += b.v * dt;
         // the tunnel and the bridge: they can't follow
         const z = BLOCKED.find(([a, c]) => b.s > a && b.s < c);

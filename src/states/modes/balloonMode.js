@@ -49,6 +49,16 @@ export class BalloonMode {
   }
 
   get inputLocked() { return true; }
+  /** A vehicle: your car gadgets work here: the EMPs, the smoke and the jammer black out the lookouts' searchlights for a while. */
+  get vehicle() { return true; }
+  gadgetVehicle() { return { pos: this.pos, fwdX: 0, fwdZ: -1 }; }
+  gadgetTargets() { return []; }
+  gadgetHide(t) { this.blindT = Math.max(this.blindT || 0, t); return true; }
+  gadgetEffect(id) {
+    if (!['oil', 'spikes', 'net', 'tow'].includes(id)) return undefined;
+    this.state.game.hud.toast('Not up here', 'Nothing is chasing you in the sky. The EMPs, the smoke screen and the jammer black out the searchlights, though.', 'var(--muted)', 3);
+    return false;
+  }
   get fallY() { return -60; }
 
   build() {
@@ -204,9 +214,11 @@ export class BalloonMode {
     }
     for (const [i, b] of L.parked.entries()) setBurner(b, Math.sin(this.t * 0.9 + i * 1.7) > 0.95 ? 1 : 0, this.t);
 
-    // --- The searchlights
+    // --- The searchlights (out for a while after a gadget)
     let lit = false;
+    this.blindT = Math.max(0, (this.blindT || 0) - dt);
     for (const lk of L.lookouts) {
+      lk.beam.visible = !(this.blindT > 0);
       const yaw = lk.phase + this.t * lk.speed, pitch = 0.42 + 0.3 * Math.sin(this.t * 0.45 + lk.phase);
       lk.dir.set(Math.sin(yaw) * Math.cos(pitch), Math.sin(pitch), Math.cos(yaw) * Math.cos(pitch));
       lk.beam.lookAt(_v.copy(lk.origin).add(lk.dir));
@@ -214,7 +226,7 @@ export class BalloonMode {
       lk.beam.scale.set(r, r, BEAM_LEN);
       _v.set(pos.x, pos.y + 11, pos.z).sub(lk.origin);
       const d = _v.length();
-      if (d < BEAM_LEN && Math.acos(clamp(_v.dot(lk.dir) / d, -1, 1)) < BEAM_HALF + 6.5 / d) lit = true;
+      if (lk.beam.visible && d < BEAM_LEN && Math.acos(clamp(_v.dot(lk.dir) / d, -1, 1)) < BEAM_HALF + 6.5 / d) lit = true;
     }
     if (admin.flag('unseen')) lit = false;
     this.spotted = clamp(this.spotted + (lit ? (dt / 1.6) * diff().fill : -dt * 0.4), 0, 1);
