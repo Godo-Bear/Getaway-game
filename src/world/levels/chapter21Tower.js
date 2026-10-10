@@ -72,7 +72,7 @@ export function buildChapter21Tower() {
     for (let y = 0.3; y < y1 - y0; y += 0.4) { const rung = new THREE.Mesh(new THREE.BoxGeometry(nz ? 0.56 : 0.05, 0.05, nx ? 0.56 : 0.05), rail); rung.position.y = y; g.add(rung); }
     g.position.set(x + nx * 0.08, y0, z + nz * 0.08);
     group.add(g);
-    ladders.push({ x, z, nx, nz, y0, y1 });
+    ladders.push({ x, z, nx, nz, y0, y1, back: true }); // (back: free-standing, so walking into it from behind grabs it too)
   };
 
   // ---------------------------------------------------------------- the park round the tower, the river, the city
@@ -181,9 +181,58 @@ export function buildChapter21Tower() {
   }
   // (the last flight ends at the east landing: a walkway onto deck 1)
   solid(XE, 27.2 - 0.25, LANES[0][0], -DECKS[0].w + 0.1, 27.2, LANES[1][1], steel);
-  // posts holding the stair up
-  for (const [x, z] of [[XW, -1.7], [XW, 1.7], [XE, -1.7], [XE, 1.7]]) {
-    const post = new THREE.Mesh(new THREE.BoxGeometry(0.3, 27.2, 0.3), steel);
+  // railings: both sides of every flight and round the landings, so you can't fall off. You see a
+  // handrail and balusters; what stops you is a taller wall you can't see (too high to climb or vault over)
+  const RAIL = 1.0, STOP = 2.9;
+  const stop = (x0, y0, z0, x1, z1) => world.addBox(x0, y0, z0, x1, y0 + STOP, z1, { tag: 'wall' });
+  const balusters = [];
+  const bar = (ax, ay, az, bx, by, bz) => { // a handrail from a to b
+    const len = Math.hypot(bx - ax, by - ay, bz - az);
+    const o = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, len), rail);
+    o.position.set((ax + bx) / 2, (ay + by) / 2, (az + bz) / 2);
+    o.lookAt(bx, by, bz);
+    group.add(o);
+  };
+  y = 0;
+  for (let f = 0; f < 8; f++) {
+    const [z0, z1] = LANES[f % 2], west = f % 2 === 0;
+    for (const ez of [z0 - 0.03, z1 + 0.03]) {
+      for (let k = 0; k < 8; k++) {
+        const top = y + (k + 1) * RISE;
+        const xa = west ? XE - 1.6 - (k + 1) * RUN : XW + 1.6 + k * RUN;
+        stop(xa, top, ez - 0.05, xa + RUN, ez + 0.05);
+        balusters.push([xa + RUN / 2, top, ez]);
+      }
+      const xs = west ? XE - 1.6 : XW + 1.6, xe = west ? XW + 1.6 : XE - 1.6;
+      bar(xs, y + RISE + RAIL, ez, xe, y + 8 * RISE + RAIL, ez);
+    }
+    y += 8 * RISE;
+    // round the landing: its two long sides, and the far end (not the top one: that's the way onto deck 1)
+    const lx0 = west ? XW : XE - 1.6, lx1 = west ? XW + 1.6 : XE;
+    for (const ez of [LANES[0][0] - 0.03, LANES[1][1] + 0.03]) {
+      stop(lx0, y, ez - 0.05, lx1, ez + 0.05);
+      bar(lx0, y + RAIL, ez, lx1, y + RAIL, ez);
+      balusters.push([lx0 + 0.4, y, ez], [lx1 - 0.4, y, ez]);
+    }
+    if (f < 7) {
+      const ex = west ? XW - 0.03 : XE + 0.03;
+      stop(ex - 0.05, y, LANES[0][0], ex + 0.05, LANES[1][1]);
+      bar(ex, y + RAIL, LANES[0][0], ex, y + RAIL, LANES[1][1]);
+      for (const bz of [-1.2, -0.4, 0.4, 1.2]) balusters.push([ex, y, bz]);
+    }
+  }
+  // the walkway from the top of the stair onto deck 1
+  for (const ez of [LANES[0][0] - 0.03, LANES[1][1] + 0.03]) {
+    stop(XE, 27.2, ez - 0.05, -DECKS[0].w, ez + 0.05);
+    bar(XE, 27.2 + RAIL, ez, -DECKS[0].w, 27.2 + RAIL, ez);
+  }
+  const bal = new THREE.InstancedMesh(new THREE.BoxGeometry(0.04, RAIL, 0.04), rail, balusters.length);
+  const bo = new THREE.Object3D();
+  balusters.forEach(([bx, by, bz], i) => { bo.position.set(bx, by + RAIL / 2, bz); bo.updateMatrix(); bal.setMatrixAt(i, bo.matrix); });
+  group.add(bal);
+  // thin columns holding the stair up, outside the corners
+  for (const [x, z] of [[XW - 0.2, -1.95], [XW - 0.2, 1.95], [XE + 0.2, -1.95], [XE + 0.2, 1.95]]) {
+    const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 27.2, 0.14), steel);
     post.position.set(x, 13.6, z);
     group.add(post);
   }

@@ -5,6 +5,10 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-10', title: 'The Iron Tower: safer stairs, ladders that work', items: [
+    'Chapter 21, the park: the zig-zag stair up the tower\'s leg now has railings up both sides of every flight and round every landing, so you can\'t fall off it any more',
+    'Chapter 21, the climb: the ladders up the top of the tower now work when you walk up to them from the platform (before, you had to go round to the far side, and you could walk straight through them and off the edge). Grab one from either side, and the camera swings round behind you as you climb',
+  ] },
   { date: '2026-10-09', title: 'Mirage Springs and Chapter 22: Sandstorm', items: [
     'A new place: Mirage Springs, a city of casinos in the middle of the desert. Sandstone and adobe, gold glass towers covered in neon, palm trees, and sand, cacti and red mesas all round. Its own street plan, and a new map in Free Run (on foot and in the car)',
     'Chapter 22 (six parts). The crew lands on a dry lake to sell the Star, and a rival crew, the Jackals, take it off them before the propellers have stopped. Their boss is Sable',

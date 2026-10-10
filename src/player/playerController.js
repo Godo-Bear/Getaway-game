@@ -764,9 +764,10 @@ export class PlayerController {
       const dx = p.x - L.x, dz = p.z - L.z;
       const out = dx * L.nx + dz * L.nz;         // distance out from the wall
       const side = dx * -L.nz + dz * L.nx;       // distance along the wall from the ladder's centre
-      if (out < -0.05 || out > T.radius + 0.45 || Math.abs(side) > 0.6) continue;
       const into = -(wish.x * L.nx + wish.z * L.nz); // pushing towards the wall?
-      if (into < 0.45) continue;
+      // (a free-standing ladder, L.back: walking into it from behind grabs it too, and you swing round to its front)
+      const behind = L.back && out < -0.05 && out > -(T.radius + 0.6) && Math.abs(side) <= 0.6 && into < -0.45;
+      if (!behind && (out < -0.05 || out > T.radius + 0.45 || Math.abs(side) > 0.6 || into < 0.45)) continue;
       this.ladder = L;
       p.x = L.x + L.nx * (T.radius + 0.03);
       p.z = L.z + L.nz * (T.radius + 0.03);

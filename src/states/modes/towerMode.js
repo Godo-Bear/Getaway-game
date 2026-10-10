@@ -9,7 +9,7 @@ import { getChapterRun } from '../../story/chapterRun.js';
 import { finishPart } from '../../story/chapterFlow.js';
 import { admin } from '../../core/admin.js';
 import { diff } from '../../core/difficulty.js';
-import { formatTime, clamp } from '../../core/utils.js';
+import { formatTime, clamp, dampAngle } from '../../core/utils.js';
 import { noteCaught } from '../../core/jail.js';
 import { audio } from '../../core/audio.js';
 
@@ -213,6 +213,8 @@ export class TowerMode {
   // ================================================================== the climb
   _updateTower(dt, p, pos, hud, input) {
     const s = this.state, L = this.level, d = diff();
+    // on a ladder: the camera swings round behind you (you may have walked into it from the other side)
+    if (p.state === 'ladder' && p.ladder) s.cam.yaw = dampAngle(s.cam.yaw, Math.atan2(p.ladder.nx, p.ladder.nz), 4, dt);
     // --- The wind
     const g = this._wind(dt, p, pos, hud);
     // --- The police helicopter's beam, hunting up and down the tower
