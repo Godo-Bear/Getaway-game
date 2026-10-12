@@ -20,7 +20,7 @@ import { makeRng, clamp } from '../../core/utils.js';
 export const SUMMIT = new THREE.Vector3(220, 0, -820);   // the shaft
 export const PLATEAU = 150;                              // the flat top of the mountain
 export const LANDING = new THREE.Vector3(SUMMIT.x - 16, PLATEAU, SUMMIT.z + 9); // land here (beside the headframe)
-export const LANDING_R = 10;
+export const LANDING_R = 20;
 /** The winds, by height (y): which way they blow (x, z) and how fast (m/s). */
 export const LAYERS = [
   { y0: -1e9, y1: 40, dir: [1, 0], speed: 3 },

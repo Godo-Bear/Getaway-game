@@ -35,7 +35,7 @@ export const CHAPTER23 = {
   crew: ['mags', 'theo', 'ricky', 'juno', 'paz', 'kitsu'],
   clues: {},
   verdicts: {},
-  nextChapter: null,
+  nextChapter: 'chapter24',
   rating: { gold: 1250, silver: 1850 },
 
   parts: [
@@ -79,7 +79,7 @@ export const CHAPTER23 = {
         { kicker: 'On the radio', who: 'kitsu',
           lines: ['"The Jackals have lookouts on the mountain, with searchlights. Keep out of the beams. The top of the mountain is flat: land right by the old ventilation shaft."'] },
         { kicker: 'How to play', title: 'Burner and vent',
-          lines: ['Hold W (or Jump) to fire the burner and climb; hold S (or C) to open the vent and sink. The wind blows a different way at each height: the panel shows which way every layer is going (the other balloons drift with it too). Ride the right winds to the mountain, keep out of the searchlights, and come down gently on the summit by the shaft (the green ring). Watch your gas!'] },
+          lines: ['Hold W (or Jump) to fire the burner and climb; hold S (or C) to open the vent and sink. Let go and the balloon floats level. The wind blows a different way at each height: the panel shows which way every layer is going (green = towards the mountain). A and D work Juno\'s little fan to nudge you sideways, and near the top the mountain breeze carries you in. Keep out of the searchlights, and come down on the summit by the shaft (the big green ring).'] },
       ],
       startLabel: 'Fly',
       objective: 'Fly the balloon to the top of the mountain',

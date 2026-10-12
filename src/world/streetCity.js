@@ -84,6 +84,8 @@ const LANDMARKS = {
   golden: { height: 48, tint: 0xd8b050, door: 0xffd040, sign: 'GOLDEN MIRAGE', signColor: '#ffd040', windows: true },
   outfitter: { height: 8, tint: 0x9a6a42, door: 0xffa020, sign: 'CANYON OUTFITTERS', signColor: '#ffa020' },
   fiesta: { height: 6, tint: 0xe8c89a, door: 0xff7ac8, sign: 'BALLOON FIESTA', signColor: '#ff7ac8' },
+  jetport: { height: 10, tint: 0xe8e2d4, door: 0xffd040, sign: 'PRIVATE JETS', signColor: '#ffd040', windows: true },
+  damroad: { height: 7, tint: 0x8a5a3a, door: 0x2fe0ff, sign: 'COYOTE DAM ROAD', signColor: '#2fe0ff' },
 };
 
 const WALL_TINTS = [0x8a8f9c, 0x9c8a80, 0x7f8f9a, 0x9a9690, 0x8c8496, 0xa09080, 0x7c8580, 0x6f7a8a]; // (the count matters: the city's layout depends on it)

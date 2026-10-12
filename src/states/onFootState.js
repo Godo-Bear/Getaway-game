@@ -47,6 +47,9 @@ import { BalloonMode } from './modes/balloonMode.js';
 import { ShaftMode } from './modes/shaftMode.js';
 import { MineMode } from './modes/mineMode.js';
 import { CartMode } from './modes/cartMode.js';
+import { DamClimbMode } from './modes/damClimbMode.js';
+import { BrawlMode } from './modes/brawlMode.js';
+import { BossMode } from './modes/bossMode.js';
 import { PrisonMode } from './modes/prisonMode.js';
 import { setShopDaylight } from '../world/shopfronts.js';
 import { rumble } from '../core/haptics.js';
@@ -74,7 +77,7 @@ import { GlacierMode } from './modes/glacierMode.js';
 //   onRespawnKey()   -> the player pressed R
 //   teardown()
 
-const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode, highway: HighwayMode, museum: MuseumMode, catacombs: CatacombMode, opera: OperaMode, river: RiverMode, tower: TowerMode, dunes: DuneMode, sandstorm: SandstormMode, handcar: HandcarMode, balloon: BalloonMode, shaft: ShaftMode, mine: MineMode, cart: CartMode };
+const MODES = { free: FreeRunMode, survival: RooftopRunMode, story: ChapterFootMode, chapter1: ChapterFootMode, heist: BankHeistMode, casino: CasinoHeistMode, custom: CustomLevelMode, train: TrainMode, prison: PrisonMode, glacier: GlacierMode, jail: JailMode, ship: ShipMode, bay: BayMode, parade: ParadeMode, funicular: FunicularMode, bullet: BulletMode, skydrop: SkyDropMode, skyvault: SkyVaultMode, highway: HighwayMode, museum: MuseumMode, catacombs: CatacombMode, opera: OperaMode, river: RiverMode, tower: TowerMode, dunes: DuneMode, sandstorm: SandstormMode, handcar: HandcarMode, balloon: BalloonMode, shaft: ShaftMode, mine: MineMode, cart: CartMode, spillway: DamClimbMode, brawl: BrawlMode, boss: BossMode };
 
 export class OnFootState extends PlayState {
   constructor(game) {
@@ -488,6 +491,8 @@ export class OnFootState extends PlayState {
     };
     const hit = (big = heavy) => { audio.sfx(big ? 'uppercut' : 'land', { vol: 1 }); this.cam.addLandingDip?.(big ? 7 : 4); rumble(big ? 0.8 : 0.45, big ? 160 : 90); };
     const m = this.mode;
+    // (a mode with its own fighters takes the punch first: the Jackals and Sable in Chapter 24)
+    if (m.onPunch?.({ inFront, heavy, fx, fz, hit })) return;
     // Guards, police patrols, bounty hunters (they sometimes block)
     for (const sq of [m.guards, m.patrols, m.mailGuard].filter(Boolean)) {
       for (const u of sq.units) {

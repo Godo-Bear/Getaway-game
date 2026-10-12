@@ -5,6 +5,16 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-12', title: 'Chapter 24: The Coyote Dam (the final chapter!) and an easier balloon', items: [
+    'The last chapter of the story, with a FINAL BOSS and the ending. Sable has Ricky, and she wants everything back, the Star too',
+    'Part 1, The Star: chase Lorenzo\'s gold car across Mirage Springs before he gets on his private jet',
+    'Part 2, Midnight: out to the Coyote Dam in a thunderstorm, with the sheriff after you and the clock ticking',
+    'Part 3, The spillway: climb the face of a giant dam, ladder by ladder, walkway by walkway, in the rain. The spillways open and close on their own (green: go, amber: it\'s coming, red: wait). Get caught and the water washes you off. Jump the broken bits of walkway',
+    'Part 4, The power house: a real fist fight in the dam\'s turbine hall. The Jackals come at you in waves: a red ! means one is about to swing, so step back, then hit him. Lure them onto the steam vents in the floor. Then the Big Jackal. Then break Ricky out of his cage',
+    'Part 5, Sable: the FINAL BOSS, on top of the dam in the storm, with her own health bar. Dodge her three-punch combo, get out of the way when she charges (make her run into the crates and she\'s dizzy), break her guard with the uppercut, fight off her Jackals, and keep out of the red rings when the dynamite comes out',
+    'Part 6, The last getaway: every police car in the desert, and Inspector Delacroix, between you and the jetport. Then THE ENDING (and where everyone ends up)',
+    'Chapter 23\'s balloon is much easier: let go of the controls and it floats level, Juno always steers you towards the mountain (a wrong wind only slows you down), A and D work her little fan, near the top the mountain breeze carries you in, the wind lifts you up and over the mountainside, the landing ring is twice as big and the balloon lets itself down over it, much more gas, slower searchlights, softer landings and an extra checkpoint',
+  ] },
   { date: '2026-10-12', title: 'Chapter 23: The Silver Mine, and car gadgets in every vehicle', items: [
     'Chapter 23 (six parts) in Mirage Springs: Lorenzo Gold will buy the Star if you empty Sable\'s silver mine, up in the mountains',
     'Part 1, Shopping: pick up the climbing gear at Canyon Outfitters and get to the Balloon Fiesta',

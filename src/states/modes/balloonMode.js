@@ -27,11 +27,15 @@ import { audio } from '../../core/audio.js';
 //   - Gas runs out if you burn all the time. Land too hard and you bounce.
 //   - Drift too far off and Juno turns back (back to the checkpoint).
 
-const HEAT_UP = 0.32, COOL = 0.055, VENT = 0.3;   // per second
+const HEAT_UP = 0.32, VENT = 0.3;   // per second
 const CLIMB = 12;          // m/s of climb (or sink) per unit of heat away from 0.5
-const GAS = 95;            // seconds of burner in a full tank
+const GAS = 260;           // seconds of burner in a full tank (plenty)
 const BEAM_LEN = 420, BEAM_HALF = 0.085;
-const HARD = 3.6;          // touch down faster than this (m/s) = a bump
+const HARD = 6.5;          // touch down faster than this (m/s) = a bump
+const FAN = 4.5;           // m/s: Juno's little fan (A/D) pushes you sideways
+const PULL = 5.5;          // m/s: Juno always trims the balloon towards the mountain
+const WIND = 0.45;         // (the winds are gentle: a wrong one only slows you down)
+const NEAR = 220;          // m: this close, the mountain breeze carries you in
 const _v = new THREE.Vector3(), _w = { x: 0, z: 0 }, _f = new THREE.Vector3(), _r = new THREE.Vector3();
 const stand = (x, z, facing) => ({ pos: new THREE.Vector3(x, 0.08, z), vel: new THREE.Vector3(), facing, state: 'ground', horizontalSpeed: 0, mantleProgress: 0, stateTime: 0, stumbleTimer: 0, mantle: null, wallRun: null });
 
@@ -102,7 +106,7 @@ export class BalloonMode {
     s.cam.yaw = Math.atan2(-LANDING.x, -LANDING.z);
     s.cam.pitch = -0.1;
     const hud = s.game.hud;
-    if (first) hud.showControls(`Hold <kbd>W</kbd> or <kbd>Space</kbd>: burner (go up) &nbsp; hold <kbd>S</kbd> or <kbd>C</kbd>: vent (go down)<br>
+    if (first) hud.showControls(`Hold <kbd>W</kbd> or <kbd>Space</kbd>: burner (go up) &nbsp; hold <kbd>S</kbd> or <kbd>C</kbd>: vent (go down) &nbsp; <kbd>A</kbd> <kbd>D</kbd>: Juno's fan (a little sideways)<br>
       Pick a height where the wind blows towards the mountain &nbsp; mouse: look round &nbsp; <kbd>R</kbd> checkpoint &nbsp; <kbd>P</kbd> pause`);
     hud.setPhase(`${this.chapter.title} · Part ${this.partIndex + 1}: ${this.part.title}`);
     hud.setObjective(this.part.objective);
@@ -110,6 +114,7 @@ export class BalloonMode {
   }
 
   _placeAt(cp) {
+    this.lift = 0;
     const c = cp ? this.cpState : null;
     if (c) { this.pos.copy(c.pos); this.fuel = c.fuel; this.heat = 0.5; }
     else { this.pos.set(0, terrainH(0, 0), 0); this.fuel = 1; this.heat = 0.35; }
@@ -155,7 +160,12 @@ export class BalloonMode {
     const vent = input.isDown('back') || input.isDown('crouch');
     if (burn && !this.burning) audio.sfx('whoosh', { vol: 0.5, rate: 0.45 });
     this.burning = burn;
-    if (burn) { this.heat += HEAT_UP * dt; this.fuel = Math.max(0, this.fuel - dt / GAS); } else this.heat -= COOL * dt;
+    if (burn) { this.heat += HEAT_UP * dt; this.fuel = Math.max(0, this.fuel - dt / GAS); }
+    else if (!vent) {
+      // hands off: it floats level (and over the landing ring, Juno lets it down gently)
+      const over = Math.hypot(pos.x - LANDING.x, pos.z - LANDING.z) < LANDING_R + 6;
+      this.heat += ((over ? 0.4 : 0.5) - this.heat) * Math.min(1, dt * 0.6);
+    }
     if (vent) this.heat -= VENT * dt;
     this.heat = clamp(this.heat, 0, 1);
     this.vy = damp(this.vy, (this.heat - 0.5) * CLIMB, 0.9, dt);
@@ -163,6 +173,20 @@ export class BalloonMode {
 
     // --- The wind takes you (on the ground, you sit still)
     windAt(pos.y, _w);
+    // (and a helping hand: Juno trims towards the mountain, A/D work her fan, and close
+    // to the summit the breeze off the mountain carries you in)
+    {
+      const gx = LANDING.x - pos.x, gz = LANDING.z - pos.z, gl = Math.hypot(gx, gz) || 1;
+      const near = clamp(1 - (gl - 30) / NEAR, 0, 1);
+      _w.x = _w.x * WIND * (1 - near * 0.85) + (gx / gl) * (PULL + near * 6) * Math.min(1, gl / 12);
+      _w.z = _w.z * WIND * (1 - near * 0.85) + (gz / gl) * (PULL + near * 6) * Math.min(1, gl / 12);
+      const side = input.axis('left', 'right');
+      if (side) {
+        s.cam.getRight(_r);
+        _w.x += _r.x * side * FAN;
+        _w.z += _r.z * side * FAN;
+      }
+    }
     this.vel.x = damp(this.vel.x, this.grounded ? 0 : _w.x, this.grounded ? 4 : 0.45, dt);
     this.vel.z = damp(this.vel.z, this.grounded ? 0 : _w.z, this.grounded ? 4 : 0.45, dt);
     const ox = pos.x, oz = pos.z;
@@ -174,8 +198,15 @@ export class BalloonMode {
       pos.x = ox; pos.z = oz;
       this.vel.x = this.vel.z = 0;
       g = terrainH(pos.x, pos.z);
-      this._tell('slope', 'The mountain!', 'Juno: "We\'re scraping the mountainside! Burner! Up, up!"', 'var(--amber)', 3);
+      this.lift = 1.2; // (the wind blowing up the mountainside lifts you over it)
+      this._tell('slope', 'Updraft!', 'Juno: "The wind\'s blowing up the mountainside: it\'ll lift us over. Hold on!"', 'var(--amber)', 3);
     }
+    // (down anywhere but the ring: Juno gives it a burst of burner and up you go again)
+    if (this.grounded && Math.hypot(pos.x - LANDING.x, pos.z - LANDING.z) > LANDING_R && Math.hypot(pos.x, pos.z) > 40) {
+      this.downT = (this.downT || 0) + dt;
+      if (this.downT > 1.2) { this.downT = 0; this.lift = 1.6; this.grounded = false; this._tell('hop', 'Up again', 'Juno: "Not here! Up we go." (Land in the big green ring by the shaft.)', 'var(--amber)', 3); }
+    } else this.downT = 0;
+    if (this.lift > 0) { this.lift -= dt; this.vy = Math.max(this.vy, 5); this.heat = Math.max(this.heat, 0.5); }
     pos.y += this.vy * dt;
     const wasGround = this.grounded;
     if (pos.y <= g) {
@@ -226,10 +257,10 @@ export class BalloonMode {
       lk.beam.scale.set(r, r, BEAM_LEN);
       _v.set(pos.x, pos.y + 11, pos.z).sub(lk.origin);
       const d = _v.length();
-      if (lk.beam.visible && d < BEAM_LEN && Math.acos(clamp(_v.dot(lk.dir) / d, -1, 1)) < BEAM_HALF + 6.5 / d) lit = true;
+      if (lk.beam.visible && d < BEAM_LEN && Math.acos(clamp(_v.dot(lk.dir) / d, -1, 1)) < BEAM_HALF * 0.8 + 4 / d) lit = true;
     }
     if (admin.flag('unseen')) lit = false;
-    this.spotted = clamp(this.spotted + (lit ? (dt / 1.6) * diff().fill : -dt * 0.4), 0, 1);
+    this.spotted = clamp(this.spotted + (lit ? (dt / 4.5) * diff().fill : -dt * 0.8), 0, 1);
     if (this.spotted >= 1) {
       this._fail('Spotted', 'A lookout held the balloon in its searchlight, and the whole mountain knows you\'re coming. Change height to get out of a beam (they sweep round: wait for them to pass).');
       return;
@@ -239,8 +270,8 @@ export class BalloonMode {
     const lx = LANDING.x, lz = LANDING.z, len2 = lx * lx + lz * lz;
     const k = clamp((pos.x * lx + pos.z * lz) / len2, 0, 1);
     const off = Math.hypot(pos.x - lx * k, pos.z - lz * k);
-    if (off > 600 || pos.z > 230) this.far += dt; else this.far = Math.max(0, this.far - dt);
-    if (this.far > 7) { this._fail('Too far', 'Juno: "We\'ve drifted miles off. I\'m taking us back." Pick a height where the wind blows towards the mountain (the panel shows it).'); return; }
+    if (off > 800 || pos.z > 330) this.far += dt; else this.far = Math.max(0, this.far - dt);
+    if (this.far > 16) { this._fail('Too far', 'Juno: "We\'ve drifted miles off. I\'m taking us back." Pick a height where the wind blows towards the mountain (the panel shows it).'); return; }
 
     // --- Gas
     if (this.fuel <= 0) {
@@ -250,22 +281,22 @@ export class BalloonMode {
 
     // --- Checkpoint, landing
     const toGoal = Math.hypot(pos.x - lx, pos.z - lz);
-    if (this.cp === 0 && toGoal < 380) {
-      this.cp = 1;
+    if (this.cp < 2 && toGoal < [620, 380][this.cp]) {
+      this.cp++;
       this.cpState = { pos: new THREE.Vector3(pos.x, Math.max(pos.y, terrainH(pos.x, pos.z) + 15), pos.z), fuel: Math.max(this.fuel, 0.5) };
       audio.sfx('checkpoint', { vol: 0.5 });
-      hud.toast('Checkpoint', 'Nearly there: the mountain.', 'var(--cyan)', 2.5);
+      hud.toast('Checkpoint', this.cp === 1 ? 'Halfway there.' : 'Nearly there: the mountain.', 'var(--cyan)', 2.5);
     }
     L.ring.rotation.z += dt * 0.5;
     if (this.grounded && toGoal < LANDING_R) {
       this.landedT += dt;
-      if (this.landedT > 1.1) { this._finish(); return; }
+      if (this.landedT > 0.6) { this._finish(); return; }
     } else this.landedT = 0;
     if (this.grounded && pos.y > PLATEAU - 3 && toGoal >= LANDING_R) this._tell('ring', 'Not here', 'Juno: "Over there, by the shaft! The green ring." (A little burner, and let the wind carry you.)', 'var(--amber)', 3.5);
 
     // --- The meter: spotted > drifting off > heat
     if (this.spotted > 0.02) hud.setMeter(this.spotted, lit ? 'IN A SEARCHLIGHT! Change height' : 'Out of the light', lit ? 'var(--red)' : '#8a8f9c');
-    else if (this.far > 0.2) hud.setMeter(this.far / 7, 'DRIFTING OFF COURSE! Find another wind', 'var(--red)');
+    else if (this.far > 0.2) hud.setMeter(this.far / 16, 'DRIFTING OFF COURSE! Find another wind', 'var(--red)');
     else hud.setMeter(this.heat, burn ? 'Burner: going up' : vent ? 'Vent open: going down' : this.vy > 0.3 ? 'Rising' : this.vy < -0.3 ? 'Sinking' : 'Floating', burn ? '#ffb040' : 'var(--cyan)');
 
     hud.setMarker(_v.set(lx, LANDING.y + 4, lz), s.camera, 'The shaft', 'var(--safe)', toGoal);

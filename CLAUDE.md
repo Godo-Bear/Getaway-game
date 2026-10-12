@@ -47,7 +47,11 @@ end). From now on:
   Lorenzo Gold of the Golden Mirage offering to buy the Star if the crew
   robs Sable's silver mine; in Chapter 23 they do, Lorenzo keeps the Star,
   and Sable kidnaps Ricky: Chapter 24 is getting him back at the Coyote
-  Dam). Then Isla Coral (25-27), tropical islands.
+  Dam, the LAST chapter: a final boss fight with Sable on top of the dam,
+  then the ending, where the crew gives the Star back to Delacroix and
+  retires to Isla Coral, a tropical island). The story is finished at
+  Chapter 24. If more chapters are ever wanted, they'd be a new story after
+  the ending (e.g. starting on Isla Coral), not more of the old one.
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
 - **In a vehicle, the car gadgets.** A story part where you ride something

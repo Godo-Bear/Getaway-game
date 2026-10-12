@@ -359,10 +359,14 @@ export class DeductionState {
   _finale() {
     const rows = Object.values(CHAPTERS).map((c) => `<div><span>${c.title} (${diff().name})</span><b>${(save.rating(c.id) || '-').toUpperCase()}</b></div>`).join('');
     const f = this.chapter.finale || { title: 'GETAWAY', text: '' };
+    // (the last chapter: where everyone ended up)
+    const after = (f.epilogue || []).map((e) => { const p = SUSPECTS[e.who]; return `<p style="margin:6px 0"><b style="color:${p?.color || '#fff'}">${p?.name || e.who}</b>: ${e.text}</p>`; }).join('');
     showCard(`
       <p class="sub kicker">The End</p>
       <h2>${f.title}</h2>
       <p>${f.text}</p>
+      ${after ? `<p class="sub" style="margin-top:12px">Where are they now?</p>${after}` : ''}
+      <p class="sub" style="margin-top:12px">Your chapter ratings</p>
       <div class="stat-grid">${rows}</div>
       <p class="sub">Thanks for playing. Gold ratings unlock new car colours in Settings, and ghost mode (G, or the pause menu) lets you explore any part without the police.</p>`,
     [{ label: 'Back to title', primary: true, onClick: () => this.game.goTitle() }], { side: true });
