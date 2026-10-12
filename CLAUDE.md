@@ -45,9 +45,15 @@ end). From now on:
   city of casinos in the middle of the desert; the rival crew there is the
   Jackals, led by Sable, and the sheriff works for her; Chapter 22 ends with
   Lorenzo Gold of the Golden Mirage offering to buy the Star if the crew
-  robs Sable's silver mine). Then Isla Coral (25-27), tropical islands.
+  robs Sable's silver mine; in Chapter 23 they do, Lorenzo keeps the Star,
+  and Sable kidnaps Ricky: Chapter 24 is getting him back at the Coyote
+  Dam). Then Isla Coral (25-27), tropical islands.
   Keep `PLACES` in `src/story/chapters.js` up to date: the chapter screen
   groups chapters under where the crew lives.
+- **In a vehicle, the car gadgets.** A story part where you ride something
+  while on foot (a boat, a buggy, a balloon, a cart...) says
+  `get vehicle() { return true; }` and gives `gadgetTargets()` (see
+  `src/gadgets/vehicleGadgets.js`), so the player's car gadgets work there.
 - **Each place has its own map layout** (not just its own look): its own
   street plan in `src/world/maps.js` (driving: `layout` block sizes and
   joined blocks, `el`; on foot: `blocks`, `block`, hand `kinds`). Within a

@@ -5,6 +5,16 @@ import { save } from '../core/save.js';
 // update you ship, in plain words.
 
 export const UPDATES = [
+  { date: '2026-10-12', title: 'Chapter 23: The Silver Mine, and car gadgets in every vehicle', items: [
+    'Chapter 23 (six parts) in Mirage Springs: Lorenzo Gold will buy the Star if you empty Sable\'s silver mine, up in the mountains',
+    'Part 1, Shopping: pick up the climbing gear at Canyon Outfitters and get to the Balloon Fiesta',
+    'Part 2, The balloon: fly a hot-air balloon to the top of the mountain. You can only go up (the burner) or down (the vent), but the wind blows a different way at every height: pick your height to pick your way. Keep out of the lookouts\' searchlights and land by the old shaft',
+    'Part 3, The shaft: abseil 160 metres down the mine. Slide fast, stop, swing round broken beams, drop through the gaps in a turning fan, dodge live cables and falling rocks, and don\'t pass the Jackal with the lantern while he\'s looking',
+    'Part 4, Level 9: carry Sable\'s loot to an ore cart by lantern light. In the dark the Jackals only see you close up, so blow the lanterns out (but they light them again)',
+    'Part 5, The ore cart: race down the old line through the mountain with the Jackals\' cart behind you. Pick the right tunnel at every fork, lean into the bends or tip over, and fly over an underground lake',
+    'Part 6, Before sunrise: beat the sheriff and the sun to the Golden Mirage',
+    'In every vehicle you drive in a story part (the speedboats, the dune buggy, the handcar, the balloon, the ore cart) you now get your CAR gadgets, not the walking ones: EMPs stall whatever is chasing you, oil spins it out, spikes slow it down, and the smoke screen and the jammer hide you',
+  ] },
   { date: '2026-10-10', title: 'The Iron Tower: safer stairs, ladders that work', items: [
     'Chapter 21, the park: the zig-zag stair up the tower\'s leg now has railings up both sides of every flight and round every landing, so you can\'t fall off it any more',
     'Chapter 21, the climb: the ladders up the top of the tower now work when you walk up to them from the platform (before, you had to go round to the far side, and you could walk straight through them and off the edge). Grab one from either side, and the camera swings round behind you as you climb',
